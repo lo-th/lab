@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Lab test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+
+<script src="./build/lab.min.js"></script>
+</head>
+
+<body>
+<script>
+var editor;
+var view;
+var h = 6;
+
+view = new View();
+
+view.init( start );
+
+
+function upTime(){
+
+	h+=0.02;
+	if(h>24) h = 0;
+    if(h<0) h = 24;
+	view.updateSky( { hour:h } );
+	
+}
+
+function start () {
+	
+	var s = new THREE.Mesh( view.getGeo().sphere, view.getMat().basic );
+	s.scale.set(2,2,2);
+	s.position.set(0,2,0);
+	view.addMesh( s );
+
+	var s2 = new THREE.Mesh( view.getGeo().box, view.getMat().basic );
+	s2.scale.set(4,4,4);
+	s2.position.set(-5,2,0);
+	view.addMesh( s2 );
+
+	var s3 = new THREE.Mesh( view.getGeo().cylinder, view.getMat().basic );
+	s3.scale.set(2,4,2);
+	s3.position.set(5,2,0);
+	view.addMesh( s3 );
+
+	view.addSky();
+
+	setInterval( upTime, 60 );
+
+}
+
+</script>
+</body>
+</html>

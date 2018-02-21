@@ -1,0 +1,12 @@
+{
+  "name": "lab",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts":{
+    "build": "npm run code && npm run lab",
+    "code": "cd _compile && python build.py --include code --output ../build/code.js && python build.py --include code --minify --output ../build/code.min.js",
+    "lab": "cd _compile && python build.py --include lab --output ../build/lab.js && python build.py --include lab --minify --output ../build/lab.min.js"
+  },
+  "author": "lth <3dflashlo@gmail.com>",
+  "license": "MIT"
+}
