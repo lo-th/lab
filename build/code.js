@@ -15928,7 +15928,7 @@ editor = {
         github.innerHTML = icon_Github; 
         document.body.appendChild( github );
 
-        document.styleSheets[0].insertRule('@keyframes octocat-wave {0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}' );
+        //document.styleSheets[0].insertRule('@keyframes octocat-wave {0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}' );
 
         octo = document.getElementById('octo');
         octoArm = document.getElementById('octo-arm');
