@@ -170,7 +170,7 @@ View.prototype = {
 
             skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
 
-            hero: new THREE.MeshStandardMaterial({ color:0x993399, name:'hero', envMap:this.envmap,  metalness:0.6, roughness:0.4, skinning:true }),
+            hero: new THREE.MeshStandardMaterial({ color:0xffffff, name:'hero', envMap:this.envmap,  metalness:0.4, roughness:0.6, skinning:true }),
             debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true, opacity:0.1, transparent:true }),
             soft: new THREE.MeshStandardMaterial({ vertexColors: THREE.VertexColors, name:'soft', wireframe:false, transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
 
@@ -216,8 +216,8 @@ View.prototype = {
 
 		if( this.isNeedUpdate ){
 
-            this.update();
             this.updateIntern();
+            this.update();
             this.controler.follow();
 			this.isNeedUpdate = false;
 
@@ -264,6 +264,8 @@ View.prototype = {
 
 
         //for( var t in this.txt ) this.txt[t].dispose();
+
+        this.removeRay();
         
 
         this.update = function () {};
@@ -356,24 +358,25 @@ View.prototype = {
         }
             
         this.loadCallback = Callback || function(){};
-        this.tmpCallback = function(){ this.afterLoad() }.bind(this);
+        this.tmpCallback = function(p){ this.afterLoad(p) }.bind(this);
         pool.load( urls, this.tmpCallback );
 
     },
 
-    afterLoad: function () {
+    afterLoad: function ( p ) {
 
-        var r = pool.getResult(), o, m, j;
+        var o, mesh, j;
 
         for(var i=0; i < this.tmpName.length; i++){
 
-            o = r[this.tmpName[i]];
+            o = p[ this.tmpName[i] ];
             j = o.length;
-            while(j--){
-                m = o[j];
-                this.geo[m.name] = m.geometry;
 
-                if(m.name==='wheel'){
+            while(j--){
+                mesh = o[j];
+                this.geo[mesh.name] = mesh.geometry;
+
+                if( mesh.name === 'wheel' ){
 
                     this.geo['wheelR'] = this.geo.wheel.clone();
                     this.geo['wheelL'] = this.geo.wheel.clone();
@@ -387,6 +390,7 @@ View.prototype = {
 
         }
 
+        this.tmpName = [];
         this.loadCallback();
 
     },
@@ -748,10 +752,15 @@ View.prototype = {
 
     },
 
-    setFollow: function( name, r ){
+    setFollow: function( name, o ){
 
-        if(!this.byName[ name ]) return
-        if( r !== undefined ) this.controler.cam.rotationOffset = r;//-90;
+        if( !this.byName[ name ] ) return;
+        o = o || {};
+        this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;
+        this.controler.cam.distance = o.distance !== undefined ? o.distance : 10;
+        this.controler.cam.height = o.height !== undefined ? o.height : 4;
+        this.controler.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
+        this.controler.cam.speed = o.speed !== undefined ? o.speed : 10;
         this.controler.followTarget = this.byName[ name ];
 
     },

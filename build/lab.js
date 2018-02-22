@@ -12341,24 +12341,6 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 
 		},
 
-		copyIndicesArray: function ( indices ) {
-
-			var array = this.array, offset = 0;
-
-			for ( var i = 0, l = indices.length; i < l; i ++ ) {
-
-				var index = indices[ i ];
-
-				array[ offset ++ ] = index.a;
-				array[ offset ++ ] = index.b;
-				array[ offset ++ ] = index.c;
-
-			}
-
-			return this;
-
-		},
-
 		copyVector2sArray: function ( vectors ) {
 
 			var array = this.array, offset = 0;
@@ -12649,7 +12631,6 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 
 	function DirectGeometry() {
 
-		this.indices = [];
 		this.vertices = [];
 		this.normals = [];
 		this.colors = [];
@@ -13430,14 +13411,6 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 
 				var uvs2 = new Float32Array( geometry.uvs2.length * 2 );
 				this.addAttribute( 'uv2', new BufferAttribute( uvs2, 2 ).copyVector2sArray( geometry.uvs2 ) );
-
-			}
-
-			if ( geometry.indices.length > 0 ) {
-
-				var TypeArray = arrayMax( geometry.indices ) > 65535 ? Uint32Array : Uint16Array;
-				var indices = new TypeArray( geometry.indices.length * 3 );
-				this.setIndex( new BufferAttribute( indices, 1 ).copyIndicesArray( geometry.indices ) );
 
 			}
 
@@ -40569,7 +40542,7 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 
 					var pending = this.repetitions - loopCount;
 
-					if ( pending < 0 ) {
+					if ( pending <= 0 ) {
 
 						// have to stop (switch state, clamp time, fire event)
 
@@ -40587,7 +40560,7 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 
 						// keep running
 
-						if ( pending === 0 ) {
+						if ( pending === 1 ) {
 
 							// entering the last round
 
@@ -44847,6 +44820,11 @@ var THREE, WebGL2RenderingContext, TextDecoder, performance, ImageBitmap, create
 				return this.array.length;
 
 			}
+		},
+		copyIndicesArray: function ( /* indices */ ) {
+
+			console.error( 'THREE.BufferAttribute: .copyIndicesArray() has been removed.' );
+
 		}
 
 	} );
@@ -64923,12 +64901,13 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	THREE.OrbitControls.call( this, object, domElement );
 
 	this.followTarget = null;
+    this.camTween = null;
 
 	this.cam = {
 
 	    isFollow: false,
-	    rotationOffset:180,
-	    heightOffset:4,
+	    rotation:180,
+	    height:4,
 	    acceleration: 0.05,
 	    speed:10,
 	    distance:10,
@@ -64940,18 +64919,21 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	this.followGroup = new THREE.Group();
 
+    /*this.originUpdate = this.update;
+
+    this.update = function () {
+
+        
+        if( !this.followTarget ) this.follow();
+        else this.originUpdate();
+
+    }*/
+
 }
 
 THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitControls.prototype ), {
 
 	constructor: THREE.OrbitControlsExtra,
-
-    /*update: function () {
-
-        //THREE.OrbitControls.prototype.update.call(this);
-        //this.updateFollowGroup();
-
-    },*/
 
 	resetFollow: function () {
 
@@ -64961,7 +64943,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
 	follow: function () {
 
-        if( this.followTarget === null ) return;
+        if( !this.followTarget ) return;
 
         this.stopMoveCam();
 
@@ -64973,10 +64955,10 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var rotMatrix = new THREE.Matrix4().makeRotationFromQuaternion( this.followTarget.quaternion );
         var yRotation = Math.atan2( rotMatrix.elements[8], rotMatrix.elements[10] );
 
-        var radians = ( cam.rotationOffset * THREE.Math.DEG2RAD ) + yRotation;
+        var radians = ( cam.rotation * THREE.Math.DEG2RAD ) + yRotation;
 
         cam.v.copy( this.followTarget.position );
-        cam.v.add( { x:Math.sin(radians) * cam.distance, y:cam.heightOffset, z:Math.cos(radians) * cam.distance });
+        cam.v.add( { x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
         cam.v.sub( this.object.position );
         cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
 
@@ -65039,7 +65021,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
             o = tmp;
 
-        }
+        } else if( !o ) o = {};
 
         o.x = o.x !== undefined ? o.x : 0;
     	o.y = o.y !== undefined ? o.y : 0;
@@ -66990,6 +66972,8 @@ function Planet( o, mat ) {
     this.radius = o.radius !== undefined ? o.radius : 100;
     this.resolution = o.resolution !== undefined ? o.resolution : 10;
 
+    this.isBuffer = o.isBuffer || false;
+
     
 
     
@@ -67156,7 +67140,9 @@ Planet.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         this.geo.colorsNeedUpdate = true;
         
-        this.geometry = this.geo;//new THREE.BufferGeometry().fromGeometry( this.geo );
+        //this.geometry = this.geo;//
+        if( this.isBuffer )this.geometry = new THREE.BufferGeometry().fromGeometry( this.geo );
+        else this.geometry = this.geo;
 
 /*
         
@@ -69312,7 +69298,7 @@ View.prototype = {
 
             skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
 
-            hero: new THREE.MeshStandardMaterial({ color:0x993399, name:'hero', envMap:this.envmap,  metalness:0.6, roughness:0.4, skinning:true }),
+            hero: new THREE.MeshStandardMaterial({ color:0xffffff, name:'hero', envMap:this.envmap,  metalness:0.4, roughness:0.6, skinning:true }),
             debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true, opacity:0.1, transparent:true }),
             soft: new THREE.MeshStandardMaterial({ vertexColors: THREE.VertexColors, name:'soft', wireframe:false, transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
 
@@ -69358,8 +69344,8 @@ View.prototype = {
 
 		if( this.isNeedUpdate ){
 
-            this.update();
             this.updateIntern();
+            this.update();
             this.controler.follow();
 			this.isNeedUpdate = false;
 
@@ -69406,6 +69392,8 @@ View.prototype = {
 
 
         //for( var t in this.txt ) this.txt[t].dispose();
+
+        this.removeRay();
         
 
         this.update = function () {};
@@ -69498,24 +69486,25 @@ View.prototype = {
         }
             
         this.loadCallback = Callback || function(){};
-        this.tmpCallback = function(){ this.afterLoad() }.bind(this);
+        this.tmpCallback = function(p){ this.afterLoad(p) }.bind(this);
         pool.load( urls, this.tmpCallback );
 
     },
 
-    afterLoad: function () {
+    afterLoad: function ( p ) {
 
-        var r = pool.getResult(), o, m, j;
+        var o, mesh, j;
 
         for(var i=0; i < this.tmpName.length; i++){
 
-            o = r[this.tmpName[i]];
+            o = p[ this.tmpName[i] ];
             j = o.length;
-            while(j--){
-                m = o[j];
-                this.geo[m.name] = m.geometry;
 
-                if(m.name==='wheel'){
+            while(j--){
+                mesh = o[j];
+                this.geo[mesh.name] = mesh.geometry;
+
+                if( mesh.name === 'wheel' ){
 
                     this.geo['wheelR'] = this.geo.wheel.clone();
                     this.geo['wheelL'] = this.geo.wheel.clone();
@@ -69529,6 +69518,7 @@ View.prototype = {
 
         }
 
+        this.tmpName = [];
         this.loadCallback();
 
     },
@@ -69890,10 +69880,15 @@ View.prototype = {
 
     },
 
-    setFollow: function( name, r ){
+    setFollow: function( name, o ){
 
-        if(!this.byName[ name ]) return
-        if( r !== undefined ) this.controler.cam.rotationOffset = r;//-90;
+        if( !this.byName[ name ] ) return;
+        o = o || {};
+        this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;
+        this.controler.cam.distance = o.distance !== undefined ? o.distance : 10;
+        this.controler.cam.height = o.height !== undefined ? o.height : 4;
+        this.controler.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
+        this.controler.cam.speed = o.speed !== undefined ? o.speed : 10;
         this.controler.followTarget = this.byName[ name ];
 
     },

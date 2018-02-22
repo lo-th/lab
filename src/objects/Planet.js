@@ -5,6 +5,8 @@ function Planet( o, mat ) {
     this.radius = o.radius !== undefined ? o.radius : 100;
     this.resolution = o.resolution !== undefined ? o.resolution : 10;
 
+    this.isBuffer = o.isBuffer || false;
+
     
 
     
@@ -171,7 +173,9 @@ Planet.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         this.geo.colorsNeedUpdate = true;
         
-        this.geometry = this.geo;//new THREE.BufferGeometry().fromGeometry( this.geo );
+        //this.geometry = this.geo;//
+        if( this.isBuffer )this.geometry = new THREE.BufferGeometry().fromGeometry( this.geo );
+        else this.geometry = this.geo;
 
 /*
         

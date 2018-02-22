@@ -4,12 +4,13 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	THREE.OrbitControls.call( this, object, domElement );
 
 	this.followTarget = null;
+    this.camTween = null;
 
 	this.cam = {
 
 	    isFollow: false,
-	    rotationOffset:180,
-	    heightOffset:4,
+	    rotation:180,
+	    height:4,
 	    acceleration: 0.05,
 	    speed:10,
 	    distance:10,
@@ -21,18 +22,21 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	this.followGroup = new THREE.Group();
 
+    /*this.originUpdate = this.update;
+
+    this.update = function () {
+
+        
+        if( !this.followTarget ) this.follow();
+        else this.originUpdate();
+
+    }*/
+
 }
 
 THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitControls.prototype ), {
 
 	constructor: THREE.OrbitControlsExtra,
-
-    /*update: function () {
-
-        //THREE.OrbitControls.prototype.update.call(this);
-        //this.updateFollowGroup();
-
-    },*/
 
 	resetFollow: function () {
 
@@ -42,7 +46,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
 	follow: function () {
 
-        if( this.followTarget === null ) return;
+        if( !this.followTarget ) return;
 
         this.stopMoveCam();
 
@@ -54,10 +58,10 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var rotMatrix = new THREE.Matrix4().makeRotationFromQuaternion( this.followTarget.quaternion );
         var yRotation = Math.atan2( rotMatrix.elements[8], rotMatrix.elements[10] );
 
-        var radians = ( cam.rotationOffset * THREE.Math.DEG2RAD ) + yRotation;
+        var radians = ( cam.rotation * THREE.Math.DEG2RAD ) + yRotation;
 
         cam.v.copy( this.followTarget.position );
-        cam.v.add( { x:Math.sin(radians) * cam.distance, y:cam.heightOffset, z:Math.cos(radians) * cam.distance });
+        cam.v.add( { x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
         cam.v.sub( this.object.position );
         cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
 
@@ -120,7 +124,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
             o = tmp;
 
-        }
+        } else if( !o ) o = {};
 
         o.x = o.x !== undefined ? o.x : 0;
     	o.y = o.y !== undefined ? o.y : 0;
