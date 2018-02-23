@@ -15329,6 +15329,145 @@ CodeMirror.defineMIME("application/typescript", { name: "javascript", typescript
 }));
 /* vim: set sw=4 ts=4 et tw=80 : */
 
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+var saveAs = saveAs || function(e) {
+    "use strict";
+    if (typeof e === "undefined" || typeof navigator !== "undefined" && /MSIE [1-9]\./.test(navigator.userAgent)) {
+        return
+    }
+    var t = e.document,
+        n = function() {
+            return e.URL || e.webkitURL || e
+        },
+        r = t.createElementNS("http://www.w3.org/1999/xhtml", "a"),
+        o = "download" in r,
+        a = function(e) {
+            var t = new MouseEvent("click");
+            e.dispatchEvent(t)
+        },
+        i = /constructor/i.test(e.HTMLElement) || e.safari,
+        f = /CriOS\/[\d]+/.test(navigator.userAgent),
+        u = function(t) {
+            (e.setImmediate || e.setTimeout)(function() {
+                throw t
+            }, 0)
+        },
+        s = "application/octet-stream",
+        d = 1e3 * 40,
+        c = function(e) {
+            var t = function() {
+                if (typeof e === "string") {
+                    n().revokeObjectURL(e)
+                } else {
+                    e.remove()
+                }
+            };
+            setTimeout(t, d)
+        },
+        l = function(e, t, n) {
+            t = [].concat(t);
+            var r = t.length;
+            while (r--) {
+                var o = e["on" + t[r]];
+                if (typeof o === "function") {
+                    try {
+                        o.call(e, n || e)
+                    } catch (a) {
+                        u(a)
+                    }
+                }
+            }
+        },
+        p = function(e) {
+            if (/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(e.type)) {
+                return new Blob([String.fromCharCode(65279), e], {
+                    type: e.type
+                })
+            }
+            return e
+        },
+        v = function(t, u, d) {
+            if (!d) {
+                t = p(t)
+            }
+            var v = this,
+                w = t.type,
+                m = w === s,
+                y, h = function() {
+                    l(v, "writestart progress write writeend".split(" "))
+                },
+                S = function() {
+                    if ((f || m && i) && e.FileReader) {
+                        var r = new FileReader;
+                        r.onloadend = function() {
+                            var t = f ? r.result : r.result.replace(/^data:[^;]*;/, "data:attachment/file;");
+                            var n = e.open(t, "_blank");
+                            if (!n) e.location.href = t;
+                            t = undefined;
+                            v.readyState = v.DONE;
+                            h()
+                        };
+                        r.readAsDataURL(t);
+                        v.readyState = v.INIT;
+                        return
+                    }
+                    if (!y) {
+                        y = n().createObjectURL(t)
+                    }
+                    if (m) {
+                        e.location.href = y
+                    } else {
+                        var o = e.open(y, "_blank");
+                        if (!o) {
+                            e.location.href = y
+                        }
+                    }
+                    v.readyState = v.DONE;
+                    h();
+                    c(y)
+                };
+            v.readyState = v.INIT;
+            if (o) {
+                y = n().createObjectURL(t);
+                setTimeout(function() {
+                    r.href = y;
+                    r.download = u;
+                    a(r);
+                    h();
+                    c(y);
+                    v.readyState = v.DONE
+                });
+                return
+            }
+            S()
+        },
+        w = v.prototype,
+        m = function(e, t, n) {
+            return new v(e, t || e.name || "download", n)
+        };
+    if (typeof navigator !== "undefined" && navigator.msSaveOrOpenBlob) {
+        return function(e, t, n) {
+            t = t || e.name || "download";
+            if (!n) {
+                e = p(e)
+            }
+            return navigator.msSaveOrOpenBlob(e, t)
+        }
+    }
+    w.abort = function() {};
+    w.readyState = w.INIT = 0;
+    w.WRITING = 1;
+    w.DONE = 2;
+    w.error = w.onwritestart = w.onprogress = w.onwrite = w.onabort = w.onerror = w.onwriteend = null;
+    return m
+}(typeof self !== "undefined" && self || typeof window !== "undefined" && window || this.content);
+if (typeof module !== "undefined" && module.exports) {
+    module.exports.saveAs = saveAs
+} else if (typeof define !== "undefined" && define !== null && define.amd !== null) {
+    define("FileSaver.js", function() {
+        return saveAs
+    })
+}
 /**   _   _____ _   _   
 *    | | |_   _| |_| |
 *    | |_ _| | |  _  |
@@ -15341,9 +15480,12 @@ CodeMirror.defineMIME("application/typescript", { name: "javascript", typescript
 
 var editor = ( function () {
 
-var content, codeContent, code, separator, menuCode, subtitle, title, menuBottom; 
+var styles;
+
+var subtitle, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
+var contentLeft, codeContent, code, separatorLeft, menuCode;
+
 var callback = function(){};
-var callbackReset = function(){};
 var isSelfDrag = false;
 var isFocus = false;
 var errorLines = [];
@@ -15351,53 +15493,62 @@ var widgets = [];
 var interval = null;
 var left = 0;
 var oldleft = 0;
-var fileName = '';
-var nextDemo = null;
+
 var selectColor = '#DE5825';
-var offColor ='rgba(256,256,256,0.1)';//'rgba(50,243,55,0.25)' 
+var offColor ='rgba(256,256,256,0.1)';
 var bg = '#151515';
 var bgMenu = 'rgba(21,21,21,0.75)';
-var scrollOn = false;
-//var menuPins;
-var bigmenu;
-var bigButton = [];
-var demoContent;
+var space = 5;//16;
+
 var isMenu = false;
-var isWithCode = true;
+var isWithCode = false;
 var isMidDown = false;
-
+var isCodeInit = false;
 var isPause = false;
-var link = '';
 
-var menuImg;
+var currentCode = '';
+var fileName = '';
+var link = '';
 
 var octo, octoArm;
 
 var unselectable = '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select: none;';
 var inbox = 'box-sizing:border-box; -moz-box-sizing:border-box; -webkit-box-sizing:border-box;';
 
-var menuButton, buttonStyle;
+var mode = 'javascript'; // x-glsl
 
-var space = 16;
+var saveButton;
 
 editor = {
 
+    
+
+
     init: function ( Callback, withCode, color, Link ) {
+
+        if( Callback ) callback = Callback;
 
         document.body.style.cssText = 'font-family: "Lucida Console", Monaco, monospace; padding:0; margin:0; font-size: 11px; height:100%; background:#151515; color:#dedede; overflow:hidden;';
 
         selectColor = color || '#DE5825';
 
-        //menuImg = document.createElement( 'img' );
         menuImg = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAKCAYAAABrGwT5AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAIpJREFUeNpiYKAAMIIITk5OFWyS379/v0NQMwgICQl5YVPw7t27bQQ1g4C0tHQeNkVPnz6dRFAzCCgpKfVgU3jv3r0SgppBQENDYzE28Rs3bsQS1AwCurq6O7GJX7582Z2gZhAwNja+gE387NmzBgQ1g4ClpeVzbOLHjx+XZCQmMdjZ2f3DJg4QYABPYiHCoBQF9AAAAABJRU5ErkJggg==)"
 
-        buttonStyle = inbox + 'border: 1px solid #3f3f3f; background: #151515; width:70px; height:30px; font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; pointer-events:auto; line-height: 28px; cursor:pointer; display: inline-block; margin-left:'+space+'px;  border-radius:6px;'
-        menuButton = 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; margin: 3px 3px; padding: 3px 3px; border-radius:6px;';
-        //editor.createClass('.menuButtonBig', 'font-size: 12px; height:30px; padding: 4px; padding-top: 10px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:110px;' );
-        //editor.createClass('.menuButtonBig:hover', 'color:'+ selectColor );
+        styles = {
 
-        if( Callback ) callback = Callback;
-        //if( CallbackReset ) callbackReset = CallbackReset;
+            contentLeft : unselectable + 'position:absolute; background:none; pointer-events:none; top:0; left:0; width:50%; height:100%;',
+            codeContent : 'position:absolute; background:none; pointer-events:none; display:block; left:0px; top:45px; width:100%; background:none; height:calc(100% - 45px);',
+            separatorLeft :  inbox+'position:absolute; background:none; pointer-events:auto; display:block;  border-left:1px solid #3f3f3f; border-right:1px solid #3f3f3f; left:calc(50% - 5px); top:0px; width:10px; height:100%; color: rgba(255, 255, 255, 0.2); cursor: e-resize;',
+            menuCode :  'position:absolute; top : 0px; left: 0px; width: 100%; font-size: 14px;  font-weight: 500; height: 40px; background: none; border-bottom:1px solid #3f3f3f; line-height: 40px;',
+
+            saveButton: 'position:absolute; width:30px; height:30px; right:5px; top:5px; border-radius:6px; pointer-events:auto; cursor:pointer; ',
+
+            buttonStyle : 'padding:0 0; width:70px; height:30px; font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; pointer-events:auto; cursor:pointer; display: inline-block; margin-left:'+space+'px; border-radius:6px;line-height: 30px; ',//
+            menuButton : 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; margin: 3px 3px; padding: 3px 3px; border-radius:6px;',
+
+        }
+
+       
 
         isWithCode = withCode || false;
 
@@ -15412,43 +15563,87 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 16px; font-style: normal; font-variant: normal; font-weight: 900; letter-spacing: 1px; bottom: '+(space+14)+'px; padding-left:'+space+'px;';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; bottom: '+(space+12)+'px; padding-left:'+space+'px; color:#666666;';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 11px; position:absolute; padding-left:'+space+'px; bottom:'+space+'px;';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+space+'px; bottom:'+space+'px; color:#555555;';
         document.body.appendChild( subtitle );
 
-        // editor
 
-        content = document.createElement('div');
-        content.style.cssText = unselectable + 'position:absolute; background:none; pointer-events:none; top:0; left:0; width:50%; height:100%;';
-        document.body.appendChild( content );
+        if( Link !== undefined ) this.setLink( Link );
+
+        if( isWithCode ) this.show();
+
+    },
+
+    icon: function ( type, color, w ){
+
+        w = w || 40;
+        var ww = 40;
+        color = color || '#DEDEDE';
+        var viewBox = '0 0 40 40';
+
+        var t = ["<svg xmlns='http://www.w3.org/2000/svg' version='1.1' xmlns:xlink='http://www.w3.org/1999/xlink' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+w+"px' viewBox='"+viewBox+"'><g>"];
+        switch(type){
+            case 'save':
+            t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/><path stroke='"+color+"' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 32.6 23 L 32.6 25.5 Q 32.6 28.5 29.6 28.5 L 10.6 28.5 Q 7.6 28.5 7.6 25.5 L 7.6 23'/>";
+            break;
+        }
+        t[2] = "</g></svg>";
+        return t.join("\n");
+
+    },
+
+    setMode: function ( m ) {
+
+        mode = m;
+        if( isCodeInit ) code.setOption('mode', 'text/' + mode);
+
+    },
+
+    addCodeEditor: function () {
+
+        contentLeft = document.createElement('div');
+        contentLeft.style.cssText = styles.contentLeft;
+        document.body.appendChild( contentLeft );
+
+        separatorLeft = document.createElement('div');
+        separatorLeft.style.cssText =  styles.separatorLeft;
+        document.body.appendChild( separatorLeft );
 
         codeContent = document.createElement('div');
-        codeContent.style.cssText = 'position:absolute; background:none; pointer-events:none; display:block; left:0px; top:45px; width:100%; background:none; height:calc(100% - 45px);';
+        codeContent.style.cssText = styles.codeContent;
+        contentLeft.appendChild( codeContent );
 
-        //document.body.appendChild( codeContent );
-        content.appendChild( codeContent );
-
-        code = CodeMirror( codeContent, {
-            lineNumbers: true, matchBrackets: true, indentWithTabs: false, styleActiveLine: true,
-            theme:'monokai', mode:'text/javascript',
-            tabSize: 4, indentUnit: 4, highlightSelectionMatches: {showToken: /\w/}
-        });
-
-        separator = document.createElement('div');
-        separator.style.cssText =  inbox+'position:absolute; background:none; pointer-events:auto; display:block;  border-left:1px solid #3f3f3f; border-right:1px solid #3f3f3f; left:calc(50% - 5px); top:0px; width:10px; height:100%; color: rgba(255, 255, 255, 0.2);  cursor: e-resize;'
-        document.body.appendChild( separator );
+        separatorLeft.addEventListener('mouseover', editor.mid_over, false );
+        separatorLeft.addEventListener('mouseout', editor.mid_out, false );
+        separatorLeft.addEventListener('mousedown', editor.mid_down, false );
 
         menuCode = document.createElement('div');
-        menuCode.style.cssText =  inbox+'position:absolute; top : 0px; left: 0px; width: 100%; padding-left: 10px; padding-top: 9px; font-size: 16px; font-weight: 500; line-height: 23px; height: 40px; background: none; border-bottom:1px solid #3f3f3f; overflow: hidden;'
-        content.appendChild( menuCode );
+        menuCode.style.cssText = styles.menuCode;
+        contentLeft.appendChild( menuCode );
 
-        content.style.display = 'none';
-        separator.style.display = 'none';
+        saveButton = document.createElement('div');
+        saveButton.style.cssText = styles.saveButton;
+        saveButton.innerHTML = editor.icon('save', selectColor, 30);
+        contentLeft.appendChild( saveButton );
+
+        saveButton.addEventListener('mouseover', editor.save_over, false );
+        saveButton.addEventListener('mouseout', editor.save_out, false );
+        saveButton.addEventListener('click', editor.save, false );
+
+        menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
+
+        code = CodeMirror( codeContent, {
+            value: currentCode,
+            mode:'text/' + mode,
+            theme:'monokai', 
+            lineNumbers: true, matchBrackets: true, indentWithTabs: false, styleActiveLine: true,
+            tabSize: 4, indentUnit: 4, highlightSelectionMatches: {showToken: /\w/}
+        });
 
         code.on('change', function () { editor.onChange() } );
         code.on('focus', function () { isFocus = true; view.needFocus(); } );
@@ -15456,36 +15651,31 @@ editor = {
         code.on('drop', function () { if ( !isSelfDrag ) code.setValue(''); else isSelfDrag = false; } );
         code.on('dragstart', function () { isSelfDrag = true; } );
 
-        if(isWithCode){
-            left = Math.floor(window.innerWidth*0.4);
-            content.style.display = 'block';
-            separator.style.display = 'block';
-            this.addSeparatorEvent();
-            this.resize();
-        }
-
-        bigmenu.style.width =  window.innerWidth - left +'px';
-
-        if( Link !== undefined ) this.setLink( Link );
+        isCodeInit = true;
 
     },
 
+    removeCodeEditor: function (){
 
-
-    addSeparatorEvent: function(){
-
-        separator.addEventListener('mouseover', editor.mid_over, false );
-        separator.addEventListener('mouseout', editor.mid_out, false );
-        separator.addEventListener('mousedown', editor.mid_down, false );
+        codeContent.removeChild( code.getWrapperElement() );
+        code = null;
         
-    },
+        separatorLeft.removeEventListener('mouseover', editor.mid_over );
+        separatorLeft.removeEventListener('mouseout', editor.mid_out );
+        separatorLeft.removeEventListener('mousedown', editor.mid_down );
 
-    removeSeparatorEvent: function(){
+        saveButton.removeEventListener('mouseover', editor.save_over );
+        saveButton.removeEventListener('mouseout', editor.save_out );
+        saveButton.removeEventListener('click', editor.save );
 
-        separator.removeEventListener('mouseover', editor.mid_over, false );
-        separator.removeEventListener('mouseout', editor.mid_out, false );
-        separator.removeEventListener('mousedown', editor.mid_down, false );
-        
+        contentLeft.removeChild( menuCode );
+        contentLeft.removeChild( codeContent );
+        contentLeft.removeChild( saveButton );
+        document.body.removeChild( separatorLeft );
+        document.body.removeChild( contentLeft );
+
+        isCodeInit = false;
+
     },
 
     selectCode: function (){
@@ -15497,30 +15687,25 @@ editor = {
 
     hide: function (){
 
+        if( isCodeInit ) this.removeCodeEditor();
+
         isWithCode = false;
-        content.style.display = 'none';
-        separator.style.display = 'none';
         oldleft = left;
         left = 0;
 
-        this.removeSeparatorEvent();
-
-        editor.Bdefault(bigButton[1]);
-        editor.resize();
+        this.Bdefault( bigButton[1] );
+        this.resize();
 
     },
 
     show: function (){
 
+        if( !isCodeInit ) this.addCodeEditor();
+
         isWithCode = true;
-        content.style.display = 'block';
-        separator.style.display = 'block';
         if( oldleft ) left = oldleft;
         else left = Math.floor(window.innerWidth*0.4);
-
-        this.addSeparatorEvent();
-
-        editor.resize();
+        this.resize();
 
     },
 
@@ -15534,15 +15719,18 @@ editor = {
 
         if( e ) left = e.clientX + 10;
 
-        if(view) view.setLeft( left );
+        if( view ) view.setLeft( left );
         
         bigmenu.style.left = left +'px';
         title.style.left = left +'px';
         subtitle.style.left = left +'px';
-        separator.style.left = (left-10) + 'px';
-        content.style.width = (left-10) + 'px';
-        code.refresh();
 
+        if(!isCodeInit) return;
+
+        separatorLeft.style.left = (left-10) + 'px';
+        contentLeft.style.width = (left-10) + 'px';
+        code.refresh();
+        
     },
 
     tell: function ( str ) { 
@@ -15558,7 +15746,7 @@ editor = {
         bigmenu.style.width = window.innerWidth - left +'px';
 
         bigButton[0] = document.createElement( 'div' );
-        bigButton[0].style.cssText = buttonStyle;
+        bigButton[0].style.cssText = styles.buttonStyle;
         bigmenu.appendChild( bigButton[0] );
         bigButton[0].innerHTML = "DEMO";
         bigButton[0].addEventListener('click', editor.selectBigMenu, false );
@@ -15566,7 +15754,7 @@ editor = {
         bigButton[0].style.color = selectColor;
 
         bigButton[1] = document.createElement( 'div' );
-        bigButton[1].style.cssText = buttonStyle;
+        bigButton[1].style.cssText = styles.buttonStyle;
         bigmenu.appendChild( bigButton[1] );
         bigButton[1].innerHTML = "CODE";
         bigButton[1].addEventListener('click', editor.selectCode, false );
@@ -15574,7 +15762,7 @@ editor = {
         bigButton[1].style.color = selectColor;
 
         bigButton[2] = document.createElement( 'div' );
-        bigButton[2].style.cssText = buttonStyle;
+        bigButton[2].style.cssText = styles.buttonStyle;
         bigmenu.appendChild( bigButton[2] );
         bigButton[2].innerHTML = '&#10074;&#10074;';
         bigButton[2].style.width = '30px';
@@ -15586,15 +15774,6 @@ editor = {
         demoContent = document.createElement( 'div' );
         demoContent.style.cssText = 'padding: 10px 40px; width:100%; display: block; background-position: bottom; background-repeat: repeat-x;';//' background-image:'+  menuImg;
         bigmenu.appendChild( demoContent );
-
-        //menuBottom = document.createElement( 'div' );
-        //demoContent.style.cssText = 'position:relative; bottom:0px; height:4px;';
-
-        //menuBottom.appendChild( menuImg );
-        //bigmenu.appendChild( menuBottom );
-
-        
-        //bigmenu.backgroundRepeat  = 'repeat-y';
 
         var i = bigButton.length;
         while(i--){
@@ -15669,7 +15848,7 @@ editor = {
     addButtonMenu: function ( name, select ) {
 
         var b = document.createElement('div');
-        b.style.cssText = menuButton;
+        b.style.cssText = styles.menuButton;
         b.innerHTML = '&bull; ' + name.charAt(0).toUpperCase() + name.substring(1).toLowerCase();
         b.name = name;
         if(!select){
@@ -15715,8 +15894,6 @@ editor = {
     Bover: function( e ){
 
         e.preventDefault();
-
-        e.target.style.border = "1px solid "+selectColor;
         e.target.style.background = selectColor;
         e.target.style.color = "#000000";
 
@@ -15733,7 +15910,6 @@ editor = {
         if(!style){
             editor.Bdefault(e.target);
         } else {
-            e.target.style.border = "1px solid #3f3f3f";
             e.target.style.background = "#3f3f3f";
             e.target.style.color = "#999999";
         }
@@ -15742,27 +15918,24 @@ editor = {
 
     Bdefault: function( b ){
 
-        b.style.border = "1px solid #3f3f3f";
-        b.style.background = bg;
+        b.style.background = 'none';
         b.style.color = selectColor;
 
     },
 
-    
-
-    // separator
+    // separatorLeft
 
     mid_over: function ( e ) { 
 
         e.preventDefault();
-        separator.style.background = selectColor;
+        separatorLeft.style.background = selectColor;
 
     },
 
     mid_out: function ( e ) { 
 
         e.preventDefault();
-        if( !isMidDown ) separator.style.background = 'none';
+        if( !isMidDown ) separatorLeft.style.background = 'none';
 
     },
 
@@ -15786,6 +15959,30 @@ editor = {
 
     // code
 
+    save_over: function ( e ) {
+
+        e.preventDefault();
+        saveButton.innerHTML = editor.icon('save', '#000', 30);
+        saveButton.style.background = selectColor;
+
+    },
+
+    save_out: function ( e ) {
+
+        e.preventDefault();
+        saveButton.innerHTML = editor.icon('save', selectColor, 30);
+        saveButton.style.background = 'none';
+
+    },
+
+    save: function ( e ) {
+
+        e.preventDefault();
+        var blob = new Blob( [currentCode], {type: "text/plain"} );
+        saveAs( blob, fileName + '.js' );
+    
+    },
+
     load: function ( url ) {
 
         fileName = url.substring(url.indexOf("/")+1, url.indexOf("."));
@@ -15795,7 +15992,12 @@ editor = {
         xhr.open('GET', url, true);
         xhr.onload = function(){ 
 
-            code.setValue( xhr.responseText ); 
+            if( isCodeInit ){ 
+                code.setValue( xhr.responseText );
+            } else { 
+                currentCode = xhr.responseText;
+                editor.inject();
+            }
 
         }
         
@@ -15805,14 +16007,8 @@ editor = {
 
     unFocus: function () {
 
-        code.getInputField().blur();
+        if( isCodeInit ) code.getInputField().blur();
         view.haveFocus();
-
-    },
-
-    refresh: function () {
-
-        code.refresh();
 
     },
 
@@ -15829,7 +16025,7 @@ editor = {
             var i = widgets.length;
             while(i--) code.removeLineWidget( widgets[ i ] );
             widgets.length = 0;
-            var string = value;
+            var string = currentCode;
             try {
                 var result = esprima.parse( string, { tolerant: true } ).errors;
                 i = result.length;
@@ -15868,37 +16064,28 @@ editor = {
         //callbackReset( full );
 
         clearTimeout( interval );
-        var value = code.getValue();
-        if( this.validate( value ) ) interval = setTimeout( function() { editor.inject( value ); }, 0);
+
+        currentCode = code.getValue();
+        if( this.validate() ) interval = setTimeout( function() { editor.inject(); }, 0);
 
     },
 
-    inject: function ( value ) {
+    inject: function () {
 
         location.hash = fileName;
 
         var oScript = document.createElement("script");
         oScript.language = "javascript";
         oScript.type = "text/javascript";
-        oScript.text = value;
+        oScript.text = currentCode;
         document.getElementsByTagName('BODY').item(0).appendChild(oScript);
 
-        menuCode.innerHTML = '&bull; ' + fileName;
+        if( isCodeInit ) menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
         title.innerHTML = fileName.charAt(0).toUpperCase() + fileName.substring(1).toLowerCase();
 
         callback( fileName );
 
     },
-
-    /*createClass: function ( name, rules ){
-
-        var style = document.createElement('style');
-        style.type = 'text/css';
-        document.getElementsByTagName('head')[0].appendChild(style);
-        if(!(style.sheet||{}).insertRule) (style.styleSheet || style.sheet).addRule(name, rules);
-        else style.sheet.insertRule(name+"{"+rules+"}",0);
-
-    },*/
 
 
     //--------------------------
@@ -15915,7 +16102,7 @@ editor = {
     addGithubLink: function () {
 
         var icon_Github = [
-            "<svg width='80' height='80' viewBox='0 0 250 250' style='fill:"+offColor+"; color:"+bg+"; position: absolute; top: 0; border: 0; right: 0;'>",
+            "<svg width='60' height='60' viewBox='0 0 250 250' style='fill:"+offColor+"; color:"+bg+"; position: absolute; top: 0; border: 0; right: 0;'>",
             "<path d='M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z' id='octo' onmouseover='editor.Gover();' onmouseout='editor.Gout();' onmousedown='editor.Gdown();' style='cursor:pointer; pointer-events:auto;'></path>",
             "<path d='M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2' fill='currentColor' style='transform-origin: 130px 106px; pointer-events:none;' id='octo-arm'></path>",
             "<path d='M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z' fill='currentColor' id='octo-body' style='pointer-events:none;'></path></svg>",
@@ -15927,8 +16114,6 @@ editor = {
         github.style.cssText = unselectable + "position:absolute; right:0; top:0; width:1px; height:1px; pointer-events:none;";
         github.innerHTML = icon_Github; 
         document.body.appendChild( github );
-
-        //document.styleSheets[0].insertRule('@keyframes octocat-wave {0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}' );
 
         octo = document.getElementById('octo');
         octoArm = document.getElementById('octo-arm');

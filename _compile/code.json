@@ -7,5 +7,6 @@
     "src/libs/codemirrorAdd/matchbrackets.js",
     "src/libs/codemirrorAdd/match-highlighter.js",
     "src/libs/esprima.js",
+    "src/libs/saveAs.js",
     "src/editor.js"
 ]
