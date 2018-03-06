@@ -94,60 +94,11 @@
 	 * @author lo-th / https://github.com/lo-th
 	 */
 
-	var Tools = {
+	var T = {
 
-	    ui: [],
-
-
-
-	    main: null,
-
-	    e:{
-	        type:null,
-	        clientX:0,
-	        clientY:0,
-	        keyCode:NaN,
-	        key:null,
-	    },
-
-	    ID: null,
-	    lock:false,
-
-
-	    input: null,
-	    firstImput: true,
-	    callbackImput: null,
-
-	    //tmpSvg: null,
-	    //tmpContent: null,
-
-
-
-	    tmpTime: null,
-	    tmpImage: null,
-	    
-
-	    isEventsInit: false,
-	    eventCallback: function(){},
-
-	    //Mevent: [ 'mousemove','mouseup', 'mousewheel', 'keydown', 'keyup' ],
-	    //event : 
-
-	    doc: document,
 	    frag: document.createDocumentFragment(),
-	    hidefrag: document.createDocumentFragment(),
-	    xmlserializer: new XMLSerializer(),
 
 	    colorRing: null,
-
-	    current:-1,
-
-	    URL: window.URL || window.webkitURL,
-
-	    isLoop: false,
-	    listens: [],
-
-	    tmpCursor:'auto',
 
 	    svgns: "http://www.w3.org/2000/svg",
 	    htmls: "http://www.w3.org/1999/xhtml",
@@ -158,323 +109,11 @@
 
 	    TwoPI: 6.283185307179586,
 
-	    size: {
-	        
-	        w: 240,
-	        h: 20,
-	        p: 30,
-	        s: 20,
-
-	    },
-
-	    push: function( o ){
-
-	        Tools.ui.push( o );
-	        if( !Tools.isEventsInit ) Tools.initEvents();
-
-	    },
+	    size: {  w: 240, h: 20, p: 30, s: 20 },
 
 	    // ----------------------
-	    //   EVENTS
+	    //   COLOR
 	    // ----------------------
-
-	    initEvents: function(){
-
-	        if(Tools.isEventsInit) return;
-
-	        Tools.doc.addEventListener( 'click',  Tools, false );
-	        Tools.doc.addEventListener( 'mousedown',  Tools, false );
-	        Tools.doc.addEventListener( 'mousemove',  Tools, false );
-	        Tools.doc.addEventListener( 'mouseup',    Tools, false );
-	        Tools.doc.addEventListener( 'mousewheel', Tools, false );
-
-	        Tools.doc.addEventListener( 'keydown',    Tools, false );
-	        Tools.doc.addEventListener( 'keyup',      Tools, false );
-
-	        //window.addEventListener("resize", Tools, false );
-
-	        //console.log('event root init')
-
-	        Tools.isEventsInit = true;
-
-	    },
-
-	    handleEvent : function ( event ) {
-
-	        event.preventDefault();
-
-	        //var act = false;
-
-	        if( event.type === 'keydown') Tools.editText( event );
-	        else{
-
-	            var e = Tools.e;
-
-	            e.clientX = event.clientX || 0;
-	            e.clientY = event.clientY || 0;
-	            e.type = event.type;
-
-	            if(e.type === 'mousedown') Tools.lock = true;
-	            if(e.type === 'mouseup') { Tools.lock = false; }//Tools.cursor(); }
-	            if( (e.type === 'mousemove') && (!Tools.lock) ) Tools.findID( e );
-	            //if( e.type === 'keydown') console.log(e.key)
-
-	            if( Tools.ID !== null ) if( Tools.ID[e.type] ) { 
-	                if(Tools.ID.mouse !== null) {
-	                     e.clientX = Tools.ID.mouse.x;
-	                     e.clientY = Tools.ID.mouse.y;
-	                }
-	                Tools.ID[e.type]( e );
-	                Tools.eventCallback();
-	            }
-
-
-	        }
-
-	        //Tools.eventCallback();
-
-	        //if( Tools.ID ) 
-
-	    },
-
-	    // ----------------------
-	    //   INPUT
-	    // ----------------------
-
-	    overInput: function (){
-
-	        var input = Tools.input;
-
-	        //if(input===null) return;
-	        //if(!Tools.firstImput && Tools.callbackImput) Tools.callbackImput();
-	        //Tools.callbackImput = null;
-	        input.style.border = '1px dashed ' + Tools.colors.border;
-	        //input.contentEditable = false;
-	        //input.blur();
-	        //input = null;
-
-	    },
-
-	    clearInput: function (){
-
-	        var input = Tools.input;
-
-	        if(input===null) return;
-	        if(!Tools.firstImput && Tools.callbackImput) Tools.callbackImput();
-	        Tools.callbackImput = null;
-	        input.style.border = '1px dashed ' + Tools.colors.hide;
-	        input.contentEditable = false;
-	        input.blur();
-	        input = null;
-
-	    },
-
-	    setInput: function ( Input, Callback ){
-
-	        Tools.clearInput();
-	        Tools.firstImput = true;
-	        Tools.callbackImput = Callback;
-	        Tools.input = Input;
-	        Tools.input.style.border = '1px dashed ' + Tools.colors.borderSelect;
-	        Tools.input.contentEditable = true;
-	        Tools.input.focus();
-	        Tools.select( Tools.input );
-
-	    },
-
-	    editText: function ( e ){
-
-
-
-	        var input = Tools.input;
-
-	        if( input === null ) return;
-
-	        //console.log('key', e.keyCode)
-
-	        if( e.keyCode === 13 ){//enter
-	            Tools.callbackImput();
-	            Tools.clearInput();
-	        }
-
-	        if( input.isNum ){
-	            if ( ((e.keyCode > 95) && (e.keyCode < 106)) || e.keyCode === 110 || e.keyCode === 109 ){
-	                if(Tools.firstImput){ input.textContent = e.key; Tools.firstImput = false; }
-	                else input.textContent += e.key;
-	            }
-	        } else {
-	            if(Tools.firstImput){ input.textContent = e.key; Tools.firstImput = false; }
-	            else input.textContent += e.key;
-	        }
-
-	    },
-
-	    // ----------------------
-	    //   ID
-	    // ----------------------
-
-	    findID:function ( e ) {
-
-	        //if( Tools.ID !== null ) 
-
-	        //if( e.clientX === undefined || e.clientY === undefined ) return null;
-
-	        var i = Tools.ui.length, next = -1, tmp;
-	        while( i-- ){
-	            tmp = Tools.ui[i];
-
-	            Tools.getZone( tmp );
-
-
-	            if( tmp.mouse !== null ) {
-	                if( Tools.over( tmp, tmp.mouse.x, tmp.mouse.y ) ){ 
-	                    next = i;
-	                    if( next !== Tools.current ){
-	                        Tools.clearOldID();
-	                        Tools.current = next;
-	                        Tools.ID = tmp;
-	                    }
-	                    break;
-	                }
-	            } else {
-	                if( Tools.over( tmp, e.clientX, e.clientY ) ){ 
-	                    next = i;
-	                    if( next !== Tools.current ){
-	                        Tools.clearOldID();
-	                        Tools.current = next;
-	                        Tools.ID = tmp;
-	                    }
-	                    break;
-	                }
-	            }
-	                
-	        }
-
-	        if( next === -1  ) Tools.clearOldID();
-
-	        /*if( next !== -1  ){
-	            
-	            Tools.ID = Tools.ui[ Tools.current ];
-
-	        }*/
-
-	        //return u;
-
-	    },
-
-	    clearOldID: function(){
-
-	        if( !Tools.ID ) return;
-	        Tools.current = -1;
-	        Tools.ID.reset();
-	        Tools.ID = null;
-
-	    },
-
-	    cursor:function( name ){
-
-
-
-	        if(!name) name = 'auto';
-
-	        //console.log('cursor', name)
-
-	        if( name !== Tools.tmpCursor ){
-	            Tools.doc.body.style.cursor = name;
-	            Tools.tmpCursor = name;
-	        }
-
-	    },
-
-	    getZone: function( o ){
-
-	        if( o.isReady ) return;
-
-	        var r = o.getDom().getBoundingClientRect();
-	        //console.log(r)
-	        if( r.width!==0 && r.height!==0  ) o.isReady = true;
-	        //if( r.left!==0 || r.top!==0 || r.width!==0 || r.height!==0  ) o.isReady = true;
-	        o.zone = { x:r.left, y:r.top, w:r.width, h:r.height };
-
-	    },
-
-
-	    // zone for solo proto
-
-	    zone: function( o, y ){
-
-	        y = y || 0;
-
-	        /*var rec = { left:0, top:0, width:0, height:0 };
-	        var mw = o.style.width;
-	        var mh = o.style.height;
-	        rec.width = Number(mw.substring(0, mw.length-2));
-	        rec.height = Number(mh.substring(0, mh.length-2));
-	        while(o) {
-	            rec.left += (o.offsetLeft - o.scrollLeft + o.clientLeft);
-	            rec.top += (o.offsetTop - o.scrollTop + o.clientTop);
-	            o = o.offsetParent;
-	        }*/
-	        
-	        var rec = o.getBoundingClientRect();
-	        //console.log(rec);
-	        return { x:rec.left, y:rec.top-y, w:rec.width, h:rec.height };
-
-	    },
-
-	    over: function ( o, x, y ) {
-
-	        if( x === undefined || y === undefined ) return false;
-
-	        var z = o.zone;
-	        var l = o.local;
-
-	        l.x = x - z.x;
-	        l.y = y - z.y;
-	        
-	        return ( l.x >= 0 ) && ( l.y >= 0 ) && ( l.x <= z.w ) && ( l.y <= z.h );
-
-	    },
-
-	    select: function (){
-	        Tools.doc.execCommand("selectall",null,false);
-	    },
-
-
-	    calcUis: function ( uis, zone, py ) {
-
-	        var lng = uis.length, u, i, px = 0;
-
-	        for( i = 0; i < lng; i++ ){
-
-	            u = uis[i];
-
-	            u.zone.w = u.w;
-	            u.zone.h = u.h;
-
-	            if( !u.autoWidth ){
-
-	                if( px === 0 ) py += u.h+1;
-	                u.zone.y = py-u.h;
-	                u.zone.x = zone.x + px;
-	                px += u.w;
-	                if( px + u.w > zone.w ) px = 0;
-
-	            } else {
-
-	                u.zone.x = zone.x;
-	                u.zone.y = py;
-	                py += u.h + 1;
-
-	            }
-
-	            if( u.isGroup ) u.calcUis();
-
-	        }
-
-	    },
-
-	    // colors
 
 	    colors: {
 
@@ -483,6 +122,7 @@
 	        backgroundOver: 'rgba(11,11,11,0.5)',
 
 	        border : '#454545',
+	        borderOver : '#5050AA',
 	        borderSelect : '#308AFF',
 
 	        button : '#404040',
@@ -502,7 +142,8 @@
 	    // style css
 
 	    css : {
-	        basic: '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;' + 'position:absolute; pointer-events:none; box-sizing:border-box; margin:0; padding:0; border:none; overflow:hidden; background:none;',
+	        //unselect: '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;', 
+	        basic: 'position:absolute; pointer-events:none; box-sizing:border-box; margin:0; padding:0; border:none; overflow:hidden; background:none;' + '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;',
 	    },
 
 	    // svg path
@@ -513,23 +154,18 @@
 
 	        size = size || 11;
 	        color = color || '#CCC';
-	        font = font || '"Consolas", "Lucida Console", Monaco, monospace';
+	        font = font || 'Monospace';//'"Consolas", "Lucida Console", Monaco, monospace';
 
-	        Tools.colors.text = color;
-
-	        Tools.css.txt = Tools.css.basic + 'font-family:'+font+'; font-size:'+size+'px; color:'+color+'; padding:2px 10px; left:0; top:2px; height:16px; width:100px; overflow:hidden; white-space: nowrap;';
-	        //Tools.css.txtedit = Tools.css.txt + 'pointer-events:auto; padding:2px 5px; outline:none; -webkit-appearance:none; -moz-appearance:none; border:1px dashed #4f4f4f; -ms-user-select:element;';
-	        Tools.css.txtedit = Tools.css.txt + 'padding:2px 5px; outline:none; -webkit-appearance:none; -moz-appearance:none; border:1px dashed #4f4f4f; -ms-user-select:element;';
-	        //Tools.css.txtselect = Tools.css.txt + 'pointer-events:auto; padding:2px 5px; outline:none; -webkit-appearance:none; -moz-appearance:none; border:1px dashed ' + Tools.colors.border+'; -ms-user-select:element;';
-	        Tools.css.txtselect = Tools.css.txt + 'padding:2px 5px; outline:none; -webkit-appearance:none; -moz-appearance:none; border:1px dashed ' + Tools.colors.border+'; -ms-user-select:element;';
-	        Tools.css.txtnumber = Tools.css.txt + 'letter-spacing:-1px; padding:2px 5px;';
-	        Tools.css.item = Tools.css.txt + 'position:relative; background:rgba(0,0,0,0.2); margin-bottom:1px; ';//pointer-events:auto; cursor:pointer;
+	        T.colors.text = color;
+	        T.css.txt = T.css.basic + 'font-family:'+font+'; font-size:'+size+'px; color:'+color+'; padding:2px 10px; left:0; top:2px; height:16px; width:100px; overflow:hidden; white-space: nowrap;';
+	        T.css.txtselect = T.css.txt + 'padding:2px 5px; border:1px dashed ' + T.colors.border+';';
+	        T.css.item = T.css.txt + 'position:relative; background:rgba(0,0,0,0.2); margin-bottom:1px;';
 
 	    },
 
 	    clone: function ( o ) {
 
-	        return o.cloneNode(true);
+	        return o.cloneNode( true );
 
 	    },
 
@@ -560,35 +196,28 @@
 
 	    },
 
-	    /*setDom : function( dom, type, value ){
-
-	        var ext = Tools.DOM_SIZE.indexOf(type) !== -1 ? 'px' : '';
-	        dom.style[type] = value + ext;
-
-	    },*/
-
 	    dom : function ( type, css, obj, dom, id ) {
 
 	        type = type || 'div';
 
-	        if( Tools.SVG_TYPE_D.indexOf(type) !== -1 || Tools.SVG_TYPE_G.indexOf(type) !== -1 ){ // is svg element
+	        if( T.SVG_TYPE_D.indexOf(type) !== -1 || T.SVG_TYPE_G.indexOf(type) !== -1 ){ // is svg element
 
 	            if( type ==='svg' ){
 
-	                dom = Tools.doc.createElementNS( Tools.svgns, 'svg' );
-	                Tools.set( dom, obj );
+	                dom = document.createElementNS( T.svgns, 'svg' );
+	                T.set( dom, obj );
 
 	            } else {
 	                // create new svg if not def
-	                if( dom === undefined ) dom = Tools.doc.createElementNS( Tools.svgns, 'svg' );
-	                Tools.addAttributes( dom, type, obj, id );
+	                if( dom === undefined ) dom = document.createElementNS( T.svgns, 'svg' );
+	                T.addAttributes( dom, type, obj, id );
 
 	            }
 	            
 	        } else { // is html element
 
-	            if( dom === undefined ) dom = Tools.doc.createElementNS( Tools.htmls, type );
-	            else dom = dom.appendChild( Tools.doc.createElementNS( Tools.htmls, type ) );
+	            if( dom === undefined ) dom = document.createElementNS( T.htmls, type );
+	            else dom = dom.appendChild( document.createElementNS( T.htmls, type ) );
 
 	        }
 
@@ -601,19 +230,19 @@
 
 	    addAttributes : function( dom, type, o, id ){
 
-	        var g = Tools.doc.createElementNS( Tools.svgns, type );
-	        Tools.set( g, o );
-	        Tools.get( dom, id ).appendChild( g );
-	        if( Tools.SVG_TYPE_G.indexOf(type) !== -1 ) g.style.pointerEvents = 'none';
+	        var g = document.createElementNS( T.svgns, type );
+	        T.set( g, o );
+	        T.get( dom, id ).appendChild( g );
+	        if( T.SVG_TYPE_G.indexOf(type) !== -1 ) g.style.pointerEvents = 'none';
 	        return g;
 
 	    },
 
 	    clear : function( dom ){
 
-	        Tools.purge( dom );
+	        T.purge( dom );
 	        while (dom.firstChild) {
-	            if ( dom.firstChild.firstChild ) Tools.clear( dom.firstChild );
+	            if ( dom.firstChild.firstChild ) T.clear( dom.firstChild );
 	            dom.removeChild( dom.firstChild ); 
 	        }
 
@@ -633,50 +262,8 @@
 	        if (a) {
 	            i = a.length;
 	            while(i--){ 
-	                Tools.purge( dom.childNodes[i] ); 
+	                T.purge( dom.childNodes[i] ); 
 	            }
-	        }
-
-	    },
-
-
-
-	    // LOOP
-
-	    loop : function(){
-
-	        if( Tools.isLoop ) requestAnimationFrame( Tools.loop );
-	        Tools.update();
-
-	    },
-
-	    update : function(){
-
-	        var i = Tools.listens.length;
-	        while(i--) Tools.listens[i].listening();
-
-	    },
-
-	    removeListen : function ( proto ){
-
-	        var id = Tools.listens.indexOf( proto );
-	        Tools.listens.splice(id, 1);
-
-	        if( Tools.listens.length === 0 ) Tools.isLoop = false;
-
-	    },
-
-	    addListen : function ( proto ){
-
-	        var id = Tools.listens.indexOf( proto );
-
-	        if( id !== -1 ) return; 
-
-	        Tools.listens.push( proto );
-
-	        if( !Tools.isLoop ){
-	            Tools.isLoop = true;
-	            Tools.loop();
 	        }
 
 	    },
@@ -685,20 +272,20 @@
 	    //   Color function
 	    // ----------------------
 
-	    ColorLuma : function ( hex, lum ) {
+	    ColorLuma : function ( hex, l ) {
 
 	        // validate hex string
 	        hex = String(hex).replace(/[^0-9a-f]/gi, '');
 	        if (hex.length < 6) {
 	            hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
 	        }
-	        lum = lum || 0;
+	        l = l || 0;
 
 	        // convert to decimal and change luminosity
 	        var rgb = "#", c, i;
 	        for (i = 0; i < 3; i++) {
 	            c = parseInt(hex.substr(i*2,2), 16);
-	            c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+	            c = Math.round(Math.min(Math.max(0, c + (c * l)), 255)).toString(16);
 	            rgb += ("00"+c).substr(c.length);
 	        }
 
@@ -706,53 +293,53 @@
 
 	    },
 
-	    findDeepInver: function( rgb ){ 
+	    findDeepInver: function ( c ) { 
 
-	        return (rgb[0] * 0.3 + rgb[1] * .59 + rgb[2] * .11) <= 0.6;
+	        return (c[0] * 0.3 + c[1] * .59 + c[2] * .11) <= 0.6;
 	        
 	    },
 
 
-	    hexToHtml: function(v){ 
+	    hexToHtml: function ( v ) { 
 	        v = v === undefined ? 0x000000 : v;
 	        return "#" + ("000000" + v.toString(16)).substr(-6);
 	        
 	    },
 
-	    htmlToHex: function(v){ 
+	    htmlToHex: function ( v ) { 
 
 	        return v.toUpperCase().replace("#", "0x");
 
 	    },
 
-	    u255: function(color, i){
+	    u255: function (c, i) {
 
-	        return parseInt(color.substring(i, i + 2), 16) / 255;
-
-	    },
-
-	    u16: function( color, i ){
-
-	        return parseInt(color.substring(i, i + 1), 16) / 15;
+	        return parseInt(c.substring(i, i + 2), 16) / 255;
 
 	    },
 
-	    unpack: function( color ){
+	    u16: function ( c, i ) {
 
-	        if (color.length == 7) return [ Tools.u255(color, 1), Tools.u255(color, 3), Tools.u255(color, 5) ];
-	        else if (color.length == 4) return [ Tools.u16(color,1), Tools.u16(color,2), Tools.u16(color,3) ];
-
-	    },
-
-	    htmlRgb: function( rgb ){
-
-	        return 'rgb(' + Math.round(rgb[0] * 255) + ','+ Math.round(rgb[1] * 255) + ','+ Math.round(rgb[2] * 255) + ')';
+	        return parseInt(c.substring(i, i + 1), 16) / 15;
 
 	    },
 
-	    rgbToHex : function( rgb ){
+	    unpack: function( c ){
 
-	        return '#' + ( '000000' + ( ( rgb[0] * 255 ) << 16 ^ ( rgb[1] * 255 ) << 8 ^ ( rgb[2] * 255 ) << 0 ).toString( 16 ) ).slice( - 6 );
+	        if (c.length == 7) return [ T.u255(c, 1), T.u255(c, 3), T.u255(c, 5) ];
+	        else if (c.length == 4) return [ T.u16(c,1), T.u16(c,2), T.u16(c,3) ];
+
+	    },
+
+	    htmlRgb: function( c ){
+
+	        return 'rgb(' + Math.round(c[0] * 255) + ','+ Math.round(c[1] * 255) + ','+ Math.round(c[2] * 255) + ')';
+
+	    },
+
+	    rgbToHex : function( c ){
+
+	        return '#' + ( '000000' + ( ( c[0] * 255 ) << 16 ^ ( c[1] * 255 ) << 8 ^ ( c[2] * 255 ) << 0 ).toString( 16 ) ).slice( - 6 );
 
 	    },
 
@@ -767,9 +354,9 @@
 
 	    },
 
-	    rgbToHsl: function(rgb){
+	    rgbToHsl: function ( c ) {
 
-	        var r = rgb[0], g = rgb[1], b = rgb[2], min = Math.min(r, g, b), max = Math.max(r, g, b), delta = max - min, h = 0, s = 0, l = (min + max) / 2;
+	        var r = c[0], g = c[1], b = c[2], min = Math.min(r, g, b), max = Math.max(r, g, b), delta = max - min, h = 0, s = 0, l = (min + max) / 2;
 	        if (l > 0 && l < 1) s = delta / (l < 0.5 ? (2 * l) : (2 - 2 * l));
 	        if (delta > 0) {
 	            if (max == r && max != g) h += (g - b) / delta;
@@ -781,27 +368,29 @@
 
 	    },
 
-	    hslToRgb: function( hsl ){
+	    hslToRgb: function ( c ) {
 
-	        var p, q, h = hsl[0], s = hsl[1], l = hsl[2];
+	        var p, q, h = c[0], s = c[1], l = c[2];
 
 	        if ( s === 0 ) return [ l, l, l ];
 	        else {
 	            q = l <= 0.5 ? l * (s + 1) : l + s - ( l * s );
 	            p = l * 2 - q;
-	            return [ Tools.hueToRgb(p, q, h + 0.33333), Tools.hueToRgb(p, q, h), Tools.hueToRgb(p, q, h - 0.33333) ];
+	            return [ T.hueToRgb(p, q, h + 0.33333), T.hueToRgb(p, q, h), T.hueToRgb(p, q, h - 0.33333) ];
 	        }
 
 	    },
 
+	    // ----------------------
+	    //   SVG MODEL
+	    // ----------------------
+
 	    makeColorRing: function( width, stroke ){
 
 	        var w = width || 256;
-
-	       // var svg = Tools.dom( 'svg', Tools.css.basic + 'width:100%; height:100%; ', { viewBox:'0 0 '+w+' '+w, width:w, height:w } );//visibility:hidden;
-	        var svg = Tools.dom( 'svg', Tools.css.basic , { viewBox:'0 0 '+w+' '+w, width:w, height:w, preserveAspectRatio:'none' } );//visibility:hidden;xMaxYMax meet
-	        Tools.dom( 'defs', null, {}, svg );
-	        Tools.dom( 'g', null, {}, svg );
+	        var svg = T.dom( 'svg', T.css.basic , { viewBox:'0 0 '+w+' '+w, width:w, height:w, preserveAspectRatio:'none' } );
+	        T.dom( 'defs', null, {}, svg );
+	        T.dom( 'g', null, {}, svg );
 
 	        var s = stroke || 40;
 	        var r =( w-s )*0.5;
@@ -813,7 +402,7 @@
 	        for ( i = 0; i <= n; ++i) {
 
 	            d2 = i / n;
-	            a2 = d2 * Math.PI * 2;
+	            a2 = d2 * T.TwoPI;
 	            am = (a1 + a2) * 0.5;
 	            tan = 1 / Math.cos((a2 - a1) * 0.5);
 
@@ -823,8 +412,7 @@
 	                Math.sin(a2), -Math.cos(a2)
 	            ];
 	            
-	            color[1] = Tools.rgbToHex( Tools.hslToRgb([d2, 1, 0.5]) );
-	            //color[3] = Tools.rgbToHex( Tools.hslToRgb([0, d2, d2]) );
+	            color[1] = T.rgbToHex( T.hslToRgb([d2, 1, 0.5]) );
 
 	            if (i > 0) {
 
@@ -834,97 +422,398 @@
 	                }
 
 	                path = ' M' + ar[0] + ' ' + ar[1] + ' Q' + ar[2] + ' ' + ar[3] + ' ' + ar[4] + ' ' + ar[5];
-	                Tools.dom( 'linearGradient', '', { id:'G'+i, x1:ar[0], y1:ar[1], x2:ar[4], y2:ar[5], gradientUnits:"userSpaceOnUse" }, svg, 0 );
-	                Tools.dom( 'stop', '', { offset:'0%', 'stop-color':color[0] }, svg, [0,i-1] );
-	                Tools.dom( 'stop', '', { offset:'100%', 'stop-color':color[1] }, svg, [0,i-1] );
-	                Tools.dom( 'path', '', { d:path, 'stroke-width':s, stroke:'url(#G'+i+')', 'stroke-linecap':"butt" }, svg, 1 );
+	                T.dom( 'linearGradient', '', { id:'G'+i, x1:ar[0], y1:ar[1], x2:ar[4], y2:ar[5], gradientUnits:"userSpaceOnUse" }, svg, 0 );
+	                T.dom( 'stop', '', { offset:'0%', 'stop-color':color[0] }, svg, [0,i-1] );
+	                T.dom( 'stop', '', { offset:'100%', 'stop-color':color[1] }, svg, [0,i-1] );
+	                T.dom( 'path', '', { d:path, 'stroke-width':s, stroke:'url(#G'+i+')', 'stroke-linecap':"butt" }, svg, 1 );
 	                
 	            }
 	            a1 = a2 - nudge; 
 	            color[0] = color[1];
-	            //color[2] = color[3];
 	            d1 = d2;
 	        }
 
-	        var br = (128 - s )+2;
-	        var bw = 60;//br*0.8;
+	        var br = (128 - s ) + 2;
+	        var bw = 60;
 
-	        //console.log(bw)
+	        T.dom( 'linearGradient', '', { id:'GL1', x1:mid-bw, y1:mid-bw, x2:mid-bw, y2:mid+bw, gradientUnits:"userSpaceOnUse" }, svg, 0 );
+	        T.dom( 'stop', '', { offset:'0%', 'stop-color':'#FFFFFF' }, svg, [0,24] );
+	        T.dom( 'stop', '', { offset:'50%', 'stop-color':'#FFFFFF', 'stop-opacity':0 }, svg, [0,24] );
+	        T.dom( 'stop', '', { offset:'50%', 'stop-color':'#000000', 'stop-opacity':0 }, svg, [0,24] );
+	        T.dom( 'stop', '', { offset:'100%', 'stop-color':'#000000' }, svg, [0,24] );
 
-	        Tools.dom( 'linearGradient', '', { id:'GL1', x1:mid-bw, y1:mid-bw, x2:mid-bw, y2:mid+bw, gradientUnits:"userSpaceOnUse" }, svg, 0 );
-	       // Tools.dom( 'linearGradient', '', { id:'GL1', x1:0, y1:0, x2:0, y2:1 }, svg, 0 );
-	        Tools.dom( 'stop', '', { offset:'0%', 'stop-color':'#FFFFFF' }, svg, [0,24] );
-	        Tools.dom( 'stop', '', { offset:'50%', 'stop-color':'#FFFFFF', 'stop-opacity':0 }, svg, [0,24] );
-	        Tools.dom( 'stop', '', { offset:'50%', 'stop-color':'#000000', 'stop-opacity':0 }, svg, [0,24] );
-	        Tools.dom( 'stop', '', { offset:'100%', 'stop-color':'#000000' }, svg, [0,24] );
+	        T.dom( 'linearGradient', '', { id:'GL2', x1:mid-bw, y1:mid-bw, x2:mid+bw, y2:mid-bw, gradientUnits:"userSpaceOnUse" }, svg, 0 );
+	        T.dom( 'stop', '', { offset:'0%', 'stop-color':'#7f7f7f','stop-opacity':0 }, svg, [0,25] );
+	        T.dom( 'stop', '', { offset:'50%', 'stop-color':'#7f7f7f','stop-opacity':0.5 }, svg, [0,25] );
+	        T.dom( 'stop', '', { offset:'100%', 'stop-color':'#7f7f7f' }, svg, [0,25] );
 
-	        //Tools.dom( 'linearGradient', '', { id:'GL2', x1:0, y1:0, x2:1, y2:0 }, svg, 0 );
-	        Tools.dom( 'linearGradient', '', { id:'GL2', x1:mid-bw, y1:mid-bw, x2:mid+bw, y2:mid-bw, gradientUnits:"userSpaceOnUse" }, svg, 0 );
-	        Tools.dom( 'stop', '', { offset:'0%', 'stop-color':'#7f7f7f','stop-opacity':0 }, svg, [0,25] );
-	        Tools.dom( 'stop', '', { offset:'50%', 'stop-color':'#7f7f7f','stop-opacity':0.5 }, svg, [0,25] );
-	        Tools.dom( 'stop', '', { offset:'100%', 'stop-color':'#7f7f7f' }, svg, [0,25] );
+	        T.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'red' }, svg );//2
+	        T.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'url(#GL2)' }, svg );//3
+	        T.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'url(#GL1)' }, svg );//4
 
-	        Tools.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'red' }, svg );//2
-	        Tools.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'url(#GL2)' }, svg );//3
-	        Tools.dom( 'circle', '', { cx:128, cy:128, r:br, fill:'url(#GL1)' }, svg );//4
+	        T.dom( 'circle', '', { cx:0, cy:0, r:6, 'stroke-width':3, stroke:'#FFF', fill:'none' }, svg );//5
+	        T.dom( 'circle', '', { cx:0, cy:0, r:6, 'stroke-width':3, stroke:'#000', fill:'none' }, svg );//6
 
-	        Tools.dom( 'circle', '', { cx:0, cy:0, r:6, 'stroke-width':3, stroke:'#FFF', fill:'none' }, svg );//5
-	        Tools.dom( 'circle', '', { cx:0, cy:0, r:6, 'stroke-width':3, stroke:'#000', fill:'none' }, svg );//6
-
-	        Tools.colorRing = svg;
-
-	        //console.log(svg)
-
-	        //return svg;
+	        T.colorRing = svg;
 
 	    },
 
-	    // svg to canvas test 
+	    icon: function ( type, color, w ){
 
-	    toCanvas: function( canvas, content, callback, w, h, force ){
+	        w = w || 40;
+	        color = color || '#DEDEDE';
+	        var viewBox = '0 0 256 256';
+	        var t = ["<svg xmlns='"+T.svgns+"' version='1.1' xmlns:xlink='"+T.htmls+"' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+w+"px' viewBox='"+viewBox+"'><g>"];
+	        switch(type){
+	            case 'logo':
+	            t[1]="<path id='logoin' stroke='"+color+"' stroke-width='16' stroke-linejoin='round' stroke-linecap='square' fill='none' d='M 192 44 L 192 148 Q 192 174.5 173.3 193.25 154.55 212 128 212 101.5 212 82.75 193.25 64 174.5 64 148 L 64 44 M 160 44 L 160 148 Q 160 161.25 150.65 170.65 141.25 180 128 180 114.75 180 105.35 170.65 96 161.25 96 148 L 96 44'/>";
+	            break;
+	            case 'save':
+	            t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/><path stroke='"+color+"' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 32.6 23 L 32.6 25.5 Q 32.6 28.5 29.6 28.5 L 10.6 28.5 Q 7.6 28.5 7.6 25.5 L 7.6 23'/>";
+	            break;
+	        }
+	        t[2] = "</g></svg>";
+	        return t.join("\n");
 
-	        if(force) { clearTimeout(Tools.tmpTime); Tools.tmpTime = null;  }
+	    },
 
-	        if( Tools.tmpTime !== null ) return;
+	};
 
-	        Tools.tmpTime = setTimeout( function(){ Tools.tmpTime = null; }, 10 );
+	T.setText();
 
-	        var ctx = canvas.getContext("2d");
-	        var autosize = false;
-	        var isNewSize = false;
+	var Tools = T;
 
-	        if( w===undefined || h===undefined ) autosize = true;
+	// INTENAL FUNCTION
 
-	        if( autosize ){
-	            var box = content.getBoundingClientRect();
-	            w = box.width;
-	            h = box.height;
-	            if( w !== canvas.width || h !== canvas.height ) isNewSize = true;
-	            
+
+	var Roots = {
+
+		ui: [],
+
+		ID: null,
+	    lock:false,
+	    wlock:false,
+	    current:-1,
+
+		needReZone: true,
+		isEventsInit: false,
+
+		xmlserializer: new XMLSerializer(),
+		tmpTime: null,
+	    tmpImage: null,
+
+	    oldCursor:'auto',
+
+	    input: null,
+	    firstImput: true,
+	    callbackImput: null,
+
+	    isLoop: false,
+	    listens: [],
+
+	    e:{
+	        type:null,
+	        clientX:0,
+	        clientY:0,
+	        keyCode:NaN,
+	        key:null,
+	        delta:0,
+	    },
+
+	    
+
+		add: function( o ){
+
+	        Roots.ui.push( o );
+	        Roots.getZone( o );
+
+	        if( !Roots.isEventsInit ) Roots.initEvents();
+
+	    },
+
+	    // ----------------------
+	    //   EVENTS
+	    // ----------------------
+
+	    initEvents: function(){
+
+	        if( Roots.isEventsInit ) return;
+
+	        var domElement = document.body;
+
+	        domElement.addEventListener( 'contextmenu', function( e ){ e.preventDefault(); }, false );
+
+	        domElement.addEventListener( 'mousedown', Roots, false );
+	        domElement.addEventListener( 'wheel', Roots, false );
+
+	        domElement.addEventListener( 'touchstart', Roots, false );
+	        domElement.addEventListener( 'touchend', Roots, false );
+	        domElement.addEventListener( 'touchmove', Roots, false );
+
+	        document.addEventListener( 'mousemove', Roots, false );
+	        document.addEventListener( 'mouseup', Roots, false );
+
+	        window.addEventListener( 'keydown', Roots, false );
+	        window.addEventListener( 'resize', Roots, false );
+
+	        Roots.isEventsInit = true;
+
+	    },
+
+	    // ----------------------
+	    //   HANDLE EVENTS
+	    // ----------------------
+
+	    handleEvent : function ( event ) {
+
+	        if( event.type === 'resize'){
+	            Roots.needReZone = true;
+	            return;
 	        }
 
+	        event.preventDefault();
+	        //event.stopPropagation();
 
-	        if(Tools.tmpImage === null) Tools.tmpImage = new Image();
+	        Roots.findZone();
+	       
 
-	        var img = Tools.tmpImage; //new Image();
+	        //console.log(Tools.ID)
 
-	        var htmlString = Tools.xmlserializer.serializeToString( content );
+	        
+	        //else{
+
+	            var e = Roots.e;
+	            if( event.type === 'keydown') Roots.editText( event );
+
+	            if( event.type === 'wheel' ) e.delta = event.deltaY > 0 ? 1 : -1;
+	            else e.delta = 0;
+	            
+	            e.clientX = event.clientX || 0;
+	            e.clientY = event.clientY || 0;
+	            e.type = event.type;
+
+	            if( e.type === 'mousedown' ) Roots.lock = true;
+	            if( e.type === 'mouseup' ) Roots.lock = false;//Tools.cursor(); }
+
+	            if( (e.type === 'mousemove') && (!Roots.lock) ){ 
+	                Roots.findID( e );
+	            }
+
+	            if( Roots.ID !== null ){
+
+	                if( Roots.ID.isCanvasOnly ) {
+	                    e.clientX = Roots.ID.mouse.x;
+	                    e.clientY = Roots.ID.mouse.y;
+	                }
+
+	                Roots.ID.handleEvent( e );
+
+	            }
+
+	        //}
+
+	    },
+
+	    // ----------------------
+	    //   ID
+	    // ----------------------
+
+	    findID:function ( e ) {
+
+	        var i = Roots.ui.length, next = -1, tmp;
+
+	        while( i-- ){
+
+	            tmp = Roots.ui[i];
+
+	            if( tmp.isCanvasOnly ) {
+	                if( Roots.onZone( tmp, tmp.mouse.x, tmp.mouse.y ) ){ 
+	                    next = i;
+	                    if( next !== Roots.current ){
+	                        Roots.clearOldID();
+	                        Roots.current = next;
+	                        Roots.ID = tmp;
+	                    }
+	                    break;
+	                }
+	            } else {
+
+	                if( Roots.onZone( tmp, e.clientX, e.clientY ) ){ 
+	                    next = i;
+	                    if( next !== Roots.current ){
+	                        Roots.clearOldID();
+	                        Roots.current = next;
+	                        Roots.ID = tmp;
+	                    }
+	                    break;
+	                }
+
+	            }
+	                
+	        }
+
+	        if( next === -1  ) Roots.clearOldID();
+
+	    },
+
+	    clearOldID: function(){
+
+	        if( !Roots.ID ) return;
+	        Roots.cursor();
+	        Roots.current = -1;
+	        Roots.ID.reset();
+	        Roots.ID = null;
+
+	    },
+
+
+	    // ----------------------
+	    //   GUI / GROUP FUNCTION
+	    // ----------------------
+
+
+	    calcUis: function ( uis, zone, py ) {
+
+	        var lng = uis.length, u, i, px = 0;
+
+	        for( i = 0; i < lng; i++ ){
+
+	            u = uis[i];
+
+	            u.zone.w = u.w;
+	            u.zone.h = u.h;
+
+	            if( !u.autoWidth ){
+
+	                if( px === 0 ) py += u.h+1;
+	                u.zone.y = py - u.h;
+	                u.zone.x = zone.x + px;
+	                px += u.w;
+	                if( px + u.w > zone.w ) px = 0;
+
+	            } else {
+
+	                u.zone.x = zone.x;
+	                u.zone.y = py;
+	                py += u.h + 1;
+
+	            }
+
+	            if( u.isGroup ) u.calcUis();
+
+	        }
+
+	    },
+
+
+		findTarget: function ( uis, e ){
+
+	        var i = uis.length;
+
+	        while( i-- ){
+	            if( Roots.onZone( uis[i], e.clientX, e.clientY ) ) return i;
+	        }
+
+	        return -1;
+
+	    },
+
+	    // ----------------------
+	    //   ZONE
+	    // ----------------------
+
+	    findZone: function () {
+
+	        if( !Roots.needReZone ) return;
+
+	        var i = Roots.ui.length, tmp;
+
+	        while( i-- ){ 
+
+	            tmp = Roots.ui[i];
+	            Roots.getZone( tmp );
+	            if( tmp.isGui ) tmp.calcUis();
+
+	        }
+
+	        Roots.needReZone = false;
+
+	    },
+
+	    onZone: function ( o, x, y ) {
+
+	        if( x === undefined || y === undefined ) return false;
+
+	        var z = o.zone;
+	        var mx = x - z.x;
+	        var my = y - z.y;
+
+	        var over = ( mx >= 0 ) && ( my >= 0 ) && ( mx <= z.w ) && ( my <= z.h );
+
+	        o.local = over ? { x:mx, y :my } : { x:-1, y:-1 };
+
+	        return over;
+
+	    },
+
+	    getZone: function( o ){
+
+	        if( o.isCanvasOnly ) return;
+	        var r = o.getDom().getBoundingClientRect();
+	        o.zone = { x:r.left, y:r.top, w:r.width, h:r.height };
+
+	    },
+
+	    // ----------------------
+	    //   CURSOR
+	    // ----------------------
+
+	    cursor : function ( name ) {
+
+	        name = name ? name : 'auto';
+	        if( name !== Roots.oldCursor ){
+	            document.body.style.cursor = name;
+	            Roots.oldCursor = name;
+	        }
+
+	    },
+
+	    // ----------------------
+	    //   CANVAS
+	    // ----------------------
+
+	    toCanvas: function ( o, w, h, force ) {
+
+	        if( force ) { clearTimeout(Roots.tmpTime); Roots.tmpTime = null;  }
+
+	        if( Roots.tmpTime !== null ) return;
+
+	        Roots.tmpTime = setTimeout( function(){ Roots.tmpTime = null; }, 10 );
+
+	        var isNewSize = false;
+	        if( w !== o.canvas.width || h !== o.canvas.height ) isNewSize = true;
+
+	        if( Roots.tmpImage === null ) Roots.tmpImage = new Image();
+
+	        var img = Roots.tmpImage; //new Image();
+
+	        var htmlString = Roots.xmlserializer.serializeToString( o.content );
 	        
 	        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><foreignObject style="pointer-events: none; left:0;" width="100%" height="100%">'+ htmlString +'</foreignObject></svg>';
 
 	        img.onload = function() {
 
+	            var ctx = o.canvas.getContext("2d");
+
 	            if( isNewSize ){ 
-	                canvas.width = w;
-	                canvas.height = h;
+	                o.canvas.width = w;
+	                o.canvas.height = h;
 	            }else{
 	                ctx.clearRect( 0, 0, w, h );
 	            }
-	            ctx.drawImage( this, 0, 0 );//, 0, 0, w, h );
+	            ctx.drawImage( this, 0, 0 );
 
-	            //console.log('draw')
-
-	            if( callback !== undefined ) callback();
+	            o.onDraw();
 
 	        };
 
@@ -935,9 +824,135 @@
 
 	    },
 
-	};
+	    // ----------------------
+	    //   INPUT
+	    // ----------------------
 
-	Tools.setText();
+	    /*overInput: function (){
+
+	        var input = Roots.input;
+
+	        //if(input===null) return;
+	        //if(!Tools.firstImput && Tools.callbackImput) Tools.callbackImput();
+	        //Tools.callbackImput = null;
+	        input.style.border = '1px dashed ' + Tools.colors.border;
+	        //input.contentEditable = false;
+	        //input.blur();
+	        //input = null;
+
+	    },*/
+
+	    clearInput: function (){
+
+	        if(Roots.input===null) return;
+	        if( !Roots.firstImput ) Roots.callbackImput();
+
+	        Roots.callbackImput = null;
+	        Roots.input = null;
+	        Roots.firstImput = true;
+	        //input.style.border = '1px dashed ' + Tools.colors.hide;
+	        //input.contentEditable = false;
+	        //input.blur();
+	        
+
+	    },
+
+	    setInput: function ( Input, Callback ){
+
+	        Roots.clearInput();
+
+	        
+	        Roots.callbackImput = Callback;
+	        Roots.input = Input;
+	        //Tools.input.style.border = '1px dashed ' + Tools.colors.borderSelect;
+	        //Roots.input.style.border = '1px dashed ' + Tools.colors.borderSelect;
+	        //Roots.input.contentEditable = true;
+	        //Roots.input.focus();
+	        //Roots.select( Roots.input );
+
+	    },
+
+	    select: function (){
+
+	        document.execCommand( "selectall", null, false );
+
+	    },
+
+	    editText: function ( e ){
+
+	        var input = Roots.input;
+
+	        if( input === null ) return;
+
+
+
+	        if( e.keyCode === 13 ){//enter
+
+	            Roots.callbackImput();
+	            Roots.clearInput();
+
+	        } else {
+
+	            if( input.isNum ){
+	                if ( ((e.keyCode > 95) && (e.keyCode < 106)) || e.keyCode === 110 || e.keyCode === 109 ){
+	                    if(Roots.firstImput){ input.textContent = e.key; Roots.firstImput = false; }
+	                    else input.textContent += e.key;
+	                }
+	            } else {
+	                if( Roots.firstImput ){ input.textContent = e.key; Roots.firstImput = false; }
+	                else input.textContent += e.key;
+	            }
+
+	        }
+
+	        
+
+	    },
+
+	    // ----------------------
+	    //   LISTENING
+	    // ----------------------
+
+	    loop : function(){
+
+	        if( Roots.isLoop ) requestAnimationFrame( Roots.loop );
+	        Roots.update();
+
+	    },
+
+	    update : function(){
+
+	        var i = Roots.listens.length;
+	        while(i--) Roots.listens[i].listening();
+
+	    },
+
+	    removeListen : function ( proto ){
+
+	        var id = Roots.listens.indexOf( proto );
+	        Roots.listens.splice(id, 1);
+
+	        if( Roots.listens.length === 0 ) Roots.isLoop = false;
+
+	    },
+
+	    addListen : function ( proto ){
+
+	        var id = Roots.listens.indexOf( proto );
+
+	        if( id !== -1 ) return; 
+
+	        Roots.listens.push( proto );
+
+	        if( !Roots.isLoop ){
+	            Roots.isLoop = true;
+	            Roots.loop();
+	        }
+
+	    },
+
+
+	};
 
 	/**
 	 * @author lo-th / https://github.com/lo-th
@@ -947,16 +962,16 @@
 
 	    o = o || {};
 
-	    this.type = '';
+	    this.css = Tools.css;
+	    this.colors = Tools.colors;
+
+	    //this.type = '';
 	    this.name = 'proto';
-	    this.mouse = null;
+	    //this.mouse = null;
 	    this.zone = { x:0, y:0, w:0, h:0 };
 	    this.local = { x:-1, y:-1 };
 
-	    //this.decal = 0;
-
-	    //this.actif = false;
-	    //this.over = false;
+	    this.isCanvasOnly = false;
 
 	    this.main = o.main || null;
 	    // if is on ui pannel
@@ -978,7 +993,7 @@
 	    // if need resize height
 	    this.isOpen = false;
 
-	    this.isGroup = false;
+	    //this.isGroup = false;
 	    this.parentGroup = null;
 
 	    // if height can change
@@ -987,15 +1002,13 @@
 	    // radius for toolbox
 	    this.radius = o.radius || 0;
 
-	    
-
 	    // only for number
 	    this.isNumber = false;
 
 	    // only most simple 
 	    this.mono = false;
 
-	    // stop listening for edite slide text
+	    // stop listening for edit slide text
 	    this.isEdit = false;
 
 	    // no title 
@@ -1019,7 +1032,7 @@
 	    this.val = null;
 	    this.isSend = false;
 
-	    this.isReady = false;
+	    //this.isReady = false;
 	    
 	    
 	    // Background
@@ -1057,17 +1070,16 @@
 	    this.s[0] = this.c[0].style;
 
 	    if( this.isUI ) this.s[0].marginBottom = '1px';
-	    
 
+	    // with title
 	    if( !this.simple ){ 
-	        //this.c[1] = Tools.dom('UIL text');
 	        this.c[1] = Tools.dom( 'div', Tools.css.txt );
 	        this.s[1] = this.c[1].style;
 	        this.c[1].textContent = this.rename === '' ? this.txt : this.rename;
 	        this.s[1].color = this.titleColor;
 	    }
 
-	    if(o.pos){
+	    if( o.pos ){
 	        this.s[0].position = 'absolute';
 	        for(var p in o.pos){
 	            this.s[0][p] = o.pos[p];
@@ -1088,16 +1100,14 @@
 	    // ----------------------
 	    // make de node
 	    // ----------------------
-
-	    reset:  function () {
-	    },
-
+	    
 	    init: function () {
 
 	        var s = this.s; // style cache
 	        var c = this.c; // div cache
 
 	        s[0].height = this.h + 'px';
+	        this.zone.h = this.h;
 
 	        if( this.isUI ) s[0].background = this.bg;
 
@@ -1128,61 +1138,70 @@
 
 	        this.rSize();
 
-	        //!!! solo proto
-
+	        // ! solo proto
 	        if( !this.isUI ){
 
 	            this.c[0].style.pointerEvents = 'auto';
-	            //this.c[0].addEventListener('onblur', function(){console.log('show')}, false)
-	            //this.getZone();
-	            Tools.push( this );
-	            this.isReady = false;
+	            Roots.add( this );
 	            
-	        } else {
-	            this.isReady = true;
 	        }
 
 	    },
+
+	    // TRANS FUNCTIONS
+
+	    dom: function ( type, css, obj, dom, id ) {
+
+	        return Tools.dom( type, css, obj, dom, id );
+
+	    },
+
+	    setSvg: function ( dom, type, value, id ) {
+
+	        Tools.setSvg( dom, type, value, id );
+
+	    },
+
+	    cursor: function ( name ) {
+
+	         Roots.cursor( name );
+
+	    },
+
+	    setInput : function( Input, Callback ){
+
+	        Roots.setInput( Input, Callback  );
+
+	    },
+
+	    /////////
 
 	    getDom: function () {
 	        return this.c[0];
 	    },
 
-	    /*getZone: function( y ){
-	        
-	        this.zone = Tools.zone( this.c[0], y );
-	        if( this.isGroup ) this.calcUis();
-
-	    },*/
-
 	    uiout: function () {
 
 	        this.s[0].background = this.bg;
-	        //this.main.cursor();
-	        //this.actif = false;
-	        //Tools.down = this.isUI ? this.main : null;;
 
 	    },
 
 	    uiover: function () {
 
 	        this.s[0].background = this.bgOver;
-	        //if( this.type === 'bool' ) this.main.cursor('pointer');
-	        //this.actif = true;
-	        //Tools.down = this;
 
 	    },
 
 	    rename: function ( s ) {
 
-	        this.c[1].textContent = s;
+	        if( this.c[1] !== undefined) this.c[1].textContent = s;
 
 	    },
 
 	    listen: function () {
 
-	        Tools.addListen( this );
-	        Tools.listens.push( this );
+	        Roots.addListen( this );
+	        Roots.listens.push( this );
 	        return this;
 
 	    },
@@ -1254,7 +1273,6 @@
 	    
 	    clear: function () {
 
-	        //this.clearEvent();
 	        Tools.clear( this.c[0] );
 
 	        if( this.target !== null ){ 
@@ -1286,8 +1304,8 @@
 	            this.sb = this.w - this.sa;
 	        } else {
 	            var pp = this.w * ( this.p / 100 );
-	            this.sa = ~~ pp + 10;
-	            this.sb = ~~ this.w - pp - 20;
+	            this.sa = Math.floor( pp + 10 );
+	            this.sb = Math.floor( this.w - pp - 20 );
 	        }
 
 	    },
@@ -1295,7 +1313,6 @@
 	    rSize: function () {
 
 	        if( !this.autoWidth ) return;
-
 	        this.s[0].width = this.w + 'px';
 	        if( !this.simple ) this.s[1].width = this.sa + 'px';
 	    
@@ -1330,9 +1347,7 @@
 	        }
 
 	        this.step = o.step === undefined ?  s : o.step;
-
 	        this.range = this.max - this.min;
-
 	        this.value = this.numValue( this.value );
 	        
 	    },
@@ -1343,66 +1358,26 @@
 
 	    },
 
-	    // ----------------------
-	    //   Events dispatch
-	    // ----------------------
-
-	    /*addEvent: function () {
-
-	        var i = this.c.length, j, c;
-	        while( i-- ){
-	            c = this.c[i];
-	            if( c !== undefined ){
-	                if( c.events !== undefined ){
-	                    j = c.events.length;
-	                    while( j-- ) c.addEventListener( c.events[j], this, false );
-	                }
-	            }
-	        }
-
-	    },
-
-	    clearEvent: function () {
-
-	        var i = this.c.length, j, c;
-	        while( i-- ){
-	            c = this.c[i];
-	            if( c !== undefined ){
-	                if( c.events !== undefined ){
-	                    j = c.events.length;
-	                    while( j-- ) c.removeEventListener( c.events[j], this, false );
-	                }
-	            }
-	        }
-
-	    },*/
-
-	    /*handleEvent: function ( e ) {
-
-	        e.preventDefault();
-
-	        if( this[e.type] ) this[e.type]( e );
-	        if( this.isUI ) this.main.eventCallback();
-	        
-	    },*/
 
 	    // ----------------------
 	    //   EVENTS DEFAULT
 	    // ----------------------
 
-	    mousewheel: function ( e ){},
+	    handleEvent: function ( e ){
 
-	    mousedown: function( e ){},
+	        return this[e.type](e);
+	    
+	    },
 
-	    mousemove: function( e ){},
+	    wheel: function ( e ){ return false; },
 
-	    mouseup: function( e ){},
+	    mousedown: function( e ){ return false; },
 
-	    keydown: function ( e ){},
+	    mousemove: function( e ){ return false; },
 
-	    keyup: function ( e ){},
+	    mouseup: function( e ){ return false; },
 
-	    click: function( e ){},
+	    keydown: function( e ){ return false; },
 
 
 	    // ----------------------
@@ -1420,7 +1395,7 @@
 	        
 	        v = v || false;
 	        this.s[0].display = v ? 'block' : 'none';
-	        this.isReady = v ? false : true;
+	        //this.isReady = v ? false : true;
 
 	    },
 
@@ -1442,6 +1417,10 @@
 
 	    },
 
+	    reset:  function () {
+	    
+	    },
+
 
 	};
 
@@ -1449,29 +1428,21 @@
 
 	    Proto.call( this, o );
 
-	    this.type = 'bool';
+	    //this.type = 'bool';
 
 	    this.value = o.value || false;
 
-	    this.buttonColor = o.bColor || Tools.colors.button;
+	    this.buttonColor = o.bColor || this.colors.button;
 
 	    this.inh = o.inh || this.h;
 
-	    var t = ~~ (this.h*0.5)-((this.inh-2)*0.5);
+	    var t = Math.floor(this.h*0.5)-((this.inh-2)*0.5);
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.basic + 'background:'+ Tools.colors.boolbg +'; height:'+(this.inh-2)+'px; width:36px; top:'+t+'px; border-radius:20px;  transition:0.1s ease-out;' );//pointer-events:auto; cursor:pointer;
-	    this.c[3] = Tools.dom( 'div', Tools.css.basic + 'opasity:0, background:'+ Tools.colors.boolbg +'; height:'+(this.inh-6)+'px; width:'+(this.inh-6)+'px; top:'+(t+2)+'px; border-radius:20px; ' );
-	    this.c[4] = Tools.dom( 'div', Tools.css.basic + 'border:1px solid '+this.buttonColor+'; height:'+(this.inh-4)+'px; width:16px; top:'+(t+1)+'px; border-radius:20px; background:'+this.buttonColor+'; transition:margin 0.1s ease-out;' );
-
-	    if(this.value){
-	        this.c[4].style.marginLeft = '18px';
-	        this.c[2].style.background = this.fontColor;
-	        this.c[2].style.borderColor = this.fontColor;
-	    }
-
-	    //this.c[2].events = [ 'click' ];
+	    this.c[2] = this.dom( 'div', this.css.basic + 'background:'+ this.colors.boolbg +'; height:'+(this.inh-2)+'px; width:36px; top:'+t+'px; border-radius:10px; border:2px solid '+this.boolbg );
+	    this.c[3] = this.dom( 'div', this.css.basic + 'height:'+(this.inh-6)+'px; width:16px; top:'+(t+2)+'px; border-radius:10px; background:'+this.buttonColor+';' );
 
 	    this.init();
+	    this.update();
 
 	}
 
@@ -1483,15 +1454,18 @@
 	    //   EVENTS
 	    // ----------------------
 
-	    mousemove: function( e ){
-	        Tools.cursor('pointer');
+	    mousemove: function ( e ) {
+
+	        this.cursor('pointer');
+
 	    },
 
-	    click: function( e ){
+	    mousedown: function( e ){
 
 	        this.value = this.value ? false : true;
 	        this.update();
 	        this.send();
+	        return true;
 
 	    },
 
@@ -1499,16 +1473,18 @@
 
 	        var s = this.s;
 
-	        if(this.value){
-	            s[4].marginLeft = '18px';
+	        if( this.value ){
+	            
 	            s[2].background = this.fontColor;
 	            s[2].borderColor = this.fontColor;
-	            s[4].borderColor = this.fontColor;
+	            s[3].marginLeft = '17px';
+
 	        } else {
-	            s[4].marginLeft = '0px';
-	            s[2].background = Tools.colors.boolbg;
-	            s[2].borderColor = Tools.colors.boolbg;
-	            s[4].borderColor = Tools.colors.border;
+	            
+	            s[2].background = this.colors.boolbg;
+	            s[2].borderColor = this.colors.boolbg;
+	            s[3].marginLeft = '2px';
+
 	        }
 	            
 	    },
@@ -1519,7 +1495,6 @@
 	        var s = this.s;
 	        s[2].left = this.sa + 'px';
 	        s[3].left = this.sa+1+ 'px';
-	        s[4].left = this.sa+1 + 'px';
 
 	    }
 
@@ -1534,17 +1509,17 @@
 	    this.selected = null;
 	    this.isDown = false;
 
-	    this.buttonColor = o.bColor || Tools.colors.button;
+	    this.buttonColor = o.bColor || this.colors.button;
 
 	    this.isLoadButton = o.loader || false;
 	    this.isDragButton = o.drag || false;
-	    if(this.isDragButton ) this.isLoadButton = true;
+	    if( this.isDragButton ) this.isLoadButton = true;
 
 	    this.lng = this.value.length;
 	    this.tmp = [];
 
 	    for(var i = 0; i < this.lng; i++){
-	        this.c[i+2] = Tools.dom( 'div', Tools.css.txt + 'text-align:center; top:1px; background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px; line-height:'+(this.h-4)+'px;' );
+	        this.c[i+2] = this.dom( 'div', this.css.txt + 'text-align:center; top:1px; background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px; line-height:'+(this.h-4)+'px;' );
 	        this.c[i+2].style.color = this.fontColor;
 	        this.c[i+2].innerHTML = this.value[i];
 	    }
@@ -1570,11 +1545,12 @@
 
 	    testZone: function( e ){
 
-	        if(!Tools.over( this, e.clientX, e.clientY )) return '';
+	        var l = this.local;
+	        if( l.x === -1 && l.y === -1 ) return '';
 
 	        var i = this.lng;
 	        var t = this.tmp;
-	        var l = this.local;
+	        
 
 	        while( i-- ){
 	        	if( l.x>t[i][0] && l.x<t[i][2] ) return i+2;
@@ -1586,34 +1562,28 @@
 	    //   EVENTS
 	    // ----------------------
 
-	    click: function ( e ) {
-
-	    	var name = this.testZone( e );
-	    	if(name){
-	    		this.send( this.value[name-2] );
-	    	}
-
-	    },
-
 	    mouseup: function( e ){
-	        
-	        var name = this.testZone( e );
+	    
+	        if( this.isDown ){
+	            this.isDown = false;
+	            return this.mousemove( e );
+	        }
 
-	    	if(name){
-	    		this.isDown = false;
-	    		this.mousemove( e );
-	    	}
-	        
+	        return false;
+
 	    },
 
 	    mousedown: function( e ){
 
 	    	var name = this.testZone( e );
 
-	    	if(name){
-	    		this.isDown = true;
-	    		this.mousemove( e );
-	    	}
+	        if( !name ) return false;
+
+	    	this.isDown = true;
+	        this.send( this.value[name-2] );
+	    	return this.mousemove( e );
+	 
+	        // true;
 
 	    },
 
@@ -1626,10 +1596,11 @@
 	        if(name){
 	        	this.selected = name;
 	        	this.s[ name ].color = '#FFF';
-	            this.s[ name ].background = this.isDown ? Tools.colors.down : Tools.colors.select;
-	            Tools.cursor('pointer');
+	            this.s[ name ].background = this.isDown ? this.colors.down : this.colors.select;
+	            this.cursor('pointer');
+	            return true;
 	        } else {
-	        	
+	        	return false;
 	        }
 
 	    },
@@ -1642,7 +1613,7 @@
 	    		this.s[ this.selected ].color = this.fontColor;
 	            this.s[ this.selected ].background = this.buttonColor;
 	            this.selected = null;
-	            Tools.cursor();
+	            this.cursor();
 	    	}
 
 	    },
@@ -1651,8 +1622,8 @@
 
 	    dragover: function () {
 
-	        this.s[4].borderColor = Tools.colors.select;
-	        this.s[4].color = Tools.colors.select;
+	        this.s[4].borderColor = this.colors.select;
+	        this.s[4].color = this.colors.select;
 
 	    },
 
@@ -1672,7 +1643,7 @@
 
 	    initDrager: function () {
 
-	        this.c[4] = Tools.dom( 'div', Tools.css.txt +' text-align:center; line-height:'+(this.h-8)+'px; border:1px dashed '+this.fontColor+'; top:2px;  height:'+(this.h-4)+'px; border-radius:'+this.r+'px;' );//pointer-events:auto; cursor:default;
+	        this.c[4] = this.dom( 'div', this.css.txt +' text-align:center; line-height:'+(this.h-8)+'px; border:1px dashed '+this.fontColor+'; top:2px;  height:'+(this.h-4)+'px; border-radius:'+this.r+'px;' );//pointer-events:auto; cursor:default;
 	        this.c[4].textContent = 'DRAG';
 
 	        this.c[2].events = [  ];
@@ -1683,7 +1654,7 @@
 
 	    initLoader: function () {
 
-	        this.c[3] = Tools.dom( 'input', Tools.css.basic +'border:1px solid '+Tools.colors.border+'; top:1px; opacity:0;  height:'+(this.h-2)+'px;' );//pointer-events:auto; cursor:pointer;
+	        this.c[3] = this.dom( 'input', this.css.basic +'border:1px solid '+this.colors.border+'; top:1px; opacity:0;  height:'+(this.h-2)+'px;' );//pointer-events:auto; cursor:pointer;
 	        this.c[3].name = 'loader';
 	        this.c[3].type = "file";
 
@@ -1788,30 +1759,16 @@
 	    //this.type = 'circular';
 	    this.autoWidth = false;
 
-	    this.buttonColor = Tools.colors.button;
+	    this.buttonColor = this.colors.button;
 
 	    this.setTypeNumber( o );
 
 	    this.radius = Math.floor((this.w-20)*0.5);
 
-	    /*this.radius = o.radius || 15;
-	    
-	    this.w = (this.radius*2)+20;
-
-	    if(o.width !== undefined){
-	        this.w = o.width;
-	        this.radius = ~~ (this.w-20)*0.5;
-	    }
-
-	    if(o.size !== undefined){
-	        this.w = o.size;
-	        this.radius = ~~ (this.w-20)*0.5;
-	    }*/
 
 	    this.ww = this.height = this.radius * 2;
-	    //this.h = o.height || (this.height + 40);
 
-	    this.h = (this.radius * 2)+40;
+	    this.h = this.height + 40;
 
 
 
@@ -1825,16 +1782,17 @@
 
 	        this.c[1].style.width = this.w +'px';
 	        this.c[1].style.textAlign = 'center';
+	        //this.c[1].style.textAlign = 'center';
 	        this.top = 20;
 
 	    }
 
 	    this.percent = 0;
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.txtnumber + 'text-align:center; top:'+(this.height+24)+'px; width:'+this.w+'px; color:'+ this.fontColor );
-	    this.c[3] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px; ', { cx:this.radius, cy:this.radius, r:this.radius, fill:'rgba(0,0,0,0.3)' });//pointer-events:auto; cursor:pointer;
-	    this.c[4] = Tools.dom( 'path', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { d:this.makePath(), fill:this.fontColor });
-	    this.c[5] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.radius*0.5, fill:this.buttonColor, 'stroke-width':1, stroke:Tools.colors.stroke });
+	    this.c[2] = this.dom( 'div', this.css.txt + 'text-align:center; top:'+(this.height+24)+'px; width:'+this.w+'px; color:'+ this.fontColor );
+	    this.c[3] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px; ', { cx:this.radius, cy:this.radius, r:this.radius, fill:'rgba(0,0,0,0.3)' });//pointer-events:auto; cursor:pointer;
+	    this.c[4] = this.dom( 'path', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { d:this.makePath(), fill:this.fontColor });
+	    this.c[5] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.radius*0.5, fill:this.buttonColor, 'stroke-width':1, stroke:this.colors.stroke });
 
 	    this.init();
 
@@ -1851,50 +1809,32 @@
 	        switch(mode){
 	            case 0: // base
 	                this.s[2].color = this.fontColor;
-	                Tools.setSvg( this.c[3], 'fill','rgba(0,0,0,0.2)');
-	                Tools.setSvg( this.c[4], 'fill', this.fontColor );
+	                this.setSvg( this.c[3], 'fill','rgba(0,0,0,0.2)');
+	                this.setSvg( this.c[4], 'fill', this.fontColor );
 	            break;
 	            case 1: // over
 	                this.s[2].color = this.colorPlus;
-	                Tools.setSvg( this.c[3], 'fill','rgba(0,0,0,0.6)');
-	                Tools.setSvg( this.c[4], 'fill', this.colorPlus );
+	                this.setSvg( this.c[3], 'fill','rgba(0,0,0,0.6)');
+	                this.setSvg( this.c[4], 'fill', this.colorPlus );
 	            break;
 	        }
 
+	    },
+
+
+	    reset: function() {
+	        this.mode(0);
 	    },
 
 	    // ----------------------
 	    //   EVENTS
 	    // ----------------------
 
-	    /*mouseover: function ( e ) {
-
-	        this.isOver = true;
-	        this.mode(1);
-
-	    },
-
-	    mouseout: function ( e ) {
-
-	        this.isOver = false;
-	        if(this.isDown) return;
-	        this.mode(0);
-
-	    },*/
-
-	    reset: function() {
-	        this.mode(0);
-	    },
+	    
 
 	    mouseup: function ( e ) {
 
 	        this.isDown = false;
-	        //document.removeEventListener( 'mouseup', this, false );
-	        //document.removeEventListener( 'mousemove', this, false );
-
-	        //if(this.isOver) this.mode(1);
-	        //else this.mode(0);
-
 	        this.sendEnd();
 
 	    },
@@ -1902,8 +1842,6 @@
 	    mousedown: function ( e ) {
 
 	        this.isDown = true;
-
-	        //console.log(this.zone)
 	        this.old = this.value;
 	        this.oldr = null;
 	        this.mousemove( e );
@@ -1962,7 +1900,7 @@
 
 	        this.c[2].textContent = this.value;
 	        this.percent = ( this.value - this.min ) / this.range;
-	        Tools.setSvg( this.c[4], 'd', this.makePath() );
+	        this.setSvg( this.c[4], 'd', this.makePath() );
 	        if( up ) this.send();
 	        
 	    },
@@ -1978,23 +1916,25 @@
 	    this.ctype = o.ctype || 'array';
 	    this.ww = this.sb;
 
+	    this.wfixe = this.sb;
+
+
 	    // color up or down
 	    this.side = o.side || 'down';
 	    this.holdTop = 0;
 
 	    this.decal = this.h + 2;
+
+	    this.spaceRight = Tools.size.s;
 	    
-	    this.mid = Math.floor( this.ww * 0.5 );
+	    this.mid = Math.floor( this.wfixe * 0.5 );
 	    this.baseH = this.h;
 	    this.oldH = this.h;
 	    this.oldDiff = 0;
-	    this.openHeight = 0;
 
 	    this.offset = [];
 
-
-	    //this.c[2] = Tools.dom( 'div',  Tools.css.txt + 'height:'+(this.h-4)+'px;' + 'border-radius:3px; pointer-events:auto; cursor:pointer; border:1px solid '+ Tools.colors.border + '; line-height:'+(this.h-8)+'px;' );
-	    this.c[2] = Tools.dom( 'div',  Tools.css.txt + 'height:'+(this.h-4)+'px;' + 'border-radius:'+this.radius+'px; line-height:'+(this.h-8)+'px;' );
+	    this.c[2] = this.dom( 'div',  this.css.txt + 'height:'+(this.h-4)+'px;' + 'border-radius:'+this.radius+'px; line-height:'+(this.h-8)+'px;' );
 
 	    this.s[2] = this.c[2].style;
 
@@ -2033,26 +1973,10 @@
 
 	    constructor: Color,
 
-		/*handleEvent: function( e ) {
-
-		    e.preventDefault();
-		    e.stopPropagation();
-
-		    switch( e.type ) {
-		        case 'click': this.click(e); break;
-		        case 'mousedown': this.mousedown(e); break;
-		        case 'mousemove': this.mousemove(e); break;
-		        case 'mouseup': this.mouseup(e); break;
-		        //case 'mouseout': this.mouseout(e); break;
-		    }
-
-		},*/
-
 		testZone: function( mx, my ){
 
-			if(!Tools.over( this, mx, my )) return '';
-
-	        var l = this.local;
+			var l = this.local;
+			if( l.x === -1 && l.y === -1 ) return '';
 
 	    	if( l.y < this.baseH+2 ) return 'title';
 	    	else return 'color';
@@ -2062,17 +1986,6 @@
 		// ----------------------
 	    //   EVENTS
 	    // ----------------------
-
-		click: function( e ){
-
-			var name = this.testZone( e.clientX, e.clientY );
-
-			if(name === 'title'){
-				if( !this.isOpen ) this.open();
-		        else this.close();
-			}
-
-		},
 
 		mouseup: function( e ){
 
@@ -2085,6 +1998,11 @@
 			var name = this.testZone( e.clientX, e.clientY );
 
 			//if( !name ) return;
+			if(name === 'title'){
+				if( !this.isOpen ) this.open();
+		        else this.close();
+		        return true;
+			}
 
 			if( name === 'color' ){
 				this.isDown = true;
@@ -2099,17 +2017,17 @@
 
 		    if( name === 'title' ){
 
-		        Tools.cursor('pointer');
+		        this.cursor('pointer');
 
 		    }
 
 		    if( name === 'color' ){
 
-		    	Tools.cursor('crosshair');
+		    	this.cursor('crosshair');
 
 		    	if(this.isDown){
 
-			    	this.offset[0] = this.zone.x + this.sa + this.mid;
+			    	this.offset[0] = this.zone.x + this.sa + this.mid - this.spaceRight;
 			    	this.offset[1] = this.zone.y + this.decal + this.mid;
 
 				    var pos = { x: e.clientX - this.offset[0], y: e.clientY - this.offset[1] };
@@ -2130,40 +2048,48 @@
 
 		},
 
-		changeHeight: function(){
+		setHeight: function ( ) {
 
-			this.h = this.isOpen ? this.openHeight + this.baseH : this.baseH;
-
-			if( this.oldH !== this.h ){
-				this.s[0].height = this.h + 'px';
-				if ( this.parentGroup !== null ) this.parentGroup.calc( this.h - this.oldH );
-		        else if ( this.isUI ) this.main.calc( this.h - this.oldH );
-		        this.oldH = this.h;
-		        this.zone.h = this.h;
-			}
+			this.h = this.isOpen ? this.wfixe + this.baseH + 5 : this.baseH;
+			this.s[0].height = this.h + 'px';
+			this.zone.h = this.h;
 
 		},
 
+		parentHeight: function ( t ) {
+
+			if ( this.parentGroup !== null ) this.parentGroup.calc( t );
+		    else if ( this.isUI ) this.main.calc( t );
+
+		},
 
 		open: function(){
 
-			if( this.isOpen ) return;
-	        this.isOpen = true;
+			Proto.prototype.open.call( this );
+
+			//this.h = this.openHeight + this.baseH;
+
+			this.setHeight();
+
+			var t = this.h - this.baseH;
 
 		    this.s[3].visibility = 'visible';
 		    //this.s[3].display = 'block';
-		    this.changeHeight();
+		    this.parentHeight( t );
 
 		},
 
 		close: function(){
 
-		    if( !this.isOpen ) return;
-	        this.isOpen = false;
+			Proto.prototype.close.call( this );
+
+			var t = this.h - this.baseH;
+
+			this.setHeight();
 
 		    this.s[3].visibility  = 'hidden';
 		    //this.s[3].display = 'none';
-		    this.changeHeight();
+		    this.parentHeight( -t );
 
 		},
 
@@ -2175,7 +2101,7 @@
 		    
 		    this.value = this.bcolor;
 
-		    Tools.setSvg( this.c[3], 'fill', cc, 2 );
+		    this.setSvg( this.c[3], 'fill', cc, 2 );
 
 		    this.s[2].background = this.bcolor;
 		    this.c[2].textContent = Tools.htmlToHex( this.bcolor );
@@ -2223,12 +2149,12 @@
 		    var angle = this.hsl[0] * 6.28;
 		    var ar = [Math.sin(angle) * ra, -Math.cos(angle) * ra, 2 * sr * (.5 - this.hsl[1]), 2 * sr * (.5 - this.hsl[2]) ];
 
-		    Tools.setSvg( this.c[3], 'cx', ar[2]+128, 5 );
-		    Tools.setSvg( this.c[3], 'cy', ar[3]+128, 5 );
-		    Tools.setSvg( this.c[3], 'stroke', c1, 5 );
+		    this.setSvg( this.c[3], 'cx', ar[2]+128, 5 );
+		    this.setSvg( this.c[3], 'cy', ar[3]+128, 5 );
+		    this.setSvg( this.c[3], 'stroke', c1, 5 );
 
-		    Tools.setSvg( this.c[3], 'cx', ar[0]+128, 6 );
-		    Tools.setSvg( this.c[3], 'cy', ar[1]+128, 6 );
+		    this.setSvg( this.c[3], 'cx', ar[0]+128, 6 );
+		    this.setSvg( this.c[3], 'cy', ar[1]+128, 6 );
 
 		},
 
@@ -2237,31 +2163,26 @@
 		    Proto.prototype.rSize.call( this );
 
 		    this.ww = this.sb;
-		    this.openHeight = this.ww+10;
+		    //this.openHeight = this.ww+5;///10;
 
 		    if( this.side === 'up' ) this.decal = 5;
-		    this.mid = Math.floor( this.ww * 0.5 );
+		    this.mid = Math.floor( this.wfixe * 0.5 );
 
 		    var s = this.s;
 
 		    s[2].width = this.sb + 'px';
 		    s[2].left = this.sa + 'px';
 
-		    Tools.setSvg( this.c[3], 'viewBox', '0 0 '+this.ww+' '+this.ww );
-		    //Tools.setSvg( this.c[3], 'width', this.ww );
-		    //Tools.setSvg( this.c[3], 'height', this.ww );
-
-		    s[3].width = this.ww + 'px';//'100%';//
-		    s[3].height = this.ww + 'px';//''100%';//this.ww;
-
-	    	//s[3].width = s[3].height = this.ww;
-	    	s[3].left = this.sa + 'px';
+		    this.setSvg( this.c[3], 'viewBox', '0 0 '+this.wfixe+' '+this.wfixe );
+		    s[3].width = this.wfixe + 'px';
+		    s[3].height = this.wfixe + 'px';
+	    	s[3].left = this.sa - this.spaceRight + 'px';
 		    s[3].top = this.decal + 'px';
 
-		    this.ratio = 256/this.ww;
-		    this.square = (60)*(this.ww/256);
+		    this.ratio = 256/this.wfixe;
+		    this.square = (60)*(this.wfixe/256);
 		    
-		    this.changeHeight();
+		    this.setHeight();
 		    
 		}
 
@@ -2300,21 +2221,21 @@
 
 	    var panelCss = 'display:none; left:10px; top:'+ this.h + 'px; height:'+(this.hplus - 8)+'px; background: rgba(0, 0, 0, 0.2);' + 'border:1px solid rgba(255, 255, 255, 0.2); ';
 
-	    this.c[2] = Tools.dom( 'path', Tools.css.basic + panelCss , { fill:'rgba(200,200,200,0.3)', 'stroke-width':1, stroke:this.fontColor, 'vector-effect':'non-scaling-stroke' });
+	    this.c[2] = this.dom( 'path', this.css.basic + panelCss , { fill:'rgba(200,200,200,0.3)', 'stroke-width':1, stroke:this.fontColor, 'vector-effect':'non-scaling-stroke' });
 
 	    this.c[2].setAttribute('viewBox', '0 0 '+this.res+' 42' );
 	    this.c[2].setAttribute('height', '100%' );
 	    this.c[2].setAttribute('width', '100%' );
 	    this.c[2].setAttribute('preserveAspectRatio', 'none' );
 
-	    Tools.dom( 'path', null, { fill:'rgba(255,255,0,0.3)', 'stroke-width':1, stroke:'#FF0', 'vector-effect':'non-scaling-stroke' }, this.c[2] );
-	    Tools.dom( 'path', null, { fill:'rgba(0,255,255,0.3)', 'stroke-width':1, stroke:'#0FF', 'vector-effect':'non-scaling-stroke' }, this.c[2] );
+	    this.dom( 'path', null, { fill:'rgba(255,255,0,0.3)', 'stroke-width':1, stroke:'#FF0', 'vector-effect':'non-scaling-stroke' }, this.c[2] );
+	    this.dom( 'path', null, { fill:'rgba(0,255,255,0.3)', 'stroke-width':1, stroke:'#0FF', 'vector-effect':'non-scaling-stroke' }, this.c[2] );
 
 
 	    // bottom line
-	    this.c[3] = Tools.dom( 'div', Tools.css.basic + 'width:100%; bottom:0px; height:1px; background: rgba(255, 255, 255, 0.2);');
+	    this.c[3] = this.dom( 'div', this.css.basic + 'width:100%; bottom:0px; height:1px; background: rgba(255, 255, 255, 0.2);');
 
-	    this.c[4] = Tools.dom( 'path', Tools.css.basic + 'position:absolute; width:10px; height:10px; left:4px; top:'+fltop+'px;', { d:'M 3 8 L 8 5 3 2 3 8 Z', fill:this.fontColor, stroke:'none'});
+	    this.c[4] = this.dom( 'path', this.css.basic + 'position:absolute; width:10px; height:10px; left:4px; top:'+fltop+'px;', { d:'M 3 8 L 8 5 3 2 3 8 Z', fill:this.fontColor, stroke:'none'});
 
 	    this.isShow = o.show || false;
 
@@ -2347,24 +2268,11 @@
 
 	    constructor: Fps,
 
-	    /*handleEvent: function ( e ) {
-
-	        e.preventDefault();
-
-	        switch( e.type ) {
-	            case 'click': this.click(e); break;
-	            case 'mouseover': this.mode(1); break;
-	            case 'mousedown': this.mode(2); break;
-	            case 'mouseout':  this.mode(0); break;
-	        }
-
-	    },*/
-
 	    // ----------------------
 	    //   EVENTS
 	    // ----------------------
 
-	    click: function ( e ) {
+	    mousedown: function ( e ) {
 
 	        if( this.isShow ) this.hide();
 	        else this.show();
@@ -2414,19 +2322,19 @@
 	        this.pa1.shift();
 	        this.pa1.push( 8.5 + this.round( ( 1 - (this.fps / 100)) * 30 ) );
 
-	        Tools.setSvg( svg, 'd', this.makePath( this.pa1 ), 0 );
+	        this.setSvg( svg, 'd', this.makePath( this.pa1 ), 0 );
 
 	        this.pa2.shift();
 	        this.pa2.push( 8.5 + this.round( ( 1 - (this.ms / 200)) * 30 ) );
 
-	        Tools.setSvg( svg, 'd', this.makePath( this.pa2 ), 1 );
+	        this.setSvg( svg, 'd', this.makePath( this.pa2 ), 1 );
 
 	        if ( this.isMem ) {
 
 	            this.pa3.shift();
 	            this.pa3.push( 8.5 + this.round( ( 1 - this.mm) * 30 ) );
 
-	            Tools.setSvg( svg, 'd', this.makePath( this.pa3 ), 2 );
+	            this.setSvg( svg, 'd', this.makePath( this.pa3 ), 2 );
 
 	        }
 
@@ -2436,7 +2344,7 @@
 
 	        this.h = this.hplus + this.baseH;
 
-	        Tools.setSvg( this.c[4], 'd','M 5 8 L 8 3 2 3 5 8 Z');
+	        this.setSvg( this.c[4], 'd','M 5 8 L 8 3 2 3 5 8 Z');
 
 
 	        if( this.parentGroup !== null ){ this.parentGroup.calc( this.hplus );}
@@ -2446,7 +2354,7 @@
 	        this.s[2].display = 'block'; 
 	        this.isShow = true;
 
-	        Tools.addListen( this );
+	        Roots.addListen( this );
 
 	    },
 
@@ -2454,7 +2362,7 @@
 
 	        this.h = this.baseH;
 
-	        Tools.setSvg( this.c[4], 'd','M 3 8 L 8 5 3 2 3 8 Z');
+	        this.setSvg( this.c[4], 'd','M 3 8 L 8 5 3 2 3 8 Z');
 
 	        if( this.parentGroup !== null ){ this.parentGroup.calc( -this.hplus );}
 	        else if( this.isUI ) this.main.calc( -this.hplus );
@@ -2463,7 +2371,7 @@
 	        this.s[2].display = 'none';
 	        this.isShow = false;
 
-	        Tools.removeListen( this );
+	        Roots.removeListen( this );
 	        this.c[1].textContent = 'FPS';
 	        
 	    },
@@ -2536,7 +2444,7 @@
 	    Proto.call( this, o );
 
 	    this.autoHeight = true;
-	    this.isGroup = true;
+	    //this.isGroup = true;
 
 	    this.current = -1;
 	    this.target = null;
@@ -2589,75 +2497,39 @@
 
 	    constructor: Group,
 
-	    testZone: function( mx, my ){
+	    isGroup: true,
 
-	        if( Tools.lock ) return;
-
-	        //this.decal = this.isUI ? this.main.decal : 0;
-	        //my+=this.decal;
-
-	        if(!Tools.over( this, mx, my )) return '';
-
-
-
-	        //this.unSelected();
+	    testZone: function( e ){
 
 	        var l = this.local;
-	        var next = -1;
+	        if( l.x === -1 && l.y === -1 ) return '';
 
+	        var name = '';
 
-
-	        if( l.y < this.baseH+2 ) return 'title';
-	        else{
-	            if( this.isOpen ){
-	                if( l.y > this.baseH+2 ){
-
-	                    next = this.findID( mx, my );
-	                    if( next !== this.current ){
-
-	                        this.clearTarget();
-	                        this.current = next;
-
-	                    }
-
-	                    if( next !== -1 ){ 
-	                        this.target = this.uis[this.current];
-	                        this.target.uiover();
-	                    }/* else {
-	                        this.target = null;
-	                    }*/
-
-	                    return 'content';
-	                }
-	                return '';
-	            }
-
+	        if( l.y < this.baseH ) name = 'title';
+	        else {
+	            if( this.isOpen ) name = 'content';
 	        }
+
+	        return name;
 
 	    },
 
 	    clearTarget: function (){
 
-	        if(!this.target) return;
+	        if( this.current === -1 ) return false;
+
+	       // if(!this.target) return;
 	        this.target.uiout();
 	        this.target.reset();
+	        this.current = -1;
 	        this.target = null;
+	        Roots.cursor();
+	        return true;
 
 	    },
 
-	    findID: function ( mx, my ){
-
-	        var i = this.uis.length;
-
-	        while( i-- ){
-	            if( Tools.over( this.uis[i], mx, my ) ) return i;
-	        }
-
-	        return -1;
-
-	    },
-
-	    reset: function(noC){
+	    reset: function () {
 
 	        this.clearTarget();
 
@@ -2667,45 +2539,61 @@
 	    //   EVENTS
 	    // ----------------------
 
-	    click: function ( e ) {
+	    handleEvent: function ( e ){
 
-	        if(this.target) this.target.click( e );
-	        var name = this.testZone( e.clientX, e.clientY );
+	        var type = e.type;
 
-	        //if(e.clientY > this.zone.y+this.baseH ) return;
-	        if( name === 'title' ){
-	            if( this.isOpen ) this.close();
-	            else this.open();
+	        var change = false;
+	        var targetChange = false;
+
+	        var name = this.testZone( e );
+
+	        if( !name ) return;
+
+	        switch( name ){
+
+	            case 'content':
+
+	            if( this.target ) targetChange = this.target.handleEvent( e );
+
+	            //if( type === 'mousemove' ) change = this.styles('def');
+
+	            if( !Roots.lock ){
+
+	                //var next = this.findID( e );
+	                var next = Roots.findTarget( this.uis, e );
+
+	                if( next !== this.current ){
+	                    this.clearTarget();
+	                    this.current = next;
+	                    change = true;
+	                }
+
+	                if( next !== -1 ){ 
+	                    this.target = this.uis[this.current];
+	                    this.target.uiover();
+	                   // this.target.handleEvent( e );
+	                }
+
+	            }
+
+	            break;
+	            case 'title':
+	            if( type === 'mousedown' ){
+	                if( this.isOpen ) this.close();
+	                else this.open();
+	            }
+	            break;
+
+
 	        }
 
-	    },
+	        if( this.isDown ) change = true;
+	        if( targetChange ) change = true;
 
-	    mousedown: function( e ){
-
-	        if(this.target) this.target.mousedown( e );
-	        //var name = this.testZone( e.clientX, e.clientY );
-	        
+	        return change;
 
 	    },
-
-	    mousemove: function( e ){
-
-	        //if(this.decal) e.clientY+=this.decal;
-
-	        if(this.target) this.target.mousemove( e );
-	        var name = this.testZone( e.clientX, e.clientY );
-
-	        if( name === 'title' ) this.reset();
-
-	    },
-
-	    mouseup: function( e ){
-
-	        if(this.target) this.target.mouseup( e );
-
-	    },
-
-
 
 	    // ----------------------
 
@@ -2737,45 +2625,12 @@
 
 	        if( !this.isOpen ) return;
 
-	        Tools.calcUis( this.uis, this.zone, this.zone.y + this.baseH );
+	        Roots.calcUis( this.uis, this.zone, this.zone.y + this.baseH );
 
-	        /*var lng = this.uis.length, u, i, py = this.zone.y + this.baseH, px = 0;
-
-	        for( i = 0; i < lng; i++){
-
-	            u = this.uis[i];
-
-	            u.zone.w = u.w;
-	            u.zone.h = u.h;
-
-	            if( !u.autoWidth ){
-	                if(px===0) py += u.h+1;
-	                u.zone.y = py-u.h;
-	                u.zone.x = this.zone.x + px;
-	                px += u.w;
-
-	                if(px+u.w>this.w) px = 0
-
-	            } else {
-	                u.zone.x = this.zone.x;
-	                u.zone.y = py;
-	                py += u.h + 1;
-	            }
-	            
-	            
-
-	        }*/
+	        //console.log('group calcuis')
 
 	    },
 
-	    /*calcUis: function () {
-
-	        var i = this.uis.length;
-	        while(i--){
-	            this.uis[i].getZone();
-	        }
-
-	    },*/
 
 	    setBG: function ( c ) {
 
@@ -2814,6 +2669,13 @@
 
 	    },
 
+	    parentHeight: function ( t ) {
+
+	        if ( this.parentGroup !== null ) this.parentGroup.calc( t );
+	        else if ( this.isUI ) this.main.calc( t );
+
+	    },
+
 	    open: function () {
 
 	        Proto.prototype.open.call( this );
@@ -2822,10 +2684,9 @@
 	        //this.s[4].background = UIL.F1;
 	        this.rSizeContent();
 
+	        var t = this.h - this.baseH;
 
-
-	        if( this.isUI ) this.main.calc( this.h - this.baseH );
-	        //console.log('open', this.h - this.baseH)
+	        this.parentHeight( t );
 
 	    },
 
@@ -2833,11 +2694,13 @@
 
 	        Proto.prototype.close.call( this );
 
-	        if( this.isUI ) this.main.calc( -( this.h - this.baseH ) );
+	        var t = this.h - this.baseH;
 
 	        Tools.setSvg( this.c[4], 'd','M 3 8 L 8 5 3 2 3 8 Z');
 	        this.h = this.baseH;
 	        this.s[0].height = this.h + 'px';
+
+	        this.parentHeight( -t );
 
 	    },
 
@@ -2930,19 +2793,6 @@
 
 	    this.radius = Math.floor((this.w-20)*0.5);
 
-	    /*this.radius = o.radius || 50;
-
-	    this.w = (this.radius*2)+20;
-
-	    if(o.width !== undefined){
-	        this.w = o.width;
-	        this.radius = ~~ (( this.w-20 )*0.5);
-	    }
-	    if(o.size !== undefined){
-	        this.w = o.size;
-	        this.radius = ~~ (this.w-20)*0.5;
-	    }*/
-
 	    this.innerRadius = o.innerRadius || this.radius*0.6;
 	    this.maxDistance = this.radius - this.innerRadius - 5;
 	    this.height = this.radius*2;
@@ -2960,26 +2810,26 @@
 
 	    }
 
-	    this.c[2] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.w+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.radius, fill:'url(#grad)' });
-	    this.c[3] = Tools.dom( 'circle', Tools.css.basic + 'left:0px; top:'+(this.top-10)+'px; width:'+(this.w+20)+'px; height:'+(this.height+20)+'px;', { cx:this.radius+10, cy:this.radius+10, r:this.innerRadius+10, fill:'url(#gradS)'});
-	    this.c[4] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.w+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.innerRadius, fill:'url(#gradIn)', 'stroke-width':1, stroke:'#000'  });
-	    this.c[5] = Tools.dom( 'div', Tools.css.txt + 'text-align:center; top:'+(this.height+20)+'px; width:'+this.w+'px; color:'+ this.fontColor );
+	    this.c[2] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.w+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.radius, fill:'url(#grad)' });
+	    this.c[3] = this.dom( 'circle', this.css.basic + 'left:0px; top:'+(this.top-10)+'px; width:'+(this.w+20)+'px; height:'+(this.height+20)+'px;', { cx:this.radius+10, cy:this.radius+10, r:this.innerRadius+10, fill:'url(#gradS)'});
+	    this.c[4] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.w+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius, r:this.innerRadius, fill:'url(#gradIn)', 'stroke-width':1, stroke:'#000'  });
+	    this.c[5] = this.dom( 'div', this.css.txt + 'text-align:center; top:'+(this.height+20)+'px; width:'+this.w+'px; color:'+ this.fontColor );
 
 	    // gradian bakground
 	    var svg = this.c[2];
-	    Tools.dom( 'defs', null, {}, svg );
-	    Tools.dom( 'radialGradient', null, {id:'grad', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
-	    Tools.dom( 'stop', null, { offset:'40%', style:'stop-color:rgb(0,0,0); stop-opacity:0.3;' }, svg, [1,0] );
-	    Tools.dom( 'stop', null, { offset:'80%', style:'stop-color:rgb(0,0,0); stop-opacity:0;' }, svg, [1,0] );
-	    Tools.dom( 'stop', null, { offset:'90%', style:'stop-color:rgb(50,50,50); stop-opacity:0.4;' }, svg, [1,0] );
-	    Tools.dom( 'stop', null, { offset:'100%', style:'stop-color:rgb(50,50,50); stop-opacity:0;' }, svg, [1,0] );
+	    this.dom( 'defs', null, {}, svg );
+	    this.dom( 'radialGradient', null, {id:'grad', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
+	    this.dom( 'stop', null, { offset:'40%', style:'stop-color:rgb(0,0,0); stop-opacity:0.3;' }, svg, [1,0] );
+	    this.dom( 'stop', null, { offset:'80%', style:'stop-color:rgb(0,0,0); stop-opacity:0;' }, svg, [1,0] );
+	    this.dom( 'stop', null, { offset:'90%', style:'stop-color:rgb(50,50,50); stop-opacity:0.4;' }, svg, [1,0] );
+	    this.dom( 'stop', null, { offset:'100%', style:'stop-color:rgb(50,50,50); stop-opacity:0;' }, svg, [1,0] );
 
 	    // gradian shadow
 	    svg = this.c[3];
-	    Tools.dom( 'defs', null, {}, svg );
-	    Tools.dom( 'radialGradient', null, {id:'gradS', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
-	    Tools.dom( 'stop', null, { offset:'60%', style:'stop-color:rgb(0,0,0); stop-opacity:0.5;' }, svg, [1,0] );
-	    Tools.dom( 'stop', null, { offset:'100%', style:'stop-color:rgb(0,0,0); stop-opacity:0;' }, svg, [1,0] );
+	    this.dom( 'defs', null, {}, svg );
+	    this.dom( 'radialGradient', null, {id:'gradS', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
+	    this.dom( 'stop', null, { offset:'60%', style:'stop-color:rgb(0,0,0); stop-opacity:0.5;' }, svg, [1,0] );
+	    this.dom( 'stop', null, { offset:'100%', style:'stop-color:rgb(0,0,0); stop-opacity:0;' }, svg, [1,0] );
 
 	    // gradian stick
 
@@ -2987,20 +2837,18 @@
 	    var cc1 = ['rgb(1,90,197)', 'rgb(3,95,207)', 'rgb(0,65,167)'];
 
 	    svg = this.c[4];
-	    Tools.dom( 'defs', null, {}, svg );
-	    Tools.dom( 'radialGradient', null, {id:'gradIn', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
-	    Tools.dom( 'stop', null, { offset:'30%', style:'stop-color:'+cc0[0]+'; stop-opacity:1;' }, svg, [1,0] );
-	    Tools.dom( 'stop', null, { offset:'60%', style:'stop-color:'+cc0[1]+'; stop-opacity:1;' }, svg, [1,0]  );
-	    Tools.dom( 'stop', null, { offset:'80%', style:'stop-color:'+cc0[1]+'; stop-opacity:1;' }, svg, [1,0]  );
-	    Tools.dom( 'stop', null, { offset:'100%', style:'stop-color:'+cc0[2]+'; stop-opacity:1;' }, svg, [1,0]  );
+	    this.dom( 'defs', null, {}, svg );
+	    this.dom( 'radialGradient', null, {id:'gradIn', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, 1 );
+	    this.dom( 'stop', null, { offset:'30%', style:'stop-color:'+cc0[0]+'; stop-opacity:1;' }, svg, [1,0] );
+	    this.dom( 'stop', null, { offset:'60%', style:'stop-color:'+cc0[1]+'; stop-opacity:1;' }, svg, [1,0]  );
+	    this.dom( 'stop', null, { offset:'80%', style:'stop-color:'+cc0[1]+'; stop-opacity:1;' }, svg, [1,0]  );
+	    this.dom( 'stop', null, { offset:'100%', style:'stop-color:'+cc0[2]+'; stop-opacity:1;' }, svg, [1,0]  );
 
-	    Tools.dom( 'radialGradient', null, {id:'gradIn2', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, this.c[4], 1 );
-	    Tools.dom( 'stop', null, { offset:'30%', style:'stop-color:'+cc1[0]+'; stop-opacity:1;' }, svg, [1,1]  );
-	    Tools.dom( 'stop', null, { offset:'60%', style:'stop-color:'+cc1[1]+'; stop-opacity:1;' }, svg, [1,1] );
-	    Tools.dom( 'stop', null, { offset:'80%', style:'stop-color:'+cc1[1]+'; stop-opacity:1;' }, svg, [1,1] );
-	    Tools.dom( 'stop', null, { offset:'100%', style:'stop-color:'+cc1[2]+'; stop-opacity:1;' }, svg, [1,1] );
-
-	    //console.log( this.c[4] )
+	    this.dom( 'radialGradient', null, {id:'gradIn2', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, this.c[4], 1 );
+	    this.dom( 'stop', null, { offset:'30%', style:'stop-color:'+cc1[0]+'; stop-opacity:1;' }, svg, [1,1]  );
+	    this.dom( 'stop', null, { offset:'60%', style:'stop-color:'+cc1[1]+'; stop-opacity:1;' }, svg, [1,1] );
+	    this.dom( 'stop', null, { offset:'80%', style:'stop-color:'+cc1[1]+'; stop-opacity:1;' }, svg, [1,1] );
+	    this.dom( 'stop', null, { offset:'100%', style:'stop-color:'+cc1[2]+'; stop-opacity:1;' }, svg, [1,1] );
 
 	    this.c[5].textContent = 'x'+ this.value[0] +' y' + this.value[1];
 
@@ -3017,12 +2865,12 @@
 
 	        switch(mode){
 	            case 0: // base
-	                Tools.setSvg( this.c[4], 'fill','url(#gradIn)');
-	                Tools.setSvg( this.c[4], 'stroke', '#000' );
+	                this.setSvg( this.c[4], 'fill','url(#gradIn)');
+	                this.setSvg( this.c[4], 'stroke', '#000' );
 	            break;
 	            case 1: // over
-	                Tools.setSvg( this.c[4], 'fill', 'url(#gradIn2)' );
-	                Tools.setSvg( this.c[4], 'stroke', 'rgba(0,0,0,0)' );
+	                this.setSvg( this.c[4], 'fill', 'url(#gradIn2)' );
+	                this.setSvg( this.c[4], 'stroke', 'rgba(0,0,0,0)' );
 	            break;
 	            case 2: // edit
 	            break;
@@ -3128,10 +2976,10 @@
 	        var sx = x + ((1-this.x)*5) + 5;
 	        var sy = y + ((1-this.y)*5) + 10;
 
-	        Tools.setSvg( this.c[3], 'cx', sx );
-	        Tools.setSvg( this.c[3], 'cy', sy );
-	        Tools.setSvg( this.c[4], 'cx', x );
-	        Tools.setSvg( this.c[4], 'cy', y );
+	        this.setSvg( this.c[3], 'cx', sx );
+	        this.setSvg( this.c[3], 'cy', sy );
+	        this.setSvg( this.c[4], 'cx', x );
+	        this.setSvg( this.c[4], 'cy', y );
 
 	        this.oldx = this.x;
 	        this.oldy = this.y;
@@ -3151,7 +2999,7 @@
 
 	    this.autoWidth = false;
 
-	    this.buttonColor = Tools.colors.button;
+	    this.buttonColor = this.colors.button;
 
 	    this.setTypeNumber( o );
 
@@ -3177,12 +3025,12 @@
 
 	    this.percent = 0;
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.txtnumber + 'text-align:center; top:'+(this.height+24)+'px; width:'+this.w+'px; color:'+ this.fontColor );
-	    this.c[3] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px; ', { cx:this.radius, cy:this.radius, r:this.radius-4, fill:'rgba(0,0,0,0.3)' });
-	    this.c[4] = Tools.dom( 'circle', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius*0.5, r:3, fill:this.fontColor });
-	    this.c[5] = Tools.dom( 'path', Tools.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { d:this.makeGrad(), 'stroke-width':1, stroke:Tools.colors.stroke });
+	    this.c[2] = this.dom( 'div', this.css.txt + 'text-align:center; top:'+(this.height+24)+'px; width:'+this.w+'px; color:'+ this.fontColor );
+	    this.c[3] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px; ', { cx:this.radius, cy:this.radius, r:this.radius-4, fill:'rgba(0,0,0,0.3)' });
+	    this.c[4] = this.dom( 'circle', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { cx:this.radius, cy:this.radius*0.5, r:3, fill:this.fontColor });
+	    this.c[5] = this.dom( 'path', this.css.basic + 'left:10px; top:'+this.top+'px; width:'+this.ww+'px; height:'+this.height+'px;', { d:this.makeGrad(), 'stroke-width':1, stroke:this.colors.stroke });
 	    
-	    Tools.dom( 'circle', null, { cx:this.radius, cy:this.radius, r:this.radius*0.7, fill:this.buttonColor, 'stroke-width':1, stroke:Tools.colors.stroke }, this.c[3] );
+	    this.dom( 'circle', null, { cx:this.radius, cy:this.radius, r:this.radius*0.7, fill:this.buttonColor, 'stroke-width':1, stroke:this.colors.stroke }, this.c[3] );
 
 	    this.r = 0;
 
@@ -3263,7 +3111,7 @@
 
 	        var r = ( (this.percent * this.cirRange) - (this.mPI)) * this.toDeg;
 
-	        Tools.setSvg( this.c[4], 'transform', 'rotate('+ r +' '+this.radius+' '+this.radius+')' );
+	        this.setSvg( this.c[4], 'transform', 'rotate('+ r +' '+this.radius+' '+this.radius+')' );
 
 	        if( up ) this.send();
 	        
@@ -3281,29 +3129,26 @@
 	    this.sMode = 0;
 	    this.tMode = 0;
 
-	    this.buttonColor = o.bColor || Tools.colors.button;
+	    this.buttonColor = o.bColor || this.colors.button;
 
 	    var fltop = Math.floor(this.h*0.5)-5;
 
-	    //this.c[2] = Tools.dom( 'div', Tools.css.basic + 'top:0; height:90px; cursor:s-resize; pointer-events:auto; display:none; overflow:hidden; border:1px solid '+Tools.colors.border+';' );
-	    //this.c[3] = Tools.dom( 'div', Tools.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; border:1px solid '+Tools.colors.border+'; top:1px; pointer-events:auto; cursor:pointer; background:'+this.buttonColor+'; height:'+(this.h-2)+'px;' );
+	    this.c[2] = this.dom( 'div', this.css.basic + 'top:0; display:none;' );
+	    this.c[3] = this.dom( 'div', this.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px;  background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );
+	    this.c[4] = this.dom( 'path', this.css.basic + 'position:absolute; width:10px; height:10px; top:'+fltop+'px;', { d:'M 3 8 L 8 5 3 2 3 8 Z', fill:this.fontColor, stroke:'none'});
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.basic + 'top:0; height:90px;  display:none; overflow:hidden;' );//cursor:s-resize; pointer-events:auto;
-	    this.c[3] = Tools.dom( 'div', Tools.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px;  background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );//pointer-events:auto; cursor:pointer;
-	    this.c[4] = Tools.dom( 'path', Tools.css.basic + 'position:absolute; width:10px; height:10px; top:'+fltop+'px;', { d:'M 3 8 L 8 5 3 2 3 8 Z', fill:this.fontColor, stroke:'none'});
-
-	    this.scroller = Tools.dom( 'div', Tools.css.basic + 'right:5px;  width:10px; background:#666; display:none;');
+	    this.scroller = this.dom( 'div', this.css.basic + 'right:5px;  width:10px; background:#666; display:none;');
 
 	    this.c[3].style.color = this.fontColor;
 
 	    this.list = o.list || [];
 	    this.items = [];
 
+	    this.prevName = '';
+
 	    this.baseH = this.h;
 
-	    //this.maxItem = o.maxItem || 5;
 	    this.itemHeight = o.itemHeight || (this.h-3);
-	    //this.length = this.list.length;
 
 	    // force full list 
 	    this.full = o.full || false;
@@ -3336,7 +3181,7 @@
 	        //this.c[6].style.top = this.h + 'px';
 	    }
 
-	    this.listIn = Tools.dom( 'div', Tools.css.basic + 'left:0; top:0; width:100%; background:rgba(0,0,0,0.2);');
+	    this.listIn = this.dom( 'div', this.css.basic + 'left:0; top:0; width:100%; background:rgba(0,0,0,0.2);');
 	    this.listIn.name = 'list';
 
 	    this.topList = 0;
@@ -3362,11 +3207,10 @@
 
 	    testZone: function( e ){
 
-	        if(!Tools.over( this, e.clientX, e.clientY )) return '';
+	        var l = this.local;
+	        if( l.x === -1 && l.y === -1 ) return '';
 
 	        this.unSelected();
-
-	        var l = this.local;
 
 	        if( l.y < this.baseH+2 ) return 'title';
 	        else{
@@ -3390,7 +3234,7 @@
 	            a = item.posy + this.topList;
 	            b = item.posy + this.itemHeight + 1 + this.topList;
 	            if((y>=a) && (y<=b)){ 
-	                name = 'item';
+	                name = 'item' + i;
 	                this.currentItem = item;
 	                this.selected();
 	                return name;
@@ -3406,7 +3250,7 @@
 
 	        if( this.currentItem ){
 	            this.currentItem.style.background = 'rgba(0,0,0,0.2)';
-	            this.currentItem.style.color = Tools.colors.text;
+	            this.currentItem.style.color = this.colors.text;
 	            this.currentItem = null;
 	        }
 
@@ -3414,7 +3258,7 @@
 
 	    selected: function(){
 
-	        this.currentItem.style.background = Tools.colors.select;
+	        this.currentItem.style.background = this.colors.select;
 	        this.currentItem.style.color = '#FFF';
 
 	    },
@@ -3422,23 +3266,6 @@
 	    // ----------------------
 	    //   EVENTS
 	    // ----------------------
-
-	    click: function( e ){
-
-	        var name = this.testZone( e );
-
-	        if(name === 'title'){
-	            if( !this.isOpen ) this.open();
-	            else this.close();
-	        }
-	        if(this.currentItem){
-	            this.value = this.currentItem.textContent;//name;
-	            this.c[3].textContent = this.value;
-	            this.send();
-	            this.close();
-	        }
-
-	    },
 
 	    mouseup: function( e ){
 
@@ -3450,41 +3277,44 @@
 
 	        var name = this.testZone( e );
 
-	        if( !name ) return;
+	        if( !name ) return  false;
 
-	        if(name === 'title'){
+	        if( this.currentItem ){
+	            this.value = this.currentItem.textContent;
+	            this.c[3].textContent = this.value;
+	            this.send();
+	            this.close();
+	        }
+
+	        if( name === 'title' ){
 	            this.modeTitle(2);
+	            if( !this.isOpen ) this.open();
+	            else this.close();
 	        }
 
 	        if( name === 'scroll' ){
 	            this.isDown = true;
 	            this.mousemove( e );
-
 	        }
+	        
+	        return true;
 
 	    },
 
 	    mousemove: function( e ){
 
+	        var nup = false;
 	        var name = this.testZone( e );
 
-	        if( !name ) return;
+	        if( !name ) return nup;
 
 	        if( name === 'title' ){
 	            this.modeTitle(1);
-	            Tools.cursor('pointer');
+	            this.cursor('pointer');
 
-	        }
+	        } else if( name === 'scroll' ){
 
-	        if( name === 'item' ){
-	            this.modeTitle(0);
-	            this.modeScroll(0);
-	            Tools.cursor('pointer');
-	        }
-
-	        if( name === 'scroll' ){
-
-	            Tools.cursor('s-resize');
+	            this.cursor('s-resize');
 	            this.modeScroll(1);
 	            if( this.isDown ){
 	                this.modeScroll(2);
@@ -3492,30 +3322,29 @@
 	                this.update( ( e.clientY - top  ) - ( this.sh*0.5 ) );
 	            }
 	            //if(this.isDown) this.listmove(e);
+	        } else {
 
+	            // is item
+	            this.modeTitle(0);
+	            this.modeScroll(0);
+	            this.cursor('pointer');
+	        
+	        }
 
-	        }/*else{
-	            
-	        }*/
+	        if( name !== this.prevName ) nup = true;
+	        this.prevName = name;
 
-	        //console.log(name)
+	        return nup;
 
 	    },
 
-	    mousewheel: function( e ){
+	    wheel: function( e ){
 
-	        /*
-	        if( !this.scroll ) return;
-	        if( this.isUI ) this.main.lockwheel = true;
-	        var delta = 0;
-	        if( e.wheelDeltaY ) delta = -e.wheelDeltaY*0.04;
-	        else if( e.wheelDelta ) delta = -e.wheelDelta*0.2;
-	        else if( e.detail ) delta = e.detail*4.0;
-
-	        this.py += delta;
-
+	        var name = this.testZone( e );
+	        if( name === 'title' ) return false; 
+	        this.py += e.delta*10;
 	        this.update(this.py);
-	        */
+	        return true;
 
 	    },
 
@@ -3525,6 +3354,7 @@
 
 	    reset: function () {
 
+	        this.prevName = '';
 	        this.modeTitle(0);
 	        this.modeScroll(0);
 	        
@@ -3539,10 +3369,10 @@
 	                this.scroller.style.background = this.buttonColor;
 	            break;
 	            case 1: // over
-	                this.scroller.style.background = Tools.colors.select;
+	                this.scroller.style.background = this.colors.select;
 	            break;
 	            case 2: // edit / down
-	                this.scroller.style.background = Tools.colors.down;
+	                this.scroller.style.background = this.colors.down;
 	            break;
 
 	        }
@@ -3563,11 +3393,11 @@
 	            break;
 	            case 1: // over
 	                s[3].color = '#FFF';
-	                s[3].background = Tools.colors.select;
+	                s[3].background = this.colors.select;
 	            break;
 	            case 2: // edit / down
 	                s[3].color = this.fontColor;
-	                s[3].background = Tools.colors.down;
+	                s[3].background = this.colors.down;
 	            break;
 
 	        }
@@ -3611,7 +3441,7 @@
 	        var item, n;//, l = this.sb;
 	        for( var i=0; i<this.length; i++ ){
 	            n = this.list[i];
-	            item = Tools.dom( 'div', Tools.css.item + 'width:'+this.ww+'px; height:'+this.itemHeight+'px; line-height:'+(this.itemHeight-5)+'px;');
+	            item = this.dom( 'div', this.css.item + 'width:'+this.ww+'px; height:'+this.itemHeight+'px; line-height:'+(this.itemHeight-5)+'px;');
 	            item.textContent = n;
 	            item.style.color = this.fontColor;
 	            item.name = 'item'+i;
@@ -3650,6 +3480,13 @@
 
 	    },
 
+	    parentHeight: function ( t ) {
+
+	        if ( this.parentGroup !== null ) this.parentGroup.calc( t );
+	        else if ( this.isUI ) this.main.calc( t );
+
+	    },
+
 	    open: function(){
 
 	        Proto.prototype.open.call( this );
@@ -3665,8 +3502,8 @@
 	        }
 	        this.s[0].height = this.h + 'px';
 	        this.s[2].display = 'block';
-	        if( this.side === 'up' ) Tools.setSvg( this.c[4], 'd','M 5 2 L 2 7 8 7 5 2 Z');
-	        else Tools.setSvg( this.c[4], 'd','M 5 8 L 8 3 2 3 5 8 Z');
+	        if( this.side === 'up' ) this.setSvg( this.c[4], 'd','M 5 2 L 2 7 8 7 5 2 Z');
+	        else this.setSvg( this.c[4], 'd','M 5 8 L 8 3 2 3 5 8 Z');
 
 	        this.rSizeContent();
 
@@ -3674,8 +3511,7 @@
 
 	        this.zone.h = this.h;
 
-	        if( this.parentGroup !== null ) this.parentGroup.calc( t );
-	        else if( this.isUI ) this.main.calc( t );
+	        this.parentHeight( t );
 
 	    },
 
@@ -3685,15 +3521,15 @@
 
 	        var t = this.h - this.baseH;
 
-	        if( this.parentGroup !== null ) this.parentGroup.calc( -t );
-	        else if( this.isUI ) this.main.calc( -t );
-
 	        this.h = this.baseH;
 	        this.s[0].height = this.h + 'px';
 	        this.s[2].display = 'none';
-	        Tools.setSvg( this.c[4], 'd','M 3 8 L 8 5 3 2 3 8 Z');
+	        this.setSvg( this.c[4], 'd','M 3 8 L 8 5 3 2 3 8 Z');
+
 	        this.zone.h = this.h;
-	        
+
+	        this.parentHeight( -t );
+
 	    },
 
 	    // -----
@@ -3727,12 +3563,8 @@
 
 	        s[4].left = d + w - 17 + 'px';
 
-	        //s[5].width = w + 'px';
-	        //s[5].left = d + 'px';
-
 	        this.ww = w;
 	        if( this.max > this.maxHeight ) this.ww = w-20;
-
 	        if(this.isOpen) this.rSizeContent();
 
 	    }
@@ -3743,19 +3575,20 @@
 
 	    Proto.call( this, o );
 
-	    this.type = 'number';
+	    //this.type = 'number';
 
 	    this.setTypeNumber( o );
 
-	    this.allway = o.allway || false;
-	    this.isDrag = o.drag === undefined ? true : o.drag;
+	    //this.allway = o.allway || false;
+
+	    this.isDown = false;
 
 	    this.value = [0];
 	    this.toRad = 1;
 	    this.isNumber = true;
 	    this.isAngle = false;
 	    this.isVector = false;
-	    this.isSelect = false;
+	    //this.isSelect = false;
 
 	    if( o.value !== undefined ){
 	        if(!isNaN(o.value)){ this.value = [o.value];}
@@ -3778,22 +3611,21 @@
 	        this.toRad = Math.PI/180;
 	    }
 
-	    //this.w = ((Tools.base.BW+5)/(this.lng))-5;
-	    this.current = undefined;
-	    this.selected = null;
+	    this.current = -1;
+	    this.prev = { x:0, y:0, d:0, v:0 };
+
+	    this.cMode = [];
 	    
 	    var i = this.lng;
 	    while(i--){
 	        if(this.isAngle) this.value[i] = (this.value[i] * 180 / Math.PI).toFixed( this.precision );
-	        this.c[2+i] = Tools.dom( 'div', Tools.css.txtselect + 'letter-spacing:-1px; height:'+(this.h-4)+'px; line-height:'+(this.h-8)+'px;');
-	        //this.c[2+i].name = i;
-	        if(this.isDrag) this.c[2+i].style.cursor = 'move';
+	        this.c[2+i] = this.dom( 'div', this.css.txtselect + 'letter-spacing:-1px; height:'+(this.h-4)+'px; line-height:'+(this.h-8)+'px;');
 	        if(o.center) this.c[2+i].style.textAlign = 'center';
-
 	        this.c[2+i].textContent = this.value[i];
 	        this.c[2+i].style.color = this.fontColor;
-	        //this.c[2+i].contentEditable = true;
-	       // this.c[2+i].events = [ 'keydown', 'keyup', 'mousedown', 'blur', 'focus' ]; //'click', 
+	        this.c[2+i].isNum = true;
+
+	        this.cMode[i] = 0;
 
 	    }
 
@@ -3806,15 +3638,40 @@
 
 	    testZone: function( e ){
 
-	        if(!Tools.over( this, e.clientX, e.clientY )) return '';
+	        var l = this.local;
+	        if( l.x === -1 && l.y === -1 ) return '';
 
 	        var i = this.lng;
 	        var t = this.tmp;
-	        var l = this.local;
+	        
 
 	        while( i-- ){
-	            if( l.x>t[i][0] && l.x<t[i][2] ) return i;//+2;
+	            if( l.x>t[i][0] && l.x<t[i][2] ) return i;
 	        }
+
+	        return ''
+
+	    },
+
+	    mode: function ( n, name ) {
+
+	        if( n === this.cMode[name] ) return false;
+
+	        var m;
+
+	        switch(n){
+
+	            case 0: m = this.colors.border; break;
+	            case 1: m = this.colors.borderOver; break;
+	            case 2: m = this.colors.borderSelect;  break;
+
+	        }
+
+	        this.reset();
+	        this.c[name+2].style.borderColor = m;
+	        this.cMode[name] = n;
+
+	        return true;
 
 	    },
 
@@ -3824,42 +3681,43 @@
 
 	    mousedown: function ( e ) {
 
-	        if(this.isSelect) return;
+	        //if( this.isSelect ) return;
 
 	        var name = this.testZone( e );
 
-	        //e.preventDefault();
-
-	        if( name ){
-
-	            this.current = name;//parseFloat(e.target.name);
-	            this.prev = { x:e.clientX, y:e.clientY, d:0, id:(this.current+2)};
-	            if( this.isNumber ) this.prev.v = parseFloat(this.value);
-	            else this.prev.v = parseFloat( this.value[this.current] );
-
-	        }
+	        if( name === '' ) return false;
 
 
+	        this.current = name;
+	        this.isDown = true;
 
-	        //document.addEventListener( 'mouseup', this, false );
-	        //if(this.isDrag) document.addEventListener( 'mousemove', this, false );
+	        this.prev = { x:e.clientX, y:e.clientY, d:0, v: this.isNumber ? parseFloat(this.value) : parseFloat( this.value[this.current] )  };
+
+
+	        return this.mode( 2, name );
 
 	    },
 
 	    mouseup: function( e ){
 
 	        var name = this.testZone( e );
+	        this.isDown = false;
 
-	        //e.preventDefault();
+	        if( this.current !== -1 ){ 
 
-	        //document.removeEventListener( 'mouseup', this, false );
-	        //if(this.isDrag) document.removeEventListener( 'mousemove', this, false );
+	            //var tm = this.current;
+	            var td = this.prev.d;
 
-	        if( this.current !== undefined ){ 
+	            this.current = -1;
+	            this.prev = { x:0, y:0, d:0, v:0 };
 
-	            if( this.current === name ){ 
-	                e.target.contentEditable = true;
-	                e.target.focus();
+	            if( !td ){
+
+	                this.setInput( this.c[ name+2 ], function(){ this.testValue(); }.bind(this) );
+	                return this.mode( 2, name );
+
+	            } else {
+	                return this.reset();//this.mode( 0, tm );
 	            }
 
 	        }
@@ -3868,69 +3726,70 @@
 
 	    mousemove: function( e ){
 
+	        var nup = false;
+
 	        var name = this.testZone( e );
 
-	        if(name){
-	            this.selected = name+2;
+	        if( name === '' ){
+
+	            nup = this.reset();
+	            this.cursor();
+
+	        } else { 
+
+	            nup = this.mode( 1, name );
+	            this.cursor( this.current !== -1 ? 'move' : 'pointer' );
+
 	        }
 
-	        //console.log(name)
+	        
 
-	        if( this.current === undefined ) return;
+	        if( this.current !== -1 ){
 
-	        this.prev.d += ( e.clientX - this.prev.x ) - ( e.clientY - this.prev.y );
-	        var n = this.prev.v + ( this.prev.d * this.step);
 
-	        this.value[this.current] = this.numValue(n);
-	        //this.c[2+this.current].value = this.value[this.current];
+	            this.prev.d += ( e.clientX - this.prev.x ) - ( e.clientY - this.prev.y );
 
-	        this.c[2+this.current].textContent = this.value[this.current];
+	            var n = this.prev.v + ( this.prev.d * this.step);
 
-	        this.validate();
+	            this.value[this.current] = this.numValue(n);
+	            this.c[2+this.current].textContent = this.value[this.current];
 
-	        this.prev.x = e.clientX;
-	        this.prev.y = e.clientY;
+	            this.validate();
+
+	            this.prev.x = e.clientX;
+	            this.prev.y = e.clientY;
+
+	            nup = true;
+	        }
+
+
+	        return nup;
+
+
 
 	    },
+
+	    keydown: function( e ){ return true; },
 
 	    // ----------------------
 
 	    reset: function () {
 
-	        /*if( this.selected ){
-	            this.s[ this.selected ].color = this.fontColor;
-	            this.s[ this.selected ].background = this.buttonColor;
-	            this.selected = null;
-	            Tools.cursor();
-	        }*/
+	        var nup = false;
+
+	        var i = this.lng;
+	        while(i--){ 
+	            if(this.cMode[i]!==0){
+	                this.cMode[i] = 0;
+	                this.c[2+i].style.borderColor = this.colors.border;
+	                nup = true;
+	            }
+	        }
+
+	        return nup;
 
 	    },
 
-	    // ----------------------
-
-	    /////
-
-	    /*handleEvent: function( e ) {
-
-	        //e.preventDefault();
-	        //e.stopPropagation();
-
-	        switch( e.type ) {
-	            //case 'click': this.click( e ); break;
-	            case 'mousedown': this.down( e ); break;
-	            case 'keydown': this.keydown( e ); break;
-	            case 'keyup': this.keyup( e ); break;
-
-	            case 'blur': this.blur( e ); break;
-	            case 'focus': this.focus( e ); break;
-
-	            // document
-	            case 'mouseup': this.up( e ); break;
-	            case 'mousemove': this.move( e ); break;
-
-	        }
-
-	    },*/
 
 	    setValue: function ( v, n ) {
 
@@ -3940,63 +3799,21 @@
 
 	    },
 
-	    keydown: function ( e ) {
+	    testValue: function () {
 
-	        e.stopPropagation();
+	        var i = this.lng;
+	        while(i--){
 
-	        if( e.keyCode === 13 ){
-	            e.preventDefault();
-	            this.testValue( parseFloat(e.target.name) );
-	            this.validate();
-	            e.target.blur();
+	            if(!isNaN( this.c[2+i].textContent )){ 
+	                var nx = this.numValue( this.c[2+i].textContent );
+	                this.c[2+i].textContent = nx;
+	                this.value[i] = nx;
+	            } else { // not number
+	                this.c[2+i].textContent = this.value[i];
+	            }
 	        }
 
-	    },
-
-	    keyup: function ( e ) {
-	        
-	        e.stopPropagation();
-
-	        if( this.allway ){ 
-	            this.testValue( parseFloat(e.target.name) );
-	            this.validate();
-	        }
-
-	    },
-
-	    blur: function ( e ) {
-
-	        this.isSelect = false;
-	        e.target.style.borderColor = Tools.colors.border;
-	        e.target.contentEditable = false;
-	        //e.target.style.border = '1px solid rgba(255,255,255,0.1)';
-	        if(this.isDrag) e.target.style.cursor = 'move';
-	        else  e.target.style.cursor = 'pointer';
-
-	    },
-
-	    focus: function ( e ) {
-
-	        this.isSelect = true;
-	        this.current = undefined;
-	        e.target.style.borderColor = Tools.colors.borderSelect;
-	        
-	        //e.target.style.border = '1px solid ' + UIL.BorderSelect;
-	        if(this.isDrag) e.target.style.cursor = 'auto';
-
-	    },
-
-	    
-
-	    testValue: function( n ){
-
-	        if(!isNaN( this.c[2+n].textContent )){ 
-	            var nx = this.numValue( this.c[2+n].textContent );
-	            this.c[2+n].textContent = nx;
-	            this.value[n] = nx;
-	        } else { // not number
-	            this.c[2+n].textContent = this.value[n];
-	        }
+	        this.validate();
 
 	    },
 
@@ -4004,7 +3821,7 @@
 
 	        var ar = [];
 	        var i = this.lng;
-	        while(i--) ar[i] = this.value[i]*this.toRad;
+	        while(i--) ar[i] = this.value[i] * this.toRad;
 
 	        if( this.isNumber ) this.send( ar[0] );
 	        else this.send( ar );
@@ -4015,11 +3832,11 @@
 
 	        Proto.prototype.rSize.call( this );
 
-	        this.w = Math.floor( ( this.sb + 5 ) / this.lng )-5;
+	        var w = Math.floor( ( this.sb + 5 ) / this.lng )-5;
 	        var s = this.s;
 	        var i = this.lng;
 	        while(i--){
-	            this.tmp[i] = [ Math.floor( this.sa + ( this.w * i )+( 5 * i )), this.w ];
+	            this.tmp[i] = [ Math.floor( this.sa + ( w * i )+( 5 * i )), w ];
 	            this.tmp[i][2] = this.tmp[i][0] + this.tmp[i][1];
 	            s[2+i].left = this.tmp[i][0] + 'px';
 	            s[2+i].width = this.tmp[i][1] + 'px';
@@ -4036,7 +3853,7 @@
 	    this.setTypeNumber( o );
 
 	    this.stype = o.stype || 0;
-	    this.buttonColor = o.bColor || Tools.colors.button;
+	    this.buttonColor = o.bColor || this.colors.button;
 
 	    //this.old = this.value;
 	    this.isDown = false;
@@ -4045,16 +3862,13 @@
 
 	    this.firstImput = false;
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.txtselect + 'letter-spacing:-1px; padding:2px 5px; text-align:right;  width:47px; border:1px solid '+Tools.colors.hide+'; color:'+ this.fontColor );
-	    this.c[3] = Tools.dom( 'div', Tools.css.basic + ' top:0; height:'+this.h+'px;' );
-	    //this.c[4] = Tools.dom( 'div', Tools.css.basic + 'border:1px solid '+this.buttonColor+'; pointer-events:none; background:rgba(0,0,0,0.3); top:2px; height:'+(this.h-4)+'px;' );
-	    this.c[4] = Tools.dom( 'div', Tools.css.basic + 'background:rgba(0,0,0,0.3); top:2px; height:'+(this.h-4)+'px;' );
-	    this.c[5] = Tools.dom( 'div', Tools.css.basic + 'left:4px; top:5px; height:'+(this.h-10)+'px; background:' + this.fontColor +';' );
+	    this.c[2] = this.dom( 'div', this.css.txtselect + 'letter-spacing:-1px; text-align:right; width:47px; border:1px dashed '+this.colors.hide+'; color:'+ this.fontColor );
+	    this.c[3] = this.dom( 'div', this.css.basic + ' top:0; height:'+this.h+'px;' );
+	    this.c[4] = this.dom( 'div', this.css.basic + 'background:rgba(0,0,0,0.3); top:2px; height:'+(this.h-4)+'px;' );
+	    this.c[5] = this.dom( 'div', this.css.basic + 'left:4px; top:5px; height:'+(this.h-10)+'px; background:' + this.fontColor +';' );
 
 	    this.c[2].isNum = true;
 
-	    //this.c[2].name = 'text';
-	    //this.c[3].name = 'scroll';
 
 	    if(this.stype !== 0){
 	        if(this.stype === 1 || this.stype === 3){
@@ -4080,7 +3894,7 @@
 	        this.c[5].style.height = h1 + 'px';
 	        this.c[5].style.top = (this.h*0.5)-(h1*0.5) + 'px';
 
-	        this.c[6] = Tools.dom( 'div', Tools.css.basic + 'border-radius:'+ra+'px; margin-left:'+(-ww*0.5)+'px; border:1px solid '+Tools.colors.border+'; background:'+this.buttonColor+'; left:4px; top:2px; height:'+(this.h-4)+'px; width:'+ww+'px;' );
+	        this.c[6] = this.dom( 'div', this.css.basic + 'border-radius:'+ra+'px; margin-left:'+(-ww*0.5)+'px; border:1px solid '+this.colors.border+'; background:'+this.buttonColor+'; left:4px; top:2px; height:'+(this.h-4)+'px; width:'+ww+'px;' );
 	    }
 
 	    this.init();
@@ -4093,9 +3907,10 @@
 
 	    testZone: function( e ){
 
-	        if(!Tools.over( this, e.clientX, e.clientY )) return '';
+	        //if(!this.over( this, e.clientX, e.clientY )) return '';
 
 	        var l = this.local;
+	        if( l.x === -1 && l.y === -1 ) return '';
 	        
 	        if( l.x >= this.txl ) return 'text';
 	        else if( l.x >= this.sa ) return 'scroll';
@@ -4111,15 +3926,18 @@
 	        
 	        if(this.isDown){
 	            this.isDown = false;
+	            //return true;
 	        }
 	        
 	    },
 
 	    mousedown: function( e ){
 
+	        //console.log('down')
+
 	        var name = this.testZone( e );
 
-	        //if( !name ) return;
+	        if( !name ) return false;
 
 	        if( name === 'scroll' ){ 
 	            this.isDown = true;
@@ -4129,22 +3947,28 @@
 	        }
 
 	        if( name === 'text' ){
-	            Tools.setInput( this.c[2], function(){this.validate();}.bind(this) );
-	        }else{
-	            Tools.clearInput();
-	        }
+	            this.setInput( this.c[2], function(){ this.validate(); }.bind(this) );
+	        }/*else{
+	            Roots.clearInput();
+	        }*/
+
+	        return true;
 
 	    },
 
 	    mousemove: function( e ){
 
+	        var nup = false;
+
 	        var name = this.testZone( e );
 
-	        if( name==='scroll' ) {
+	        if( name === 'scroll' ) {
 	            this.mode(1);
-	            Tools.cursor('w-resize');
-	        } else if(name==='text'){ 
-	            Tools.cursor('pointer');
+	            this.cursor('w-resize');
+	        } else if(name === 'text'){ 
+	            this.cursor('pointer');
+	        } else {
+	            this.cursor();
 	        }
 
 	        if( this.isDown ){
@@ -4156,9 +3980,14 @@
 	                this.update( true );
 	                this.old = this.value;
 	            }
+	            nup = true;
 	        }
 
+	        return nup;
+
 	    },
+
+	    keydown: function( e ){ return true; },
 
 	    // ----------------------
 
@@ -4178,7 +4007,7 @@
 
 	    reset:  function () {
 
-	        //Tools.clearInput();
+	        //this.clearInput();
 	        this.mode(0);
 
 	    },
@@ -4189,25 +4018,25 @@
 
 	        switch(mode){
 	            case 0: // base
-	               // s[2].border = '1px solid ' + Tools.colors.hide;
+	               // s[2].border = '1px solid ' + this.colors.hide;
 	                s[2].color = this.fontColor;
 	                s[4].background = 'rgba(0,0,0,0.3)';
 	                s[5].background = this.fontColor;
 	            break;
 	            case 1: // scroll over
-	                //s[2].border = '1px dashed ' + Tools.colors.hide;
+	                //s[2].border = '1px dashed ' + this.colors.hide;
 	                s[2].color = this.colorPlus;
 	                s[4].background = 'rgba(0,0,0,0.6)';
 	                s[5].background = this.colorPlus;
 	            break;
 	           /* case 2: 
-	                s[2].border = '1px solid ' + Tools.colors.borderSelect;
+	                s[2].border = '1px solid ' + this.colors.borderSelect;
 	            break;
 	            case 3: 
-	                s[2].border = '1px dashed ' + this.fontColor;//Tools.colors.borderSelect;
+	                s[2].border = '1px dashed ' + this.fontColor;//this.colors.borderSelect;
 	            break;
 	            case 4: 
-	                s[2].border = '1px dashed ' + Tools.colors.hide;
+	                s[2].border = '1px dashed ' + this.colors.hide;
 	            break;*/
 
 
@@ -4260,16 +4089,15 @@
 
 	    Proto.call( this, o );
 
+	    this.cmode = 0;
+
 	    this.value = o.value || '';
 	    this.allway = o.allway || false;
 	    this.firstImput = false;
 
-	    this.c[2] = Tools.dom( 'div',  Tools.css.txtselect );
-	    this.c[2].name = 'input';
-	    //this.c[2].style.color = ;
+	    this.c[2] = this.dom( 'div', this.css.txtselect );
 	    this.c[2].textContent = this.value;
 
-	    //this.c[2].events = [ 'mousedown', 'keydown', 'keyup', 'blur', 'focus' ];
 
 	    this.init();
 
@@ -4285,11 +4113,51 @@
 
 	    mousedown: function( e ){
 
-	        this.activeText(true);
+
+
+	        this.setInput( this.c[2], function(){ this.validate(); }.bind(this) );
+	        return this.mode(2);
+
+	        //this.activeText(true);
 
 	    },
 
-	    keydown: function( e ){
+	    mousemove: function( e ){
+
+	        return this.mode(1);
+
+
+	    },
+
+	    keydown: function( e ){ return true; },
+
+	    mode: function ( n ) {
+
+	        if( n === this.cmode ) return false;
+
+	        var m;
+
+	        switch ( n ) {
+
+	            case 0: m = this.colors.border; break;
+	            case 1: m = this.colors.borderOver; break;
+	            case 2: m = this.colors.borderSelect;  break;
+
+	        }
+
+	        this.c[2].style.borderColor = m;
+	        this.cmode = n;
+	        return true;
+
+	    },
+
+	    reset: function () {
+
+	        this.mode(0);
+
+	    },
+
+	    /*keydown: function( e ){
 	        
 	        if( e.keyCode === 13 ){
 	            this.activeText( false );
@@ -4305,7 +4173,7 @@
 	        
 	        if( this.allway ) this.validate();
 	        
-	    },
+	    },*/
 
 	    // ----------------------
 
@@ -4331,38 +4199,6 @@
 
 	    },
 
-	    activeText: function( b ){
-
-	        if(b){
-	            this.c[2].contentEditable = true;
-	            this.c[2].focus();
-	            this.isEdit = true;
-	            this.mode(1);
-	            this.firstImput = true;
-	            Tools.select( this.c[2] );
-	        } else {
-	            this.c[2].contentEditable = false;
-	            this.c[2].blur();
-	            this.isEdit = false;
-	            this.mode(0);
-
-	        }
-
-	    },
-
-	    mode: function ( mode ) {
-
-	        var s = this.s;
-
-	        switch(mode){
-	            case 0: 
-	                s[2].border = '1px dashed ' + Tools.colors.hide;
-	            break;
-	            case 1: 
-	                s[2].border = '1px dashed ' + this.fontColor;
-	            break;
-	        }
-	    },
 
 	} );
 
@@ -4373,7 +4209,7 @@
 	    //var id = o.id || 0;
 	    var prefix = o.prefix || '';
 
-	    this.c[2] = Tools.dom( 'div', Tools.css.txt + 'text-align:right; width:60px; line-height:'+ (this.h-8) + 'px; color:' + this.fontColor );
+	    this.c[2] = this.dom( 'div', this.css.txt + 'text-align:right; width:60px; line-height:'+ (this.h-8) + 'px; color:' + this.fontColor );
 
 	    if( this.h === 31 ){
 
@@ -4485,41 +4321,32 @@
 
 	}
 
-	var REVISION = '1.0';
-
 	/**
-	 * @author lo-th / https://github.com/lo-th
+	 * @author lth / https://github.com/lo-th
 	 */
 
 	function Gui ( o ) {
 
-	    //this.name = 'ui';
-
-	    this.isGui = true;
-	    this.isReady = false;
-
-
+	    this.canvas = null;
 
 	    o = o || {};
 
 	    this.isReset = true;
 
-	    this.is3d = o.is3d || false;
+	    this.isCanvas = o.isCanvas || false;
+	    this.isCanvasOnly = false;
 	    this.css = o.css !== undefined ? o.css : '';
 	    this.callback = o.callback  === undefined ? null : o.callback;
 
-	    this.mHeight = o.maxHeight || undefined;
 
+	    this.forceHeight = o.maxHeight || 0;
 
+	    this.cn = '';
 
+	    
 
-
-
-
-	    this.zone = { x:0, y:0, w:0, h:0 };
-	    this.local = { x:-1, y:-1 };
-
-	    this.mouse = null;
+	    this.mouse = { x:-10, y:-10 };
+	    //Tools.mouse = null;
 
 
 	    // size define
@@ -4531,14 +4358,16 @@
 
 	    this.size.h = this.size.h < 11 ? 11 : this.size.h;
 
-	    this.zone.w = this.size.w;
+	   
+
+
+	    this.zone = { x:0, y:0, w:this.size.w, h:0 };
+	    // local mouse
+	    this.local = { x:-1, y:-1 };
 
 	    // bottom height
 	    this.bh = this.size.h;
 
-
-	    // tmp variable
-	    //this.height = 0;
 	    this.h = 0;
 	    this.prevY = -1;
 	    this.sw = 0;
@@ -4554,8 +4383,6 @@
 	    this.isWithClose = true;
 	    
 
-	    //this.baseH = Tools.size.height;
-
 	    if(o.close !== undefined ){
 	        this.isWithClose = o.close;
 	        this.bh = !this.isWithClose ? 0 : this.bh;
@@ -4563,8 +4390,6 @@
 
 	    
 	    this.isCenter = o.center || false;
-	    this.lockwheel = false;
-	    this.onWheel = false;
 	    this.isOpen = true;
 
 	    this.uis = [];
@@ -4574,16 +4399,7 @@
 	    this.decal = 0;
 	    this.ratio = 1;
 
-	    this.content = Tools.dom( 'div', Tools.css.basic + 'display:block; width:0px; height:auto; top:0px; right:10px; pointer-events:auto;' + this.css );
-	    //this.content.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-	    //this.content = Tools.dom( 'div', Tools.css.basic + 'display:block; width:0px; height:auto; top:0; right:10px; transition:height 0.1s ease-out; pointer-events:auto;' + this.css );
-
-	    if( o.parent !== undefined ){ 
-	        if( o.parent ) o.parent.appendChild( this.content );
-	        //else Tools.hidefrag.appendChild( this.content );
-	    } else {
-	        document.body.appendChild( this.content );
-	    }
+	    this.content = Tools.dom( 'div', Tools.css.basic + 'display:block; width:0px; height:auto; top:0px; pointer-events:auto;' + this.css );
 
 	    this.innerContent = Tools.dom( 'div', Tools.css.basic + 'width:100%; top:0; left:0; height:auto; overflow:hidden;');
 	    this.content.appendChild( this.innerContent );
@@ -4614,17 +4430,28 @@
 	    //
 
 	    this.autoResize = o.autoResize === undefined ? true : o.autoResize;
-	    if( this.autoResize ) window.addEventListener("resize", function(){ this.resize(); }.bind(this), false );
+	    if( this.autoResize && !this.isCanvas ) window.addEventListener("resize", function(){ this.resize(); }.bind(this), false );
 
-	    //
+
+	    this.parent = o.parent !== undefined ? o.parent : null;
+	    
+	    if( this.parent === null && !this.isCanvas ){ 
+	    	this.parent = document.body; 
+	    	if(!this.isCenter) this.content.style.right = '10px'; 
+	    }
+
+	    if( this.parent !== null ) this.parent.appendChild( this.content );
 
 	    this.setWidth();
-	    this.getCorner();
+	    //this.getCorner();
 
+	    if( this.isCanvas ) this.makeCanvas();
 
-	    Tools.main = this;
+	    if( this.isCanvas && this.parent === null ){ 
+	    	this.isCanvasOnly = true;
+	    }
 
-	    Tools.push( this );
+	    Roots.add( this );
 
 	}
 
@@ -4632,96 +4459,44 @@
 
 	    constructor: Gui,
 
+	    isGui: true,
+
+	    // ----------------------
+	    //   CANVAS
+	    // ----------------------
+
+	    onDraw: function () { },
+
+	    makeCanvas: function () {
+
+	    	this.canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', "canvas" );
+	    	this.canvas.width = this.zone.w;
+	    	this.canvas.height = this.forceHeight ? this.forceHeight : this.zone.h;
+
+	    },
+
+	    draw: function ( force ) {
+
+	    	if( this.canvas === null ) return;
+
+	    	var w = this.zone.w;
+	    	var h = this.forceHeight ? this.forceHeight : this.zone.h;
+	    	Roots.toCanvas( this, w, h, force );
+
+	    },
+
+	    //////
+
+
 	    getDom: function () {
+
 	        return this.content;
+
 	    },
 
 	    setMouse: function( m ){
 
 	        this.mouse = m;
-
-	    },
-
-	    setEventCallback: function(callback){
-
-	        Tools.eventCallback  = callback;
-
-	    },
-
-	    getCorner: function () {
-
-	        var box = this.content.getBoundingClientRect();
-	        this.zone.x = box.left || 0;
-	        this.zone.y = box.top || 0;
-
-	    },
-
-	    testZone: function ( e ) {
-
-	        //if( Tools.lock ) return;
-
-	        if(!Tools.over( this, e.clientX, e.clientY )) return '';
-
-	        this.isReset = false;
-
-	        var name = '';
-	        //var over = Tools.over( this, mx, my );
-
-	        //if( !over ) return name;
-
-	        var l = this.local;
-
-	        var s = this.isScroll ?  this.zone.w  - this.size.s : this.zone.w;
-	        var next = -1;
-
-	        if( l.y > this.zone.h-this.bh ) name = 'bottom';
-	        else name = l.x > s ? 'scroll' : 'content';
-
-
-
-	        if( !Tools.lock ){
-
-	            next = name === 'content' ? this.findID( e ) : -1;
-
-	            if( next !== this.current ){
-
-	                this.clearTarget();
-	                this.current = next;
-
-	            }
-
-
-	            if( next !== -1 ){ 
-	                this.target = this.uis[this.current];
-	                this.target.uiover();
-	            }/* else {
-	                this.target = null;
-	            }*/
-	        }
-
-	        return name;
-
-	    },
-
-	    clearTarget: function (){
-
-	        if(!this.target) return;
-	        this.target.uiout();
-	        this.target.reset();
-	        this.target = null;
-	        this.current = -1;
-
-	    },
-
-	    findID: function ( e ){
-
-	        var i = this.uis.length;
-
-	        while( i-- ){
-	            if( Tools.over( this.uis[i], e.clientX, e.clientY  ) ) return i;
-	        }
-
-	        return -1;
 
 	    },
 
@@ -4738,11 +4513,6 @@
 	        
 	    },
 
-	    getHTML : function(){
-
-	        return this.content;
-
-	    },
 
 	    onChange : function( f ){
 
@@ -4755,145 +4525,194 @@
 
 	    },
 
+
+	    // ----------------------
+	    //   STYLES
+	    // ----------------------
+
+
+
+	    styles: function ( n ){
+
+	    	var needChange = false;
+
+	    	if( n !== this.cn ){
+
+		    	this.cn = n;
+
+		    	switch( n ){
+
+		    		case 'def': 
+		    		   this.scroll.style.background = this.colors.scroll; 
+		    		   this.bottom.style.background = this.colors.background;
+		    		   this.bottom.style.color = '#CCC';
+		    		break;
+
+		    		//case 'scrollDef': this.scroll.style.background = this.colors.scroll; break;
+		    		case 'scrollOver': this.scroll.style.background = this.colors.select; break;
+		    		case 'scrollDown': this.scroll.style.background = this.colors.down; break;
+
+		    		//case 'bottomDef': this.bottom.style.background = this.colors.background; break;
+		    		case 'bottomOver': this.bottom.style.background = this.colors.backgroundOver; this.bottom.style.color = '#FFF'; break;
+		    		//case 'bottomDown': this.bottom.style.background = this.colors.select; this.bottom.style.color = '#000'; break;
+
+		    	}
+
+		    	needChange = true;
+
+		    }
+
+	    	return needChange;
+
+	    },
+
 	    
 
+
+	    // ----------------------
+	    //   TARGET
+	    // ----------------------
+
+	    clearTarget: function (){
+
+	    	if( this.current === -1 ) return false;
+	        //if(!this.target) return;
+	        this.target.uiout();
+	        this.target.reset();
+	        this.target = null;
+	        this.current = -1;
+	        Roots.cursor();
+	        return true;
+
+	    },
+
+	    // ----------------------
+	    //   ZONE TEST
+	    // ----------------------
+
+	    testZone: function ( e ) {
+
+	        var l = this.local;
+	        if( l.x === -1 && l.y === -1 ) return '';
+
+	        this.isReset = false;
+
+	        var name = '';
+
+	        var s = this.isScroll ?  this.zone.w  - this.size.s : this.zone.w;
+	        
+	        if( l.y > this.zone.h - this.bh &&  l.y < this.zone.h ) name = 'bottom';
+	        else name = l.x > s ? 'scroll' : 'content';
+
+	        return name;
+
+	    },
 
 	    // ----------------------
 	    //   EVENTS
 	    // ----------------------
 
-	    click: function( e ){
+	    handleEvent: function ( e ){
 
-	        if(this.target) this.target.click( e );
+	    	var type = e.type;
+
+	    	var change = false;
+	    	var targetChange = false;
+
+	    	var name = this.testZone( e );
+
+	    	if( type === 'mouseup' && this.isDown ) this.isDown = false;
+	    	if( type === 'mousedown' && !this.isDown ) this.isDown = true;
+
+	    	if( !name ) return;
+
+	    	switch( name ){
+
+	    		case 'content':
+
+	                e.clientY = this.isScroll ?  e.clientY+this.decal : e.clientY;
+
+		    		if( this.target ) targetChange = this.target.handleEvent( e );
+
+		    		if( type === 'mousemove' ) change = this.styles('def');
+	                if( type === 'wheel' && !targetChange && this.isScroll ) change = this.onWheel( e );
+
+		    		if( !Roots.lock ){
+
+		    			var next = Roots.findTarget( this.uis, e );
+
+		    			if( next !== this.current ){
+			                this.clearTarget();
+			                this.current = next;
+			                change = true;
+			            }
+
+			            if( next !== -1 ){ 
+			                this.target = this.uis[this.current];
+			                this.target.uiover();
+			            }
+
+		    		}
+
+	    		break;
+	    		case 'bottom':
+
+		    		this.clearTarget();
+		    		if( type === 'mousemove' ) change = this.styles('bottomOver');
+		    		if( type === 'mousedown' ) {
+		    			this.isOpen = this.isOpen ? false : true;
+			            this.bottom.textContent = this.isOpen ? 'close' : 'open';
+			            this.setHeight();
+			            this.styles('def');
+			            change = true;
+		    		}
+
+	    		break;
+	    		case 'scroll':
+
+		    		this.clearTarget();
+		    		if( type === 'mousemove' ) change = this.styles('scrollOver');
+		    		if( type === 'mousedown' ) change = this.styles('scrollDown'); 
+	                if( type === 'wheel' ) change = this.onWheel( e ); 
+		    		if( this.isDown ) this.update( (e.clientY-this.zone.y)-(this.sh*0.5) );
+
+	    		break;
+
+
+	    	}
+
+	    	if( this.isDown ) change = true;
+	    	if( targetChange ) change = true;
+
+	    	if( change ) this.draw();
 
 	    },
 
-	    mousedown: function( e ){
+	    onWheel: function ( e ) {
 
-	        if(this.target) this.target.mousedown( e );
-
-	        var name = this.testZone( e );
-
-	        if( !name ) return;
-
-	        if(name === 'scroll'){
-	            this.isDown = true;
-	            //Tools.down = this;
-	            this.mousemove( e );
-	        }
-	        if(name === 'bottom'){
-	            this.isOpen = this.isOpen ? false : true;
-	            this.bottom.textContent = this.isOpen ? 'close' : 'open';
-	            this.setHeight();
-	        }
-
-	    },
-
-	    mousemove: function( e ){
-
-	        if(this.target) this.target.mousemove( e );
-
-	        var name = this.testZone( e );
-
-	        if(name === 'scroll'){
-	            this.scroll.style.background = this.isDown ? this.colors.down : this.colors.select;
-	            Tools.cursor('s-resize');
-	        } 
-	        if(name === 'bottom'){
-	            this.bottom.style.color = '#FFF';
-	            this.bottom.style.background = this.colors.backgroundOver;
-	            Tools.cursor('pointer');
-	        }
-	        
-
-	        if(!this.isDown) return;
-	        //this.scroll.style.background = this.colors.down;
-	        this.update( (e.clientY-this.zone.y)-(this.sh*0.5) );
-
-	    },
-
-	    mouseup: function( e ){
-
-	        if(this.target) this.target.mouseup( e );
-
-	        if( this.isDown ){
-	            this.isDown = false;
-	            if(this.isScroll) this.calcUis();
-	            //this.reset();
-	            //Tools.down = null;
-	        }
-
-	        
-
-	    },
-
-	    mousewheel: function ( e ){
-
-	        if(this.target) this.target.mousewheel( e );
-
-	        //e.preventDefault();
-	        //e.stopPropagation();
-
-	        if( this.lockwheel || !this.isScroll ) return;
-
-	        //this.onWheel = true;
-
-	        var x = e.clientX - this.zone.x;
-	        //var px = this.content.getBoundingClientRect().left;
-
-	        if( x<0 || x>this.zone.w ) return;
-
-	        //if(x<px) return;
-	        //if(x>(px+this.zone.w)) return;
-
-	        var delta = 0;
-	        if(e.wheelDeltaY) delta = -e.wheelDeltaY*0.04;
-	        else if(e.wheelDelta) delta = -e.wheelDelta*0.2;
-	        else if(e.detail) delta = e.detail*4.0;
-
-	        this.py += delta;
-
+	        this.py += 20*e.delta;
 	        this.update( this.py );
+	        return true;
 
 	    },
 
-	    keydown: function ( e ){
-
-	        if(this.target) this.target.keydown( e );
-
-	    },
-
-
-	    ////
+	    // ----------------------
+	    //   RESET
+	    // ----------------------
 
 	    reset: function( force ){
 
-	        if(this.isReset) return;
+	        if( this.isReset) return;
 
-	        this.mouse = null;
+	        this.mouse = { x:-10, y:-10 };
 
-	        Tools.clearInput();
-	        this.clearTarget();
+	        Roots.clearInput();
+	        var r = this.styles('def');
+	        var r2 = this.clearTarget();
 
-	        //if( !this.over ) return;
-
-	        /*if( this.current!==-1 && !noC ) { 
-	            this.uis[this.current].uiout();
-	            Tools.cursor();
-	        }*/
-
-	        this.scroll.style.background = this.colors.scroll;
-	        this.bottom.style.background = this.colors.background;
-	        this.bottom.style.color = '#CCC';
-
-	        //console.log('ui reset')
-
-	        Tools.eventCallback( force );
+	        if( r || r2 ) this.draw( true );
 
 	        this.isReset = true;
-
-	        
-	        
 
 	    },
 
@@ -4943,13 +4762,15 @@
 	            this.calc( u.h + 1 );
 	        }
 
+	        //this.draw();
+
 	        return u;
 
 	    },
 
 	    calcUis: function () {
 
-	        Tools.calcUis( this.uis, this.zone, this.zone.y - this.decal );
+	        Roots.calcUis( this.uis, this.zone, this.zone.y - this.decal );
 
 	    },
 
@@ -4982,7 +4803,7 @@
 	        while(i--) this.uis[i].clear();
 
 	        this.uis = [];
-	        Tools.listens = [];
+	        Roots.listens = [];
 
 	        this.calc( - this.h );
 
@@ -4994,7 +4815,7 @@
 
 	    update: function ( y ){
 
-	        y = y < 0 ? 0 :y;
+	        y = y < 0 ? 0 : y;
 	        y = y > this.range ? this.range : y;
 
 	        this.decal = Math.floor( y / this.ratio );
@@ -5013,7 +4834,6 @@
 
 	            this.total = this.h;
 
-	            //if(this.maxHeight !== undefined) this.maxView = this.maxHeight - this.top - this.bh;
 	            this.maxView = this.maxHeight;
 
 	            this.ratio = this.maxView / this.total;
@@ -5035,11 +4855,9 @@
 
 	    // -----------------------------------
 
-	    resize:function(e){
+	    resize:function ( e ){
 
 	        this.setHeight();
-	        //this.getCorner();
-	        this.isReady = false;
 
 	    },
 
@@ -5060,14 +4878,12 @@
 
 	        if( this.isOpen ){
 
-	            var hhh = this.mHeight !== undefined ? this.mHeight : window.innerHeight;
+	            var hhh = this.forceHeight ? this.forceHeight : window.innerHeight;
 
 	            this.maxHeight = hhh - this.zone.y - this.bh;
-	            
 
 	            if( this.h > this.maxHeight ){
 
-	                
 	                this.isScroll = true;
 	                this.zone.h = this.maxHeight + this.bh;
 
@@ -5084,9 +4900,8 @@
 	        this.content.style.height = this.zone.h + 'px';
 	        this.bottom.style.top = this.zone.h - this.bh + 'px';
 
-	        if( this.isOpen ) { this.calcUis(); }
-
-	        Tools.eventCallback();
+	        if( this.isOpen ) this.calcUis();
+	        if( this.isCanvas ) this.draw( true );
 
 	    },
 
@@ -5115,9 +4930,13 @@
 
 	};
 
+	var REVISION = '2.0';
+
+	exports.REVISION = REVISION;
 	exports.Tools = Tools;
 	exports.Gui = Gui;
 	exports.Proto = Proto;
+	exports.add = add;
 	exports.Bool = Bool;
 	exports.Button = Button;
 	exports.Circular = Circular;
@@ -5131,8 +4950,6 @@
 	exports.Slide = Slide;
 	exports.TextInput = TextInput;
 	exports.Title = Title;
-	exports.add = add;
-	exports.REVISION = REVISION;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
