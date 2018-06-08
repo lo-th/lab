@@ -323,9 +323,10 @@ editor = {
         } else {
             bigButton[2].innerHTML = '&#10074;&#10074;';
             isPause = false;
+
         }
 
-        
+        view.pause = isPause;
 
     },
 

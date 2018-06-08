@@ -4,6 +4,9 @@ function View () {
     this.tmpCallback = function(){};
     this.tmpName = [];
 
+    this.pause = false;
+    this.isPause = false;
+
     // overwrite shadowmap code
     /*
     var shader = THREE.ShaderChunk.shadowmap_pars_fragment;
@@ -39,17 +42,19 @@ function View () {
     this.txt = {};
 
 	// 1 CANVAS
-	this.canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
+	/*this.canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
     this.canvas.style.cssText = 'position: absolute; top:0; left:0; pointer-events:auto;'
     this.canvas.oncontextmenu = function(e){ e.preventDefault(); };
     this.canvas.ondrop = function(e) { e.preventDefault(); };
-    document.body.appendChild( this.canvas );
+    document.body.appendChild( this.canvas );*/
+
+    var options = this.getGL();
 
     // 2 RENDERER
     try {
-        this.renderer = new THREE.WebGLRenderer({ canvas:this.canvas, antialias:true, alpha:false, precision: "mediump" });
+        this.renderer = new THREE.WebGLRenderer( options );
     } catch( error ) {
-        if( intro !== null ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
+        if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
                     + '<p>This application uses WebGL to quickly draw</p>'
                     + '<p>Physics Labs can be used without WebGL, but unfortunately this application cannot.</p>'
                     + '<p>Have a great day!</p>');
@@ -99,6 +104,46 @@ function View () {
 View.prototype = {
 
 	byName: {},
+
+    getGL: function ( version ) {
+
+        var v = version !== undefined ? version : 1;
+        var isWebGL2 = false, gl;
+
+        var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
+        canvas.style.cssText = 'position: absolute; top:0; left:0; pointer-events:auto;'
+        canvas.oncontextmenu = function(e){ e.preventDefault(); };
+        canvas.ondrop = function(e) { e.preventDefault(); };
+        document.body.appendChild( canvas );
+
+        var options = { 
+            antialias: this.isMobile ? false : true, alpha: false, 
+            stencil:false, depth:true, precision:"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+        }
+
+        if( v === 2 ){
+
+            gl = canvas.getContext( 'webgl2', options );
+            if (!gl) gl = canvas.getContext( 'experimental-webgl2', options );
+            isWebGL2 = !!gl;
+            gl.v2 = isWebGL2 ? true : false;
+
+        }
+
+        if( !isWebGL2 ) {
+            gl = canvas.getContext( 'webgl', options );
+            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
+        }
+
+        options.canvas = canvas;
+        options.context = gl;
+        this.version = isWebGL2 ? 'GL2':'GL1';
+        this.canvas = canvas;
+        this.isGl2 = isWebGL2;
+
+        return options;
+
+    },
 
     init: function ( Callback, noObj ) {
 
@@ -201,6 +246,9 @@ View.prototype = {
         var _this = this;
 
         requestAnimationFrame(  function(s){ _this.render(s); } );
+
+        if( this.pause ) this.isPause = true;
+        if( this.isPause && !this.pause ){ this.isPause = false; unPause(); }
 
         if( this.needResize ) this.upResize();
 
@@ -423,9 +471,10 @@ View.prototype = {
         this.ray = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        var g = new THREE.PlaneBufferGeometry( 100, 100 );
-        g.rotateX( -Math.PI90 );
-        this.moveplane = new THREE.Mesh( g,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        //var g = new THREE.PlaneBufferGeometry( 100, 100 );
+        //g.rotateX( -Math.PI90 );
+        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        this.moveplane.scale.set(100, 1, 100);
         this.moveplane.castShadow = false;
         this.moveplane.receiveShadow = false;
         this.content.add( this.moveplane );
@@ -586,9 +635,9 @@ View.prototype = {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.soft = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      
-        this.shadowGround = new THREE.Mesh( new THREE.PlaneBufferGeometry( 200, 200, 1, 1 ), new THREE.ShadowMaterial({ opacity:0.4, alphaTest:0.4*0.6, premultipliedAlpha:false }) ); //, depthTest:true, depthWrite:true 
-        this.shadowGround.geometry.applyMatrix( new THREE.Matrix4().makeRotationX(-Math.PI*0.5) );
+
+        this.shadowGround = new THREE.Mesh( this.geo.plane, new THREE.ShadowMaterial({ opacity:0.4, alphaTest:0.4*0.6, premultipliedAlpha:false }) );
+        this.shadowGround.scale.set(200, 1, 200);
         this.shadowGround.castShadow = false;
         this.shadowGround.receiveShadow = true;
         this.scene.add( this.shadowGround );
@@ -632,7 +681,7 @@ View.prototype = {
         this.sceneSky.add( this.cubeSky );
         this.sceneSky.add( this.sky.clone() );
 
-        this.tmpRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: THREE.FloatType } );
+        this.tmpRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
 
         this.vUp = new THREE.Vector3( 0,1000,0 );
         this.vDown = new THREE.Vector3( 0,-1000,0 );
@@ -699,30 +748,35 @@ View.prototype = {
 
         this.camTmp.lookAt( this.vUp );
         this.renderer.render( this.sceneSky, this.camTmp, this.tmpRender, true );
-        var read = new Float32Array( 4 );
+
+        var rgb = this.isGl2 ? Math.inv255 : 1;
+        var read = this.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+
         this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
+        this.ambient.color.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
-        this.ambient.color.setRGB( read[0], read[1], read[2] );
+        //console.log(read)
 
-        //console.log('up', read)
+        //console.log('up', read[0]*rgb)
 
         this.camTmp.lookAt( this.vDown );
         this.renderer.render( this.sceneSky, this.camTmp, this.tmpRender, true );
-        read = new Float32Array( 4 );
-        this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
 
-        this.ambient.groundColor.setRGB( read[0], read[1], read[2] );
+        //read = this.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+        this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
+        this.ambient.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
         //console.log('down', read)
 
         this.camTmp.lookAt( this.sunPosition );
         this.renderer.render( this.sceneSky, this.camTmp, this.tmpRender, true );
-        read = new Float32Array( 4 );
-        this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
 
-        this.sun.color.setRGB( read[0], read[1], read[2] );
-        this.sun.intensity = read[0];
-        var mi = (1 - read[0])*0.7;
+        //read = this.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+        this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
+        this.sun.color.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+        this.sun.intensity = read[0]*rgb;
+        var mi = (1 - read[0]*rgb)*0.7;
         if( mi < 0 ) mi = 0;
         this.moon.intensity = mi;
 
