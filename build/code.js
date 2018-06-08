@@ -15496,7 +15496,7 @@ var oldleft = 0;
 
 var selectColor = '#DE5825';
 var offColor ='rgba(256,256,256,0.1)';
-var bg = '#151515';
+var bg = '#222322';
 var bgMenu = 'rgba(21,21,21,0.75)';
 var space = 5;//16;
 
@@ -15528,7 +15528,7 @@ editor = {
 
         if( Callback ) callback = Callback;
 
-        document.body.style.cssText = 'font-family: "Lucida Console", Monaco, monospace; padding:0; margin:0; font-size: 11px; height:100%; background:#151515; color:#dedede; overflow:hidden;';
+        document.body.style.cssText = 'font-family: "Lucida Console", Monaco, monospace; padding:0; margin:0; font-size: 11px; height:100%; background:#222322; color:#dedede; overflow:hidden;';
 
         selectColor = color || '#DE5825';
 
@@ -15563,13 +15563,13 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; bottom: '+(space+12)+'px; padding-left:'+space+'px; color:#666666;';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space*2)+'px; bottom: '+(space+12)+'px; color:#888988;';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+space+'px; bottom:'+space+'px; color:#555555;';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space*2)+'px; bottom:'+space+'px; color:#787978;';
         document.body.appendChild( subtitle );
 
 

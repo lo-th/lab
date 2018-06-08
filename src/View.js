@@ -21,7 +21,7 @@ function View () {
 	this.needResize = false;
 	this.t = [0,0,0,0];
     this.fps = 0;
-	this.bg = 0x151515;
+	this.bg = 0x222322;//151515;
 	this.vs = { w:1, h:1, l:0, x:0 };
 
 	this.agents = [];
@@ -154,9 +154,9 @@ View.prototype = {
 
         this.mat = {
 
-            basic: new THREE.MeshStandardMaterial({ color:0x999999, name:'basic', wireframe:false, envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            basic: new THREE.MeshStandardMaterial({ color:0x999999, name:'basic', wireframe:false, envMap:this.envmap, metalness:0.8, roughness:0.5, transparent:false, shadowSide:false }),
 
-            statique: new THREE.MeshStandardMaterial({ color:0x333344, name:'statique', wireframe:false, transparent:true, opacity:0.1, depthTest:true, depthWrite: false }),
+            statique: new THREE.MeshStandardMaterial({ color:0x626362, name:'statique', wireframe:false, transparent:true, opacity:0.25, depthTest:true, depthWrite:false, shadowSide:false }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
             sleep: new THREE.MeshStandardMaterial({ color:0x6666DD, name:'sleep', wireframe:false, envMap:this.envmap, metalness:0.6, roughness:0.4 }),
@@ -324,7 +324,7 @@ View.prototype = {
         //map.wrapS = THREE.RepeatWrapping;
         //map.wrapT = THREE.RepeatWrapping;
         map.flipY = false;
-        this.mat[name] = new THREE.MeshStandardMaterial({ name:name, map:map, envMap:this.envmap,  metalness:0.6, roughness:0.4, shadowSide:false });
+        this.mat[name] = new THREE.MeshStandardMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });
 
     },
 
@@ -426,6 +426,8 @@ View.prototype = {
         var g = new THREE.PlaneBufferGeometry( 100, 100 );
         g.rotateX( -Math.PI90 );
         this.moveplane = new THREE.Mesh( g,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        this.moveplane.castShadow = false;
+        this.moveplane.receiveShadow = false;
         this.content.add( this.moveplane );
         //moveplane.visible = false;
 
@@ -585,7 +587,7 @@ View.prototype = {
         this.renderer.shadowMap.soft = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       
-        this.shadowGround = new THREE.Mesh( new THREE.PlaneBufferGeometry( 200, 200, 1, 1 ), new THREE.ShadowMaterial({opacity:0.4}) );
+        this.shadowGround = new THREE.Mesh( new THREE.PlaneBufferGeometry( 200, 200, 1, 1 ), new THREE.ShadowMaterial({ opacity:0.4, alphaTest:0.4*0.6, premultipliedAlpha:false }) ); //, depthTest:true, depthWrite:true 
         this.shadowGround.geometry.applyMatrix( new THREE.Matrix4().makeRotationX(-Math.PI*0.5) );
         this.shadowGround.castShadow = false;
         this.shadowGround.receiveShadow = true;

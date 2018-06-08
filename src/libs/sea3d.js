@@ -3,7 +3,7 @@
  * 	@author Sunag / http://www.sunag.com.br/
  */
 
-//'use strict';
+'use strict';
 
 var SEA3D = { VERSION: 18110 };
 
@@ -281,7 +281,7 @@ SEA3D.Stream.prototype.readMatrix = function () {
 
 };
 
-SEA3D.decodeText = function ( array ) {
+SEA3D.Stream.prototype.decodeText = function ( array ) {
 
 	if ( typeof TextDecoder !== 'undefined' ) {
 
@@ -306,23 +306,11 @@ SEA3D.decodeText = function ( array ) {
 
 };
 
-SEA3D.extractUrlBase = function ( url ) {
-
-	var parts = url.split( '/' );
-
-	if ( parts.length === 1 ) return './';
-
-	parts.pop();
-
-	return parts.join( '/' ) + '/';
-
-}
-
 SEA3D.Stream.prototype.readUTF8 = function ( len ) {
 
 	var buffer = this.readBytes( len );
 
-	return SEA3D.decodeText( new Uint8Array( buffer ) );
+	return this.decodeText( new Uint8Array( buffer ) );
 
 };
 
@@ -1836,9 +1824,10 @@ SEA3D.Animation.OFFSET_U = 8;
 SEA3D.Animation.OFFSET_V = 9;
 SEA3D.Animation.SCALE_U = 10;
 SEA3D.Animation.SCALE_V = 11;
-SEA3D.Animation.ANGLE = 12;
+SEA3D.Animation.DEGREE = 12;
 SEA3D.Animation.ALPHA = 13;
 SEA3D.Animation.VOLUME = 14;
+SEA3D.Animation.RADIAN = 15;
 
 SEA3D.Animation.MORPH = 250;
 
@@ -2965,9 +2954,15 @@ SEA3D.File.prototype.getObject = function ( index ) {
 
 };
 
+SEA3D.File.prototype.getObjectIndex = function ( name ) {
+
+	return this.objects[ name ].index;
+
+};
+
 SEA3D.File.prototype.getObjectByName = function ( name ) {
 
-	return this.objects[ name ];
+	return this.getObject( this.getObjectIndex( name ) );
 
 };
 
@@ -3037,6 +3032,7 @@ SEA3D.File.prototype.readSEAObject = function () {
 
 	}
 
+	obj.index = this.objects.length;
 	obj.streaming = streaming;
 	obj.metadata = meta;
 
@@ -3270,6 +3266,18 @@ SEA3D.File.prototype.dispatchError = function ( id, message ) {
 
 };
 
+SEA3D.File.prototype.extractUrlBase = function ( url ) {
+
+	var parts = url.split( '/' );
+
+	if ( parts.length === 1 ) return './';
+
+	parts.pop();
+
+	return parts.join( '/' ) + '/';
+
+};
+
 SEA3D.File.prototype.load = function ( url ) {
 
 	var self = this,
@@ -3279,7 +3287,7 @@ SEA3D.File.prototype.load = function ( url ) {
 
 	if (!this.config.path) {
 
-		this.config.path = SEA3D.extractUrlBase( url );
+		this.config.path = this.extractUrlBase( url );
 
 	}
 
@@ -4191,18 +4199,6 @@ THREE.SEA3D = function ( config ) {
 	if ( config ) this.loadConfig( config );
 
 };
-
-//
-//	Polyfills
-//
-
-if ( THREE.Float32BufferAttribute === undefined ) {
-
-	THREE.Float32BufferAttribute = THREE.Float32Attribute;
-
-}
-
-THREE.SEA3D.useMultiMaterial = THREE.MultiMaterial.prototype.isMultiMaterial;
 
 //
 //	Config
@@ -6258,8 +6254,6 @@ THREE.SEA3D.prototype.readMesh = function ( sea ) {
 
 			}
 
-			mat = THREE.SEA3D.useMultiMaterial ? new THREE.MultiMaterial( mats ) : mats;
-
 		} else {
 
 			mat = sea.material[ 0 ].tag;
@@ -7319,6 +7313,12 @@ THREE.SEA3D.prototype.readAnimation = function ( sea ) {
 
 					break;
 
+				case SEA3D.Animation.RADIAN:
+
+					name = '.rotation';
+
+					break;
+
 				case SEA3D.Animation.MORPH:
 
 					name = '.morphTargetInfluences[' + anm.name + ']';
@@ -8226,6 +8226,34 @@ THREE.SEA3D.prototype.flipScaleMatrix = function () {
 //	Legacy
 //
 
+THREE.SEA3D.prototype.degToRadAnimation = function ( animation ) {
+
+	if ( animation.isRadians ) return;
+
+	var dataList = animation.dataList;
+
+	for ( var i = 0; i < dataList.length; i ++ ) {
+
+		var block = dataList[ i ];
+
+		if ( block.kind === SEA3D.Animation.DEGREE ) {
+
+			block.kind = SEA3D.Animation.RADIAN;
+
+			for ( var j = 0; j < block.data.length; j ++ ) {
+
+				block.data[ j ] *= SEA3D.Math.DEG_TO_RAD;
+
+			}
+
+		}
+
+	}
+
+	animation.isRadians = true;
+
+};
+
 THREE.SEA3D.prototype.flipDefaultAnimation = function () {
 
 	var buf1 = new THREE.Matrix4();
@@ -8433,13 +8461,22 @@ THREE.SEA3D.prototype.getModifier = function ( req ) {
 
 			case SEA3D.Animation.prototype.type:
 			case SEA3D.MorphAnimation.prototype.type:
-			case SEA3D.UVWAnimation.prototype.type:
 
 				if ( req.scope instanceof THREE.Object3D ) {
 
 					this.flipDefaultAnimation( sea, req.scope, req.relative );
 
 				}
+
+				this._readAnimation( sea );
+
+				return sea.tag;
+
+				break;
+
+			case SEA3D.UVWAnimation.prototype.type:
+
+				this.degToRadAnimation( sea );
 
 				this._readAnimation( sea );
 
@@ -8773,194 +8810,4 @@ THREE.SEA3D.EXTENSIONS_LOADER.push( { setTypeRead: function () {
 	this.file.typeRead[ SEA3D.Skeleton.prototype.type ] = this.readSkeleton;
 
 } } );
-
-/**
- * 	SEA3D - o3dgc
- * 	@author Sunag / http://www.sunag.com.br/
- */
-
-//'use strict';
-
-//
-//	Lossy Compression
-//
-
-SEA3D.GeometryGC = function ( name, data, sea3d ) {
-
-	this.name = name;
-	this.data = data;
-	this.sea3d = sea3d;
-
-	var i;
-	var attrib = data.readUShort();
-	var uvIDs = [], jointID, weightID;
-
-	this.isBig = ( attrib & 1 ) != 0;
-
-	data.readVInt = this.isBig ? data.readUInt : data.readUShort;
-
-	// Geometry Flags
-	// ..
-	// 1 isBig
-	// 2 groups
-	// 4 uv
-	// 8 tangent
-	// 16 colors
-	// 32 joints
-	// 64 morph
-	// 128 vertex-animation
-	// ..
-
-	if ( attrib & 2 ) {
-
-		this.groups = [];
-
-		var numGroups = data.readUByte(),
-			groupOffset = 0;
-
-		for ( i = 0; i < numGroups; i ++ )		{
-
-			var groupLength = data.readVInt() * 3;
-
-			this.groups.push( {
-				start: groupOffset,
-				count: groupLength,
-			} );
-
-			groupOffset += groupLength;
-
-		}
-
-	} else {
-
-		this.groups = [];
-
-	}
-
-	if ( attrib & 4 ) {
-
-		this.uv = [];
-
-		var uvCount = data.readUByte();
-
-		for ( i = 0; i < uvCount; i ++ ) {
-
-			uvIDs[ i ] = data.readUByte();
-
-		}
-
-	}
-
-	if ( attrib & 32 ) {
-
-		jointID = data.readUByte();
-		weightID = data.readUByte();
-
-	}
-
-	var size = data.readUInt();
-	var bytes = data.concat( data.position, size );
-
-	var bstream = new o3dgc.BinaryStream( bytes.buffer );
-
-	var decoder = new o3dgc.SC3DMCDecoder();
-	var ifs = new o3dgc.IndexedFaceSet();
-
-	decoder.DecodeHeader( ifs, bstream );
-
-	var numIndexes = ifs.GetNCoordIndex();
-	var numVertex = ifs.GetNCoord();
-
-	if ( ! this.groups.length ) this.groups.push( { start: 0, count: numIndexes * 3 } );
-
-	this.indexes = this.isBig ? new Uint32Array( numIndexes * 3 ) : new Uint16Array( numIndexes * 3 );
-	this.vertex = new Float32Array( numVertex * 3 );
-
-	ifs.SetCoordIndex( this.indexes );
-	ifs.SetCoord( this.vertex );
-
-	if ( ifs.GetNNormal() > 0 ) {
-
-		this.normal = new Float32Array( numVertex * 3 );
-		ifs.SetNormal( this.normal );
-
-	}
-
-	for ( i = 0; i < uvIDs.length; i ++ ) {
-
-		this.uv[ i ] = new Float32Array( numVertex * 2 );
-		ifs.SetFloatAttribute( uvIDs[ i ], this.uv[ i ] );
-
-	}
-
-	if ( jointID !== undefined ) {
-
-		this.jointPerVertex = ifs.GetIntAttributeDim( jointID );
-
-		this.joint = new Uint16Array( numVertex * this.jointPerVertex );
-		this.weight = new Float32Array( numVertex * this.jointPerVertex );
-
-		ifs.SetIntAttribute( jointID, this.joint );
-		ifs.SetFloatAttribute( weightID, this.weight );
-
-	}
-
-	// decode mesh
-
-	decoder.DecodePlayload( ifs, bstream );
-
-};
-
-SEA3D.GeometryGC.prototype.type = "s3D";
-
-//
-//	Geometry Update
-//
-
-SEA3D.GeometryUpdateGC = function ( name, data, sea3d ) {
-
-	this.name = name;
-	this.data = data;
-	this.sea3d = sea3d;
-
-	this.index = data.readUInt();
-	this.bytes = data.concat( data.position, data.length - data.position );
-
-};
-
-SEA3D.GeometryUpdateGC.prototype.type = "us3D";
-
-//
-//	Updaters
-//
-
-THREE.SEA3D.prototype.readGeometryUpdateGC = function ( sea ) {
-
-	var obj = this.file.objects[ sea.index ],
-		geo = obj.tag;
-
-	var seaUpdate = new SEA3D.GeometryGC( "", sea.bytes, sea.sea3d );
-	seaUpdate.tag = geo;
-
-	this.readGeometryBuffer( seaUpdate );
-
-};
-
-//
-//	Extension
-//
-
-THREE.SEA3D.EXTENSIONS_LOADER.push( {
-
-	setTypeRead: function () {
-
-		this.file.addClass( SEA3D.GeometryGC, true );
-		this.file.addClass( SEA3D.GeometryUpdateGC, true );
-
-		this.file.typeRead[ SEA3D.GeometryGC.prototype.type ] = this.readGeometryBuffer;
-		this.file.typeRead[ SEA3D.GeometryUpdateGC.prototype.type ] = this.readGeometryUpdateGC;
-
-	}
-
-} );
 
