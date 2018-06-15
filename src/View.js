@@ -15,6 +15,8 @@ function View () {
     THREE.ShaderChunk.shadowmap_pars_fragment = shader;
     */
 
+    this.matType = 'Lambert';//'Standard';
+
 	this.isMobile = this.testMobile();
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
@@ -52,7 +54,9 @@ function View () {
 
     // 2 RENDERER
     try {
+
         this.renderer = new THREE.WebGLRenderer( options );
+
     } catch( error ) {
         if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
                     + '<p>This application uses WebGL to quickly draw</p>'
@@ -60,6 +64,8 @@ function View () {
                     + '<p>Have a great day!</p>');
         return;
     }
+
+    console.log('THREE webgl' , this.isGl2 ? 2 : 1 );
 
     this.renderer.setClearColor( this.bg, 1 );
     this.renderer.setPixelRatio( this.isMobile ? 1 : window.devicePixelRatio );
@@ -105,9 +111,8 @@ View.prototype = {
 
 	byName: {},
 
-    getGL: function ( version ) {
+    getGL: function ( forceV1 ) {
 
-        var v = version !== undefined ? version : 1;
         var isWebGL2 = false, gl;
 
         var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
@@ -121,12 +126,12 @@ View.prototype = {
             stencil:false, depth:true, precision:"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
         }
 
-        if( v === 2 ){
+        if( forceV1 === undefined ){
 
             gl = canvas.getContext( 'webgl2', options );
             if (!gl) gl = canvas.getContext( 'experimental-webgl2', options );
             isWebGL2 = !!gl;
-            gl.v2 = isWebGL2 ? true : false;
+            //gl.v2 = isWebGL2 ? true : false;
 
         }
 
@@ -137,7 +142,7 @@ View.prototype = {
 
         options.canvas = canvas;
         options.context = gl;
-        this.version = isWebGL2 ? 'GL2':'GL1';
+        //this.version = isWebGL2 ? 'GL2':'GL1';
         this.canvas = canvas;
         this.isGl2 = isWebGL2;
 
@@ -158,6 +163,8 @@ View.prototype = {
         if( !noObj ) this.loadObject( 'basic', Callback );
 
     },
+
+    // GEOMETRY
 
     initGeometry: function (){
 
@@ -188,10 +195,22 @@ View.prototype = {
 
     },
 
+    // MATERIAL
+
     initEnvMap: function ( url ){
 
-        this.envmap = this.loader.load( url || './assets/textures/spherical/chrome.jpg' );
+        this.envmap = this.loader.load( url || './assets/textures/spherical/metal.jpg' );
         this.envmap.mapping = THREE.SphericalReflectionMapping;
+
+    },
+
+    makeMaterial: function ( option ){
+
+        if( this.matType !== 'Standard' ){
+            option.reflectivity = option.metalness || 0.5;
+            delete( option.metalness ); delete( option.roughness );
+        }
+        return new THREE['Mesh'+this.matType+'Material']( option );
 
     },
 
@@ -199,29 +218,60 @@ View.prototype = {
 
         this.mat = {
 
-            basic: new THREE.MeshStandardMaterial({ color:0x999999, name:'basic', wireframe:false, envMap:this.envmap, metalness:0.8, roughness:0.5, transparent:false, shadowSide:false }),
+            basic: this.makeMaterial({ color:0x999999, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            sleep: this.makeMaterial({ color:0x6666DD, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
 
-            statique: new THREE.MeshStandardMaterial({ color:0x626362, name:'statique', wireframe:false, transparent:true, opacity:0.25, depthTest:true, depthWrite:false, shadowSide:false }),
+            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
-            sleep: new THREE.MeshStandardMaterial({ color:0x6666DD, name:'sleep', wireframe:false, envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            move: new THREE.MeshStandardMaterial({ color:0x999999, name:'move', wireframe:false, envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            movehigh: new THREE.MeshStandardMaterial({ color:0xff9999, name:'movehigh', wireframe:false, envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-
-            kinematic: new THREE.MeshStandardMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
-            donut: new THREE.MeshStandardMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
+            kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
+            donut: this.makeMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
 
             hide: new THREE.MeshBasicMaterial({ color:0x111111, name:'hide', wireframe:true, visible:false }),
-
+            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true, opacity:0.1, transparent:true }),
             skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
 
-            hero: new THREE.MeshStandardMaterial({ color:0xffffff, name:'hero', envMap:this.envmap,  metalness:0.4, roughness:0.6, skinning:true }),
-            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true, opacity:0.1, transparent:true }),
-            soft: new THREE.MeshStandardMaterial({ vertexColors: THREE.VertexColors, name:'soft', wireframe:false, transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
+            hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
+            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
+
+            shadow: new THREE.ShadowMaterial({ opacity:0.4 }),
 
         }
 
     },
+
+    addMaterial: function( option ) {
+
+        var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
+
+        var i = maptype.length;
+        while(i--){
+            if( option[maptype[i]] ){ 
+                option[maptype[i]] = this.loader.load( './assets/textures/' + option[maptype[i]] );
+                option[maptype[i]].flipY = false;
+            }
+        }
+        
+        option.envMap = this.envmap;
+        option.shadowSide = false;
+
+        this.mat[option.name] = this.makeMaterial( option );
+
+    },
+
+    addMap: function( url, name ) {
+
+        var map = this.loader.load( './assets/textures/' + url );
+        //map.wrapS = THREE.RepeatWrapping;
+        //map.wrapT = THREE.RepeatWrapping;
+        map.flipY = false;
+        this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });
+
+    },
+
+    // GRID
 
     initGrid: function ( c1, c2 ){
 
@@ -366,15 +416,7 @@ View.prototype = {
 
     },
 
-    addMap: function( url, name ) {
-
-        var map = this.loader.load( './assets/textures/' + url );
-        //map.wrapS = THREE.RepeatWrapping;
-        //map.wrapT = THREE.RepeatWrapping;
-        map.flipY = false;
-        this.mat[name] = new THREE.MeshStandardMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });
-
-    },
+    
 
     loadTexture: function ( name ){
 
@@ -610,7 +652,7 @@ View.prototype = {
     	this.moon = new THREE.PointLight( 0x909090, 1, 400, 2 );
     	this.moon.position.set( 0, -200, -10 );
 
-    	this.ambient = new THREE.HemisphereLight( 0x303030, 0x101010, 0.5 );
+    	this.ambient =  new THREE.AmbientLight( 0x303130 ); //new THREE.HemisphereLight( 0x303030, 0x101010, 0.5 );
 
     	this.followGroup.add( this.sun );
     	this.followGroup.add( this.moon );
@@ -631,29 +673,30 @@ View.prototype = {
     	if( this.isWithShadow ) return;
         if( !this.isWithLight ) this.addLights();
 
+        if(!this.mat.shadow)this.mat.shadow = new THREE.ShadowMaterial({ opacity:0.4 })
+
         this.isWithShadow = true;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.soft = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        this.shadowGround = new THREE.Mesh( this.geo.plane, new THREE.ShadowMaterial({ opacity:0.4, alphaTest:0.4*0.6, premultipliedAlpha:false }) );
-        this.shadowGround.scale.set(200, 1, 200);
+        this.shadowGround = new THREE.Mesh( this.geo.plane, this.mat.shadow );
+        this.shadowGround.scale.set( 200, 1, 200 );
         this.shadowGround.castShadow = false;
         this.shadowGround.receiveShadow = true;
         this.scene.add( this.shadowGround );
 
         var d = 150;
-        var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 400 );
+        var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         this.sun.shadow = new THREE.LightShadow( camShadow );
 
-        this.sun.shadow.mapSize.width = 2048;
-        this.sun.shadow.mapSize.height = 2048;
+        this.sun.shadow.mapSize.width = 1024;//2048;
+        this.sun.shadow.mapSize.height = 1024;//2048;
         this.sun.shadow.bias = 0.0002;
         this.sun.castShadow = true;
 
-        for(var m in this.mat){
-            this.mat[m].shadowSide = false;
-        }
+        for( var m in this.mat ) this.mat[m].shadowSide = false;
+        
 
         //this.followGroup.add( new THREE.CameraHelper( this.sun.shadow.camera ));
 
