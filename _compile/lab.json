@@ -4,7 +4,6 @@
     "src/libs/o3dgc.js",
     "src/libs/sea3d.js",
     "src/libs/tween.js",
-    "src/libs/uil.js",
     "src/controls/OrbitControls.js",
     "src/controls/OrbitControlsExtra.js",
     "src/loaders/BVHLoader.js",

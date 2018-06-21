@@ -27,7 +27,7 @@ function View () {
 	this.t = [0,0,0,0];
     this.fps = 0;
 	this.bg = 0x222322;//151515;
-	this.vs = { w:1, h:1, l:0, x:0 };
+	this.vs = { w:1, h:1, l:0, x:0, y:0 };
 
 	this.agents = [];
     this.heros = [];
@@ -142,7 +142,6 @@ View.prototype = {
 
         options.canvas = canvas;
         options.context = gl;
-        //this.version = isWebGL2 ? 'GL2':'GL1';
         this.canvas = canvas;
         this.isGl2 = isWebGL2;
 
@@ -168,7 +167,7 @@ View.prototype = {
 
     initGeometry: function (){
 
-        this.geo = {
+        var geo = {
 
             agent: new THREE.CircleBufferGeometry( 1, 3 ),
             cicle: new THREE.CircleBufferGeometry( 1, 6 ),
@@ -184,14 +183,13 @@ View.prototype = {
 
         }
 
-        this.geo.cicle.rotateX( -Math.PI90 );
-        
-        this.geo.agent.rotateX( -Math.PI90 );
-        this.geo.agent.rotateY( -Math.PI90 );
+        geo.cicle.rotateX( -Math.PI90 );
+        geo.agent.rotateX( -Math.PI90 );
+        geo.agent.rotateY( -Math.PI90 );
+        geo.plane.rotateX( -Math.PI90 );
+        geo.wheel.rotateZ( -Math.PI90 );
 
-        //this.geo.plane.rotateZ( -Math.PI90 );
-        this.geo.plane.rotateX( -Math.PI90 );
-        this.geo.wheel.rotateZ( -Math.PI90 );
+        this.geo = geo;
 
     },
 
@@ -218,6 +216,9 @@ View.prototype = {
 
         this.mat = {
 
+            contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+
             basic: this.makeMaterial({ color:0x999999, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
             sleep: this.makeMaterial({ color:0x6666DD, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
             move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
@@ -236,7 +237,7 @@ View.prototype = {
             hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
             soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
 
-            shadow: new THREE.ShadowMaterial({ opacity:0.4 }),
+            shadow: new THREE.ShadowMaterial({ opacity:0.4, depthWrite:false }),
 
         }
 
@@ -360,7 +361,6 @@ View.prototype = {
             this.scene.remove( c );
         }
 
-
         //for( var t in this.txt ) this.txt[t].dispose();
 
         this.removeRay();
@@ -372,9 +372,10 @@ View.prototype = {
 
     },
 
-    setLeft: function ( x ) { 
+    setLeft: function ( x, y ) { 
 
     	this.vs.x = x;
+        this.vs.y = y;
     	this.resize();
 
     },
@@ -383,7 +384,7 @@ View.prototype = {
 
 		//this.needResize = false;
 		var v = this.vs;
-		var w = window.innerWidth - v.x;
+		var w = window.innerWidth - v.x - v.y;
 		var h = window.innerHeight;
 
 		if( v.w !== w || v.h !== h ){
@@ -463,6 +464,7 @@ View.prototype = {
             j = o.length;
 
             while(j--){
+
                 mesh = o[j];
                 this.geo[mesh.name] = mesh.geometry;
 
@@ -474,8 +476,7 @@ View.prototype = {
                     this.geo.wheelR.rotateY( Math.PI90 );
 
                 }
-
-                //console.log(m.name)
+                
             }
 
         }
@@ -497,6 +498,13 @@ View.prototype = {
         m.receiveShadow = true;
 
         this.extraMesh.add( m );
+
+    },
+
+    testMesh: function ( geom ) {
+
+        var mesh = new THREE.Mesh( geom, this.mat.basic );
+        this.addMesh(mesh);
 
     },
 
@@ -692,7 +700,8 @@ View.prototype = {
 
         this.sun.shadow.mapSize.width = 1024;//2048;
         this.sun.shadow.mapSize.height = 1024;//2048;
-        this.sun.shadow.bias = 0.0002;
+        //this.sun.shadow.bias = 0.001;
+        //this.sun.shadow.bias = 0.0001;
         this.sun.castShadow = true;
 
         for( var m in this.mat ) this.mat[m].shadowSide = false;
@@ -853,6 +862,7 @@ View.prototype = {
 
     setFollow: function( name, o ){
 
+        if( name === 'none' ) this.controler.resetFollow();
         if( !this.byName[ name ] ) return;
         o = o || {};
         this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;

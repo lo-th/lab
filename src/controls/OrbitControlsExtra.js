@@ -41,6 +41,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 	resetFollow: function () {
 
 		this.followTarget = null;
+        this.cam.isFollow = false;
+        this.enabled = true;
 
 	},
 

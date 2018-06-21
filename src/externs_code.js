@@ -1,4 +1,4 @@
 var view, demos;
-var exports, define, module; 
+var UIL, exports, define, module, performance; 
 var CodeMirror, getComputedStyle, require, requirejs, esprima;
 var global;

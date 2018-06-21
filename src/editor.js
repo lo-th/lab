@@ -13,7 +13,7 @@ var editor = ( function () {
 var styles;
 
 var subtitle, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
-var contentLeft, codeContent, code, separatorLeft, menuCode;
+var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
 
 var callback = function(){};
 var isSelfDrag = false;
@@ -21,8 +21,16 @@ var isFocus = false;
 var errorLines = [];
 var widgets = [];
 var interval = null;
+
 var left = 0;
-var oldleft = 0;
+var oldLeft = 0;
+var isLeftDown = false;
+
+var right = 0;
+var oldRight = 0;
+var isRightDown = false;
+
+var option = null;
 
 var selectColor = '#DE5825';
 var offColor ='rgba(256,256,256,0.1)';
@@ -32,9 +40,12 @@ var space = 5;//16;
 
 var isMenu = false;
 var isWithCode = false;
-var isMidDown = false;
+var isWithUI = false;
+var isWithUIopen = false;
 var isCodeInit = false;
 var isPause = false;
+var isUiInit = false;
+var isWithOption = false;
 
 var currentCode = '';
 var fileName = '';
@@ -51,9 +62,6 @@ var saveButton;
 
 editor = {
 
-    
-
-
     init: function ( Callback, withCode, color, Link ) {
 
         if( Callback ) callback = Callback;
@@ -66,9 +74,9 @@ editor = {
 
         styles = {
 
-            contentLeft : unselectable + 'position:absolute; background:none; pointer-events:none; top:0; left:0; width:50%; height:100%;',
+            content : unselectable + 'position:absolute; background:none; pointer-events:none; top:0;  height:100%;',
             codeContent : 'position:absolute; background:none; pointer-events:none; display:block; left:0px; top:45px; width:100%; background:none; height:calc(100% - 45px);',
-            separatorLeft :  inbox+'position:absolute; background:none; pointer-events:auto; display:block;  border-left:1px solid #3f3f3f; border-right:1px solid #3f3f3f; left:calc(50% - 5px); top:0px; width:10px; height:100%; color: rgba(255, 255, 255, 0.2); cursor: e-resize;',
+            separator:  inbox+'position:absolute; background:none; pointer-events:auto; display:block; border-left:1px solid #3f3f3f; border-right:1px solid #3f3f3f; top:0px; width:10px; height:100%; color: rgba(255, 255, 255, 0.2); cursor: e-resize;',
             menuCode :  'position:absolute; top : 0px; left: 0px; width: 100%; font-size: 14px;  font-weight: 500; height: 40px; background: none; border-bottom:1px solid #3f3f3f; line-height: 40px;',
 
             saveButton: 'position:absolute; width:30px; height:30px; right:5px; top:5px; border-radius:6px; pointer-events:auto; cursor:pointer; ',
@@ -102,7 +110,6 @@ editor = {
         subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space*2)+'px; bottom:'+space+'px; color:#787978;';
         document.body.appendChild( subtitle );
 
-
         if( Link !== undefined ) this.setLink( Link );
 
         if( isWithCode ) this.show();
@@ -134,23 +141,68 @@ editor = {
 
     },
 
+    addUI: function () {
+
+    	contentRight = document.createElement('div');
+        contentRight.style.cssText = styles.content;
+        contentRight.style.right = '0';
+        
+        separatorRight = document.createElement('div');
+        separatorRight.style.cssText = styles.separator;
+        separatorRight.name = 'right';
+        separatorRight.addEventListener('mouseover', editor.mid_over, false );
+        separatorRight.addEventListener('mouseout', editor.mid_out, false );
+        separatorRight.addEventListener('mousedown', editor.mid_down, false );
+
+        document.body.appendChild( contentRight );
+        document.body.appendChild( separatorRight );
+
+        gui.init( contentRight, option );
+
+        isUiInit = true;
+        isWithUIopen = true;
+
+    },
+
+    removeUI: function () {
+
+    	if( !isUiInit ) return;
+
+    	gui.dispose();
+
+    	separatorRight.removeEventListener('mouseover', editor.mid_over );
+        separatorRight.removeEventListener('mouseout', editor.mid_out );
+        separatorRight.removeEventListener('mousedown', editor.mid_down );
+
+        document.body.removeChild( separatorRight );
+        document.body.removeChild( contentRight );
+
+        isUiInit = false;
+        isWithUIopen = false;
+
+    },
+
     addCodeEditor: function () {
 
         contentLeft = document.createElement('div');
-        contentLeft.style.cssText = styles.contentLeft;
+        contentLeft.style.cssText = styles.content;
+        contentLeft.style.left = '0';
         document.body.appendChild( contentLeft );
 
         separatorLeft = document.createElement('div');
-        separatorLeft.style.cssText =  styles.separatorLeft;
+        separatorLeft.style.cssText =  styles.separator;
+        //separatorLeft.style.left = 'calc(50% - 5px)';
         document.body.appendChild( separatorLeft );
-
-        codeContent = document.createElement('div');
-        codeContent.style.cssText = styles.codeContent;
-        contentLeft.appendChild( codeContent );
-
+        separatorLeft.name = 'left';
         separatorLeft.addEventListener('mouseover', editor.mid_over, false );
         separatorLeft.addEventListener('mouseout', editor.mid_out, false );
         separatorLeft.addEventListener('mousedown', editor.mid_down, false );
+
+        //
+
+        codeContent = document.createElement('div');
+        codeContent.style.cssText = styles.codeContent;
+        contentLeft.appendChild( codeContent );   
 
         menuCode = document.createElement('div');
         menuCode.style.cssText = styles.menuCode;
@@ -208,19 +260,67 @@ editor = {
 
     },
 
-    selectCode: function (){
+    ///// OPTION UI
 
-        if(isWithCode) editor.hide();
-        else editor.show();
+    uiReset: function () {
+
+        var old = isUiInit ? true : false;
+
+        editor.hideUI();
+
+        if( isWithOption ) isWithUIopen = old;
+
+        editor.Bdesative( bigButton[2] );
+        isWithOption = false;
+        option = null;
+        
+    },
+
+    setOption: function ( o ){
+
+    	option = o;
+    	isWithOption = true;
+        this.Bdefault( bigButton[2] );
+
+        if( isWithUIopen ) this.showUI();
 
     },
+
+    hideUI: function (){
+
+    	if( isUiInit ) this.removeUI();
+
+        isWithUI = false;
+        oldRight = right;
+        right = 0;
+
+        this.Bdefault( bigButton[2] );
+        this.resize();
+
+    },
+
+    showUI: function (){
+
+    	if( !isWithOption ) return;
+    	if( !isUiInit ) this.addUI();
+
+        isWithUI = true;
+        if( oldRight ) right = oldRight;
+        else right = 310;
+
+        this.Bactive( bigButton[2] );
+        this.resize();
+
+    },
+
+    // CODE EDITOR
 
     hide: function (){
 
         if( isCodeInit ) this.removeCodeEditor();
 
         isWithCode = false;
-        oldleft = left;
+        oldLeft = left;
         left = 0;
 
         this.Bdefault( bigButton[1] );
@@ -233,7 +333,7 @@ editor = {
         if( !isCodeInit ) this.addCodeEditor();
 
         isWithCode = true;
-        if( oldleft ) left = oldleft;
+        if( oldLeft ) left = oldLeft;
         else left = Math.floor(window.innerWidth*0.4);
         this.resize();
 
@@ -247,19 +347,41 @@ editor = {
 
     resize: function ( e ) {
 
-        if( e ) left = e.clientX + 10;
+        if( e ){
 
-        if( view ) view.setLeft( left );
+        	if( isLeftDown ){ 
+        		left = e.clientX + 10; 
+        		left = left < 100 ? 100 : left; 
+        	}
+        	if( isRightDown ){ 
+        		right = window.innerWidth - e.clientX + 10; 
+        		right = right < 100 ? 100 : right;
+        	}
+        	
+        }
+
+        if( view ) view.setLeft( left, right );
         
         bigmenu.style.left = left +'px';
         title.style.left = left +'px';
         subtitle.style.left = left +'px';
+        github.style.right = right + 'px';
 
-        if(!isCodeInit) return;
+        if( isUiInit ){
 
-        separatorLeft.style.left = (left-10) + 'px';
-        contentLeft.style.width = (left-10) + 'px';
-        code.refresh();
+        	separatorRight.style.right = (right-10) + 'px';
+	        contentRight.style.width = (right-10) + 'px';
+	        gui.resize( right )
+
+        }
+
+        if( isCodeInit ){
+
+	        separatorLeft.style.left = (left-10) + 'px';
+	        contentLeft.style.width = (left-10) + 'px';
+	        code.refresh();
+
+	    }
         
     },
 
@@ -275,35 +397,43 @@ editor = {
 
         bigmenu.style.width = window.innerWidth - left +'px';
 
-        bigButton[0] = document.createElement( 'div' );
-        bigButton[0].style.cssText = styles.buttonStyle;
-        bigmenu.appendChild( bigButton[0] );
-        bigButton[0].innerHTML = "DEMO";
-        bigButton[0].addEventListener('click', editor.selectBigMenu, false );
-        bigButton[0].name = 'demo';
-        bigButton[0].style.color = selectColor;
+        var m = [ 'DEMO', 'CODE', 'UI', 'PAUSE' ];
 
-        bigButton[1] = document.createElement( 'div' );
-        bigButton[1].style.cssText = styles.buttonStyle;
-        bigmenu.appendChild( bigButton[1] );
-        bigButton[1].innerHTML = "CODE";
-        bigButton[1].addEventListener('click', editor.selectCode, false );
-        bigButton[1].name = 'code';
-        bigButton[1].style.color = selectColor;
+        var b, name;
 
-        bigButton[2] = document.createElement( 'div' );
-        bigButton[2].style.cssText = styles.buttonStyle;
-        bigmenu.appendChild( bigButton[2] );
-        bigButton[2].innerHTML = '&#10074;&#10074;';
-        bigButton[2].style.width = '30px';
-        bigButton[2].addEventListener('click', editor.pause, false );
-        bigButton[2].name = 'pause';
-        bigButton[2].style.color = selectColor;
+        for( var i = 0; i < m.length; i++ ){
 
+        	name = m[i];
+        	b = document.createElement( 'div' );
+        	b.style.cssText = styles.buttonStyle;
+        	b.addEventListener('click', editor[ 'click' + name ], false );
+        	b.style.color = selectColor;
+        	b.name = name;
+        	
+        	if( name === 'PAUSE' ){
+
+        		name = '&#10074;&#10074;'
+        		b.style.width = '30px';
+
+        	}
+
+        	if( name === 'UI' ){
+
+        		b.style.width = '30px';
+
+        	}
+
+        	b.innerHTML = name;
+	        bigmenu.appendChild( b );
+	        bigButton.push( b );
+
+        }
 
         demoContent = document.createElement( 'div' );
-        demoContent.style.cssText = 'padding: 10px 40px; width:100%; display: block; background-position: bottom; background-repeat: repeat-x;';//' background-image:'+  menuImg;
+        demoContent.style.cssText = 'padding: 10px 40px; width:100%; display: block; background-position: bottom; background-repeat: repeat-x;';
         bigmenu.appendChild( demoContent );
+
+        //editor.Bdesative( bigButton[2] );
 
         var i = bigButton.length;
         while(i--){
@@ -313,15 +443,33 @@ editor = {
 
     },
 
-    pause: function ( e ) {
+    clickDEMO: function ( e ) {
+
+        e.preventDefault();
+
+        if( isMenu ) editor.hideBigMenu();
+        else editor.showBigMenu();
+
+    },
+
+    clickCODE: function ( e ){
+
+    	e.preventDefault();
+
+        if(isWithCode) editor.hide();
+        else editor.show();
+
+    },
+
+    clickPAUSE: function ( e ) {
 
         e.preventDefault();
 
         if(!isPause){
-            bigButton[2].innerHTML = '&#9654;';
+            this.innerHTML = '&#9654;';
             isPause = true;
         } else {
-            bigButton[2].innerHTML = '&#10074;&#10074;';
+            this.innerHTML = '&#10074;&#10074;';
             isPause = false;
 
         }
@@ -330,14 +478,16 @@ editor = {
 
     },
 
-    selectBigMenu: function ( e ) {
+    clickUI: function ( e ) {
 
         e.preventDefault();
 
-        if( isMenu ) editor.hideBigMenu();
-        else editor.showBigMenu();
+        if( isWithUI ) editor.hideUI();
+        else editor.showUI();
 
     },
+
+    
 
     showBigMenu: function () {
 
@@ -365,14 +515,14 @@ editor = {
         while(i--){
             b = demoContent.childNodes[i];
             if( b.name !== fileName ){
-                b.removeEventListener('click', editor.demoClick );
+                b.removeEventListener('click', editor.demoSelect );
                 b.removeEventListener('mouseover', editor.MBover );
                 b.removeEventListener('mouseout', editor.MBout );
             }
             demoContent.removeChild( b );
         }
 
-        editor.Bdefault(bigButton[0]);
+        editor.Bdefault( bigButton[0] );
 
     },
 
@@ -383,7 +533,7 @@ editor = {
         b.innerHTML = '&bull; ' + name.charAt(0).toUpperCase() + name.substring(1).toLowerCase();
         b.name = name;
         if(!select){
-            b.addEventListener('click', editor.demoClick, false );
+            b.addEventListener('click', editor.demoSelect, false );
             b.addEventListener('mouseover', editor.MBover, false );
             b.addEventListener('mouseout', editor.MBout, false );
         } else {
@@ -396,7 +546,7 @@ editor = {
 
     },
 
-    demoClick: function( e ){
+    demoSelect: function( e ){
 
         e.preventDefault();
         editor.hideBigMenu();
@@ -435,38 +585,59 @@ editor = {
         e.preventDefault();
 
         var style = 0;
-        if(e.target.name == 'code' && isWithCode) style = 1;
-        if(e.target.name == 'demo' && isMenu) style = 1;
+        if(e.target.name === 'CODE' && isWithCode) style = 1;
+        if(e.target.name === 'DEMO' && isMenu) style = 1;
+        if(e.target.name === 'UI' && isWithUI) style = 1;
 
         if(!style){
-            editor.Bdefault(e.target);
+            editor.Bdefault( e.target );
         } else {
-            e.target.style.background = "#3f3f3f";
-            e.target.style.color = "#999999";
+            editor.Bactive( e.target );
         }
         
     },
+
+
 
     Bdefault: function( b ){
 
         b.style.background = 'none';
         b.style.color = selectColor;
+        b.style.pointerEvents = 'auto';
 
     },
 
-    // separatorLeft
+    Bactive:function ( b ) {
+
+        b.style.background = "#3f3f3f";
+        b.style.color = "#999999";
+
+    },
+
+    Bdesative: function( b ){
+
+        b.style.background = 'none';
+        b.style.color = "#3f3f3f";
+        b.style.pointerEvents = 'none';
+
+    },
+
+ 
+    // separator Left / Right
 
     mid_over: function ( e ) { 
 
         e.preventDefault();
-        separatorLeft.style.background = selectColor;
+        this.style.background = selectColor;
 
     },
 
     mid_out: function ( e ) { 
 
         e.preventDefault();
-        if( !isMidDown ) separatorLeft.style.background = 'none';
+        var name = e.target.name;
+        if( name === 'left' && !isLeftDown ) this.style.background = 'none';
+        if( name === 'right' && !isRightDown ) this.style.background = 'none';
 
     },
 
@@ -474,15 +645,21 @@ editor = {
 
         e.preventDefault();
 
-        isMidDown = true;
+        var name = e.target.name;
+
+        if( name === 'left' ) isLeftDown = true;
+        if( name === 'right' ) isRightDown = true;
+
         document.addEventListener('mouseup', editor.mid_up, false );
         document.addEventListener('mousemove', editor.resize, false );
 
     },
 
-    mid_up: function () {
+    mid_up: function ( e ) {
 
-        isMidDown = false;
+    	isLeftDown = false;
+        isRightDown = false;
+
         document.removeEventListener('mouseup', editor.mid_up, false );
         document.removeEventListener('mousemove', editor.resize, false );
 
@@ -522,6 +699,16 @@ editor = {
         xhr.overrideMimeType('text/plain; charset=x-user-defined'); 
         xhr.open('GET', url, true);
         xhr.onload = function(){ 
+
+            //if( isUiInit ) isWithUIopen = true;
+
+            
+
+            editor.uiReset();
+
+
+
+             
 
             if( isCodeInit ){ 
                 code.setValue( xhr.responseText );
@@ -588,6 +775,8 @@ editor = {
 
     onChange: function () {
 
+
+
         var full = true;
         var hash = location.hash.substr( 1 );
         if( hash === fileName ) full = false;
@@ -641,7 +830,7 @@ editor = {
 
         // github logo
 
-        var github = document.createElement( 'div' );
+        github = document.createElement( 'div' );
         github.style.cssText = unselectable + "position:absolute; right:0; top:0; width:1px; height:1px; pointer-events:none;";
         github.innerHTML = icon_Github; 
         document.body.appendChild( github );
@@ -673,16 +862,7 @@ editor = {
     },
 
 
-
-
-
-
-
 }
 
 return editor;
-
-
-
-
 })();

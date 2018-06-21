@@ -1,5 +1,6 @@
 [  
     "src/externs_code.js",
+    "src/libs/uil.js",
     "src/libs/codemirror.js",
     "src/libs/codemirrorAdd/glsl.js",
     "src/libs/codemirrorAdd/javascript.js",
@@ -8,5 +9,6 @@
     "src/libs/codemirrorAdd/match-highlighter.js",
     "src/libs/esprima.js",
     "src/libs/saveAs.js",
+    "src/gui.js",
     "src/editor.js"
 ]
