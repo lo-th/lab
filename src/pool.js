@@ -11,12 +11,23 @@ var pool = ( function () {
     var readers = null;
     var URL = (window.URL || window.webkitURL);
 
+    var paths = {
+
+        'sea' : './assets/models/',
+        'bvh' : './assets/bvh/',
+        'jpg' : './assets/textures/',
+        'png' : './assets/textures/',
+
+    }
+
+    var autoPath = false;
+
     var start = 0;
     var end = 0;
 
     pool = {
 
-        load: function( Urls, Callback ){
+        load: function( Urls, Callback, auto ){
 
             urls = [];
 
@@ -26,8 +37,8 @@ var pool = ( function () {
             else urls = urls.concat( Urls );
 
 
-
             callback = Callback || function(){};
+            autoPath = auto || false;
 
             //results = {};
 
@@ -120,6 +131,8 @@ var pool = ( function () {
         loading: function ( link, name, type ) {
 
             var self = this;
+
+            if( autoPath ) link = paths[type] + link;
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );

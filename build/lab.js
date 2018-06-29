@@ -64274,12 +64274,23 @@ var pool = ( function () {
     var readers = null;
     var URL = (window.URL || window.webkitURL);
 
+    var paths = {
+
+        'sea' : './assets/models/',
+        'bvh' : './assets/bvh/',
+        'jpg' : './assets/textures/',
+        'png' : './assets/textures/',
+
+    }
+
+    var autoPath = false;
+
     var start = 0;
     var end = 0;
 
     pool = {
 
-        load: function( Urls, Callback ){
+        load: function( Urls, Callback, auto ){
 
             urls = [];
 
@@ -64289,8 +64300,8 @@ var pool = ( function () {
             else urls = urls.concat( Urls );
 
 
-
             callback = Callback || function(){};
+            autoPath = auto || false;
 
             //results = {};
 
@@ -64383,6 +64394,8 @@ var pool = ( function () {
         loading: function ( link, name, type ) {
 
             var self = this;
+
+            if( autoPath ) link = paths[type] + link;
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );
@@ -64638,7 +64651,7 @@ function View () {
 
     // 3 CAMERA / CONTROLER
 
-    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 1, 10000 );
+    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 0.1, 10000 );
     this.camera.position.set( 0, 15, 30 );
     this.controler = new THREE.OrbitControlsExtra( this.camera, this.canvas );
     this.controler.target.set( 0, 0, 0 );
@@ -64797,7 +64810,7 @@ View.prototype = {
             donut: this.makeMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
 
             hide: new THREE.MeshBasicMaterial({ color:0x111111, name:'hide', wireframe:true, visible:false }),
-            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true, opacity:0.1, transparent:true }),
+            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true}),//, opacity:0.1, transparent:true }),
             skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
 
             hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
@@ -64993,9 +65006,9 @@ View.prototype = {
 
     },
 
-    load: function ( Urls, Callback ){
+    load: function ( Urls, Callback, auto ){
 
-        pool.load( Urls, Callback );
+        pool.load( Urls, Callback, auto );
 
     },
 
@@ -65052,9 +65065,18 @@ View.prototype = {
 
     },
 
+    getGeometry: function ( name, meshName ) {
+
+        return this.getMesh( name, meshName ).geometry;
+
+    },
+
     getMesh: function ( name, meshName ) {
 
-        return pool.getMesh( name, meshName );
+        var m = pool.getMesh( name, meshName );
+        m.castShadow = true;
+        m.receiveShadow = true;
+        return m;
 
     },
 
@@ -65247,7 +65269,7 @@ View.prototype = {
     	if( this.isWithShadow ) return;
         if( !this.isWithLight ) this.addLights();
 
-        if(!this.mat.shadow)this.mat.shadow = new THREE.ShadowMaterial({ opacity:0.4 })
+        if(!this.mat.shadow) this.mat.shadow = new THREE.ShadowMaterial({ opacity:0.4 })
 
         this.isWithShadow = true;
         this.renderer.shadowMap.enabled = true;
@@ -65371,7 +65393,7 @@ View.prototype = {
         var read = this.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
 
         this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
-        this.ambient.color.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+        //this.ambient.color.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
         //console.log(read)
 
@@ -65382,7 +65404,7 @@ View.prototype = {
 
         //read = this.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
         this.renderer.readRenderTargetPixels( this.tmpRender, 0, 0, 1, 1, read );
-        this.ambient.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+        //this.ambient.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
         //console.log('down', read)
 
