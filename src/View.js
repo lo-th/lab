@@ -486,6 +486,15 @@ View.prototype = {
 
     },
 
+    getTexture: function ( name ) {
+
+        var t = new THREE.Texture( pool.getResult()[name] );
+        t.needsUpdate = true;
+        t.flipY = false;
+        return t;
+
+    },
+
     getGeometry: function ( name, meshName ) {
 
         return this.getMesh( name, meshName ).geometry;
