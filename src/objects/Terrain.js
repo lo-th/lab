@@ -2,7 +2,7 @@ function Terrain( o ) {
 
     o = o == undefined ? {} : o;
 
-    this.uvx = [18,18];
+    this.uvx = [ o.uv || 18, o.uv || 18 ];
 
     this.sample = o.sample == undefined ? [64,64] : o.sample;
     this.size = o.size == undefined ? [100,10,100] : o.size;
