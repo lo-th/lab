@@ -65295,8 +65295,8 @@ View.prototype = {
         var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         this.sun.shadow = new THREE.LightShadow( camShadow );
 
-        this.sun.shadow.mapSize.width = 1024;//2048;
-        this.sun.shadow.mapSize.height = 1024;//2048;
+        this.sun.shadow.mapSize.width = 2048;
+        this.sun.shadow.mapSize.height = 2048;
         //this.sun.shadow.bias = 0.001;
         //this.sun.shadow.bias = 0.0001;
         this.sun.castShadow = true;
