@@ -62964,229 +62964,1066 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
 });
 /**
- * @author zz85 / https://github.com/zz85
- *
- * Based on "A Practical Analytic Model for Daylight"
- * aka The Preetham Model, the de facto standard analytic skydome model
- * http://www.cs.utah.edu/~shirley/papers/sunsky/sunsky.pdf
- *
- * First implemented by Simon Wallner
- * http://www.simonwallner.at/projects/atmospheric-scattering
- *
- * Improved by Martin Upitis
- * http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
- *
- * Three.js integration by zz85 http://twitter.com/blurspline
-*/
+ * @author Mugen87 / https://github.com/Mugen87
+ * @author mrdoob / http://mrdoob.com/
+ */
 
-THREE.Sky = function () {
+THREE.Lensflare = function () {
 
-	var shader = THREE.Sky.SkyShader;
+	THREE.Mesh.call( this, THREE.Lensflare.Geometry, new THREE.MeshBasicMaterial( { opacity: 0, transparent: true } ) );
 
-	var material = new THREE.ShaderMaterial( {
-		fragmentShader: shader.fragmentShader,
-		vertexShader: shader.vertexShader,
-		uniforms: THREE.UniformsUtils.clone( shader.uniforms ),
-		side: THREE.BackSide,
-		depthTest: true, 
+	this.type = 'Lensflare';
+	this.frustumCulled = false;
+	this.renderOrder = Infinity;
+
+	//
+
+	var positionScreen = new THREE.Vector3();
+
+	// textures
+
+	var tempMap = new THREE.DataTexture( new Uint8Array( 16 * 16 * 3 ), 16, 16, THREE.RGBFormat );
+	tempMap.minFilter = THREE.NearestFilter;
+	tempMap.magFilter = THREE.NearestFilter;
+	tempMap.wrapS = THREE.ClampToEdgeWrapping;
+	tempMap.wrapT = THREE.ClampToEdgeWrapping;
+	tempMap.needsUpdate = true;
+
+	var occlusionMap = new THREE.DataTexture( new Uint8Array( 16 * 16 * 3 ), 16, 16, THREE.RGBFormat );
+	occlusionMap.minFilter = THREE.NearestFilter;
+	occlusionMap.magFilter = THREE.NearestFilter;
+	occlusionMap.wrapS = THREE.ClampToEdgeWrapping;
+	occlusionMap.wrapT = THREE.ClampToEdgeWrapping;
+	occlusionMap.needsUpdate = true;
+
+	// material
+
+	var geometry = THREE.Lensflare.Geometry;
+
+	var material1a = new THREE.RawShaderMaterial( {
+		uniforms: {
+			'scale': { value: null },
+			'screenPosition': { value: null }
+		},
+		vertexShader: [
+
+			'precision highp float;',
+
+			'uniform vec3 screenPosition;',
+			'uniform vec2 scale;',
+
+			'attribute vec3 position;',
+
+			'void main() {',
+
+			'	gl_Position = vec4( position.xy * scale + screenPosition.xy, screenPosition.z, 1.0 );',
+
+			'}'
+
+		].join( '\n' ),
+		fragmentShader: [
+
+			'precision highp float;',
+
+			'void main() {',
+
+			'	gl_FragColor = vec4( 1.0, 0.0, 1.0, 1.0 );',
+
+			'}'
+
+		].join( '\n' ),
+		depthTest: true,
 		depthWrite: false,
+		transparent: false
 	} );
 
-	//THREE.Mesh.call( this, new THREE.SphereBufferGeometry( 1, 32, 15 ), material );
-	THREE.Mesh.call( this, new THREE.SphereBufferGeometry( 1, 16, 12 ), material );
+	var material1b = new THREE.RawShaderMaterial( {
+		uniforms: {
+			'map': { value: tempMap },
+			'scale': { value: null },
+			'screenPosition': { value: null }
+		},
+		vertexShader: [
+
+			'precision highp float;',
+
+			'uniform vec3 screenPosition;',
+			'uniform vec2 scale;',
+
+			'attribute vec3 position;',
+			'attribute vec2 uv;',
+
+			'varying vec2 vUV;',
+
+			'void main() {',
+
+			'	vUV = uv;',
+
+			'	gl_Position = vec4( position.xy * scale + screenPosition.xy, screenPosition.z, 1.0 );',
+
+			'}'
+
+		].join( '\n' ),
+		fragmentShader: [
+
+			'precision highp float;',
+
+			'uniform sampler2D map;',
+
+			'varying vec2 vUV;',
+
+			'void main() {',
+
+			'	gl_FragColor = texture2D( map, vUV );',
+
+			'}'
+
+		].join( '\n' ),
+		depthTest: false,
+		depthWrite: false,
+		transparent: false
+	} );
+
+	// the following object is used for occlusionMap generation
+
+	var mesh1 = new THREE.Mesh( geometry, material1a );
+
+	//
+
+	var elements = [];
+
+	var shader = THREE.LensflareElement.Shader;
+
+	var material2 = new THREE.RawShaderMaterial( {
+		uniforms: {
+			'map': { value: null },
+			'occlusionMap': { value: occlusionMap },
+			'color': { value: new THREE.Color( 0xffffff ) },
+			'scale': { value: new THREE.Vector2() },
+			'screenPosition': { value: new THREE.Vector3() }
+		},
+		vertexShader: shader.vertexShader,
+		fragmentShader: shader.fragmentShader,
+		blending: THREE.AdditiveBlending,
+		transparent: true,
+		depthWrite: false
+	} );
+
+	var mesh2 = new THREE.Mesh( geometry, material2 );
+
+	this.addElement = function ( element ) {
+
+		elements.push( element );
+
+	};
+
+	//
+
+	var scale = new THREE.Vector2();
+	var screenPositionPixels = new THREE.Vector2();
+	var validArea = new THREE.Box2();
+	var viewport = new THREE.Vector4();
+
+	this.onBeforeRender = function ( renderer, scene, camera ) {
+
+		viewport.copy( renderer.getCurrentViewport() );
+
+		var uniforms, size, invAspect;
+
+		invAspect = viewport.w / viewport.z;
+		var halfViewportWidth = viewport.z / 2.0;
+		var halfViewportHeight = viewport.w / 2.0;
+
+		size = 16 / viewport.w;
+		scale.set( size * invAspect, size );
+
+		validArea.min.set( viewport.x, viewport.y );
+		validArea.max.set( viewport.x + ( viewport.z - 16 ), viewport.y + ( viewport.w - 16 ) );
+
+		// calculate position in screen space
+
+		positionScreen.setFromMatrixPosition( this.matrixWorld );
+
+		positionScreen.applyMatrix4( camera.matrixWorldInverse );
+		positionScreen.applyMatrix4( camera.projectionMatrix );
+
+		// horizontal and vertical coordinate of the lower left corner of the pixels to copy
+
+		screenPositionPixels.x = viewport.x + ( positionScreen.x * halfViewportWidth ) + halfViewportWidth - 8;
+		screenPositionPixels.y = viewport.y + ( positionScreen.y * halfViewportHeight ) + halfViewportHeight - 8;
+
+		// screen cull
+
+		if ( validArea.containsPoint( screenPositionPixels ) ) {
+
+			// save current RGB to temp texture
+
+			renderer.copyFramebufferToTexture( screenPositionPixels, tempMap );
+
+			// render pink quad
+
+			uniforms = material1a.uniforms;
+			uniforms.scale.value = scale;
+			uniforms.screenPosition.value = positionScreen;
+
+			renderer.renderBufferDirect( camera, null, geometry, material1a, mesh1, null );
+
+			// copy result to occlusionMap
+
+			renderer.copyFramebufferToTexture( screenPositionPixels, occlusionMap );
+
+			// restore graphics
+
+			uniforms = material1b.uniforms;
+			uniforms.scale.value = scale;
+			uniforms.screenPosition.value = positionScreen;
+
+			renderer.renderBufferDirect( camera, null, geometry, material1b, mesh1, null );
+
+			// render elements
+
+			var vecX = - positionScreen.x * 2;
+			var vecY = - positionScreen.y * 2;
+
+			for ( var i = 0, l = elements.length; i < l; i ++ ) {
+
+				var element = elements[ i ];
+
+				uniforms = material2.uniforms;
+
+				uniforms.color.value.copy( element.color );
+				uniforms.map.value = element.texture;
+				uniforms.screenPosition.value.x = positionScreen.x + vecX * element.distance;
+				uniforms.screenPosition.value.y = positionScreen.y + vecY * element.distance;
+
+				size = element.size / viewport.w;
+				invAspect = viewport.w / viewport.z;
+
+				uniforms.scale.value.set( size * invAspect, size );
+
+				material2.uniformsNeedUpdate = true;
+
+				renderer.renderBufferDirect( camera, null, geometry, material2, mesh2, null );
+
+			}
+
+		}
+
+	};
+
+	this.dispose = function () {
+
+		material1a.dispose();
+		material1b.dispose();
+		material2.dispose();
+
+		tempMap.dispose();
+		occlusionMap.dispose();
+
+		for ( var i = 0, l = elements.length; i < l; i ++ ) {
+
+			elements[ i ].texture.dispose();
+
+		}
+
+	};
+
 };
 
-THREE.Sky.prototype = Object.create( THREE.Mesh.prototype );
+THREE.Lensflare.prototype = Object.create( THREE.Mesh.prototype );
+THREE.Lensflare.prototype.constructor = THREE.Lensflare;
+THREE.Lensflare.prototype.isLensflare = true;
 
-THREE.Sky.SkyShader = {
+//
+
+THREE.LensflareElement = function ( texture, size, distance, color ) {
+
+	this.texture = texture;
+	this.size = size || 1;
+	this.distance = distance || 0;
+	this.color = color || new THREE.Color( 0xffffff );
+
+};
+
+THREE.LensflareElement.Shader = {
 
 	uniforms: {
-		luminance: { value: 1 },
-		turbidity: { value: 2 },
-		rayleigh: { value: 1 },
-		mieCoefficient: { value: 0.005 },
-		mieDirectionalG: { value: 0.8 },
-		sunPosition: { value: new THREE.Vector3() }
+
+		'map': { value: null },
+		'occlusionMap': { value: null },
+		'color': { value: null },
+		'scale': { value: null },
+		'screenPosition': { value: null }
+
 	},
 
 	vertexShader: [
-		'uniform vec3 sunPosition;',
-		'uniform float rayleigh;',
-		'uniform float turbidity;',
-		'uniform float mieCoefficient;',
 
-		'varying vec3 vWorldPosition;',
-		'varying vec3 vSunDirection;',
-		'varying float vSunfade;',
-		'varying vec3 vBetaR;',
-		'varying vec3 vBetaM;',
-		'varying float vSunE;',
+		'precision highp float;',
 
-		'const vec3 up = vec3( 0.0, 1.0, 0.0 );',
+		'uniform vec3 screenPosition;',
+		'uniform vec2 scale;',
 
-		// constants for atmospheric scattering
-		'const float e = 2.71828182845904523536028747135266249775724709369995957;',
-		'const float pi = 3.141592653589793238462643383279502884197169;',
+		'uniform sampler2D occlusionMap;',
 
-		// wavelength of used primaries, according to preetham
-		'const vec3 lambda = vec3( 680E-9, 550E-9, 450E-9 );',
-		// this pre-calcuation replaces older TotalRayleigh(vec3 lambda) function:
-		// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
-		'const vec3 totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );',
+		'attribute vec3 position;',
+		'attribute vec2 uv;',
 
-		// mie stuff
-		// K coefficient for the primaries
-		'const float v = 4.0;',
-		'const vec3 K = vec3( 0.686, 0.678, 0.666 );',
-		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
-		'const vec3 MieConst = vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );',
-
-		// earth shadow hack
-		// cutoffAngle = pi / 1.95;
-		'const float cutoffAngle = 1.6110731556870734;',
-		'const float steepness = 1.5;',
-		'const float EE = 1000.0;',
-
-		'float sunIntensity( float zenithAngleCos ) {',
-		'	zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );',
-		'	return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos ) ) / steepness ) ) );',
-		'}',
-
-		'vec3 totalMie( float T ) {',
-		'	float c = ( 0.2 * T ) * 10E-18;',
-		'	return 0.434 * c * MieConst;',
-		'}',
+		'varying vec2 vUV;',
+		'varying float vVisibility;',
 
 		'void main() {',
 
-		'	vec4 worldPosition = modelMatrix * vec4( position, 1.0 );',
-		'	vWorldPosition = worldPosition.xyz;',
+		'	vUV = uv;',
 
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+		'	vec2 pos = position.xy;',
 
-		'	vSunDirection = normalize( sunPosition );',
+		'	vec4 visibility = texture2D( occlusionMap, vec2( 0.1, 0.1 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.5, 0.1 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.9, 0.1 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.9, 0.5 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.9, 0.9 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.5, 0.9 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.1, 0.9 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.1, 0.5 ) );',
+		'	visibility += texture2D( occlusionMap, vec2( 0.5, 0.5 ) );',
 
-		'	vSunE = sunIntensity( dot( vSunDirection, up ) );',
+		'	vVisibility =        visibility.r / 9.0;',
+		'	vVisibility *= 1.0 - visibility.g / 9.0;',
+		'	vVisibility *=       visibility.b / 9.0;',
 
-		'	vSunfade = 1.0 - clamp( 1.0 - exp( ( sunPosition.y / 450000.0 ) ), 0.0, 1.0 );',
-
-		'	float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );',
-
-		// extinction (absorbtion + out scattering)
-		// rayleigh coefficients
-		'	vBetaR = totalRayleigh * rayleighCoefficient;',
-
-		// mie coefficients
-		'	vBetaM = totalMie( turbidity ) * mieCoefficient;',
+		'	gl_Position = vec4( ( pos * scale + screenPosition.xy ).xy, screenPosition.z, 1.0 );',
 
 		'}'
+
 	].join( '\n' ),
 
 	fragmentShader: [
-		'varying vec3 vWorldPosition;',
-		'varying vec3 vSunDirection;',
-		'varying float vSunfade;',
-		'varying vec3 vBetaR;',
-		'varying vec3 vBetaM;',
-		'varying float vSunE;',
 
-		'uniform float luminance;',
-		'uniform float mieDirectionalG;',
+		'precision highp float;',
 
-		'const vec3 cameraPos = vec3( 0.0, 0.0, 0.0 );',
+		'uniform sampler2D map;',
+		'uniform vec3 color;',
 
-		// constants for atmospheric scattering
-		'const float pi = 3.141592653589793238462643383279502884197169;',
-
-		'const float n = 1.0003;', // refractive index of air
-		'const float N = 2.545E25;', // number of molecules per unit volume for air at
-									// 288.15K and 1013mb (sea level -45 celsius)
-
-		// optical length at zenith for molecules
-		'const float rayleighZenithLength = 8.4E3;',
-		'const float mieZenithLength = 1.25E3;',
-		'const vec3 up = vec3( 0.0, 1.0, 0.0 );',
-		// 66 arc seconds -> degrees, and the cosine of that
-		'const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;',
-
-		// 3.0 / ( 16.0 * pi )
-		'const float THREE_OVER_SIXTEENPI = 0.05968310365946075;',
-		// 1.0 / ( 4.0 * pi )
-		'const float ONE_OVER_FOURPI = 0.07957747154594767;',
-
-		'float rayleighPhase( float cosTheta ) {',
-		'	return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );',
-		'}',
-
-		'float hgPhase( float cosTheta, float g ) {',
-		'	float g2 = pow( g, 2.0 );',
-		'	float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5 );',
-		'	return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );',
-		'}',
-
-		// Filmic ToneMapping http://filmicgames.com/archives/75
-		'const float A = 0.15;',
-		'const float B = 0.50;',
-		'const float C = 0.10;',
-		'const float D = 0.20;',
-		'const float E = 0.02;',
-		'const float F = 0.30;',
-
-		'const float whiteScale = 1.0748724675633854;', // 1.0 / Uncharted2Tonemap(1000.0)
-
-		'vec3 Uncharted2Tonemap( vec3 x ) {',
-		'	return ( ( x * ( A * x + C * B ) + D * E ) / ( x * ( A * x + B ) + D * F ) ) - E / F;',
-		'}',
-
+		'varying vec2 vUV;',
+		'varying float vVisibility;',
 
 		'void main() {',
-		// optical length
-		// cutoff angle at 90 to avoid singularity in next formula.
-		'	float zenithAngle = acos( max( 0.0, dot( up, normalize( vWorldPosition - cameraPos ) ) ) );',
-		'	float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253 ) );',
-		'	float sR = rayleighZenithLength * inverse;',
-		'	float sM = mieZenithLength * inverse;',
 
-		// combined extinction factor
-		'	vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );',
-
-		// in scattering
-		'	float cosTheta = dot( normalize( vWorldPosition - cameraPos ), vSunDirection );',
-
-		'	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );',
-		'	vec3 betaRTheta = vBetaR * rPhase;',
-
-		'	float mPhase = hgPhase( cosTheta, mieDirectionalG );',
-		'	vec3 betaMTheta = vBetaM * mPhase;',
-
-		'	vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );',
-		'	Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );',
-
-		// nightsky
-		'	vec3 direction = normalize( vWorldPosition - cameraPos );',
-		'	float theta = acos( direction.y ); // elevation --> y-axis, [-pi/2, pi/2]',
-		'	float phi = atan( direction.z, direction.x ); // azimuth --> x-axis [-pi/2, pi/2]',
-		'	vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );',
-		'	vec3 L0 = vec3( 0.1 ) * Fex;',
-
-		// composition + solar disc
-		'	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );',
-		'	L0 += ( vSunE * 19000.0 * Fex ) * sundisk;',
-
-		'	vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );',
-
-		'	vec3 curr = Uncharted2Tonemap( ( log2( 2.0 / pow( luminance, 4.0 ) ) ) * texColor );',
-		'	vec3 color = curr * whiteScale;',
-
-		'	vec3 retColor = pow( color, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );',
-
-		'	gl_FragColor = vec4( retColor, 1.0 );',
+		'	vec4 texture = texture2D( map, vUV );',
+		'	texture.a *= vVisibility;',
+		'	gl_FragColor = texture;',
+		'	gl_FragColor.rgb *= color;',
 
 		'}'
+
 	].join( '\n' )
 
 };
 
+THREE.Lensflare.Geometry = ( function () {
+
+	var geometry = new THREE.BufferGeometry();
+
+	var float32Array = new Float32Array( [
+		- 1, - 1, 0, 0, 0,
+		1, - 1, 0, 1, 0,
+		1, 1, 0, 1, 1,
+		- 1, 1, 0, 0, 1
+	] );
+
+	var interleavedBuffer = new THREE.InterleavedBuffer( float32Array, 5 );
+
+	geometry.setIndex( [ 0, 1, 2,	0, 2, 3 ] );
+	geometry.addAttribute( 'position', new THREE.InterleavedBufferAttribute( interleavedBuffer, 3, 0, false ) );
+	geometry.addAttribute( 'uv', new THREE.InterleavedBufferAttribute( interleavedBuffer, 2, 3, false ) );
+
+	return geometry;
+
+} )();
+
+// @author Artur Vill _ @shaderology
+// @author lth _ @3dflashlo
+
+function SuperSky ( view, o ) {
+
+	this.view = view;
+
+	this.n = 0;
+
+	
+
+	
+
+	this.needsUpdate = true;
+
+	// contant sun color
+	this.sv0 = new THREE.Vector3( 0, .99, 0 );
+    this.sv1 = new THREE.Vector3( .188, .458, .682 );
+
+    this.torad = 0.0174532925199432957;
+
+    this.sunColor = new THREE.Color(1,1,1);
+    this.moonColor = new THREE.Color(1,1,1);
+
+    this.q = 2;
+	var q = this.q;
+
+	var setting = {
+
+		distance: 10000,
+		resolution: 256*q,
+
+		timelap:0,
+		fog:0,
+		cloud_size: .45,
+		cloud_covr: .3,
+		cloud_dens: 40,
+
+		sample:64*q,//128,
+		iteration:4*q,//8,
+
+		inclination: 45,
+		azimuth: 90,
+		hour:12,
+
+		toneMapping: 'No',
+		exposure:1.22,
+		whitePoint:1.25,
+
+		cloudColor: 0xFFFFFF,
+		groundColor: 0x3b4c5a,
+		fogColor: 0xff0000,
+
+	}
+
+	/*for( var i in o ){
+		if( setting[i] ) setting[i] = o[i];
+	}*/
+
+	this.setting = setting;
+
+	this.astralDistance = 1;
+
+	this.sunPosition = new THREE.Vector3();
+    this.moonPosition = new THREE.Vector3();
+
+    this.sunSphere = new THREE.Spherical();
+    this.moonSphere = new THREE.Spherical();
+
+    // textures
+
+    var loader = new THREE.TextureLoader();
+    var noiseMap = loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.needsUpdate = true;}.bind(this) );
+    var nightMap = loader.load( "assets/textures/sky/milkyway.png" );
+    var lens0 = loader.load( "assets/textures/sky/lens0.png" );
+    var lens1 = loader.load( "assets/textures/sky/lens1.png" );
+    var lensSun = loader.load( "assets/textures/sky/lensSun.png" );
+    var lensMoon = loader.load( "assets/textures/sky/lensMoon.png" );
+
+    // material
+
+	this.materialSky = new THREE.ShaderMaterial( {
+
+		uniforms: {
+
+			lightdir: { value: this.sunPosition },
+			noiseMap: { value: noiseMap },
+            cloud_size: { value: setting.cloud_size },
+            cloud_covr: { value: setting.cloud_covr },
+            cloud_dens: { value: setting.cloud_dens },
+            cloudColor: { value: new THREE.Color( setting.cloudColor ) },
+            groundColor: { value: new THREE.Color( setting.groundColor ) },
+            fogColor: { value: new THREE.Color( setting.fogColor ) },
+            fog: { value: setting.fog },
+            t: { value: setting.timelap },
+
+            nSample: { value: setting.sample },
+            iteration: { value: setting.iteration }
+
+		},
+
+		vertexShader:[
+			'varying vec3 worldPosition;',
+			'void main(){',
+			'	worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
+			'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+			'}'
+		].join( '\n' ),
+
+		fragmentShader: [
+
+		    'varying vec3 worldPosition;',
+			'uniform vec3 fogColor;',
+			'uniform vec3 groundColor;',
+			'uniform vec3 cloudColor;',
+			'uniform sampler2D noiseMap;',
+			'uniform vec3 lightdir;',
+			'uniform float fog;',
+			'uniform float cloud_size;',
+			'uniform float cloud_covr;',
+			'uniform float cloud_dens;',
+			'uniform float t;',
+
+			'uniform float nSample;',
+			'uniform float iteration;',
+
+			'const float c = 6.36e6;',
+			'const float d = 6.38e6;',
+			'const float g = 0.76;',
+			'const float h = g*g;',
+			'const float icc = 1.0/8e3;',
+			'const float jcc = 1.0/1200.0;',
+			'const float pi = 3.141592653589793;',
+			'const vec3 vm = vec3( 0,-c,0 );',
+			'const vec3 vn = vec3( 2.1e-5 );',
+			'const vec3 vo = vec3( 5.8e-6, 1.35e-5, 3.31e-5 );',
+
+			//#define USE_PROCEDURAL
+
+			'#ifdef USE_PROCEDURAL',
+
+			'float hash( float n ) { return fract(sin(n)*753.5453123); }',
+
+			'float noise( in vec3 x ){',
+
+			'    vec3 p = floor(x);',
+			'    vec3 f = fract(x);',
+			'    f = f*f*(3.0-2.0*f);',
+			    
+			'    float n = p.x + p.y*157.0 + 113.0*p.z;',
+			'    return mix(mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),',
+			'                   mix( hash(n+157.0), hash(n+158.0),f.x),f.y),',
+			'               mix(mix( hash(n+113.0), hash(n+114.0),f.x),',
+			'                   mix( hash(n+270.0), hash(n+271.0),f.x),f.y),f.z);',
+			'}',
+
+			'#else',
+
+			// optimized noise from map
+
+			'float noise( in vec3 x ){',
+
+			'    vec3 p = floor(x);',
+			'    vec3 f = fract(x);',
+			'    f = f*f*(3.0-2.0*f);',
+			    
+			'    vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;',
+			'    vec2 rg = texture2D( noiseMap, (uv+0.5)/256.0, -16.0 ).yx;',
+			'    return mix( rg.x, rg.y, f.z );',
+			'}',
+
+			'#endif',
+
+
+			'float NOISE( vec3 r ){',
+
+			'	r.xz += t;',
+			'	r *= 0.5;',
+			'	float s;',
+			'	s = 0.5 * noise(r);',
+			'	r = r * 2.52;',
+			'	s += 0.25 * noise(r);',
+			'	r = r * 2.53;',
+			'	s += 0.125 * noise(r);',
+			'	r = r * 2.51;',
+			'	s += 0.0625 * noise(r);',
+			'	r = r * 2.53;',
+			'	s += 0.03125 * noise(r);',
+			'	r = r * 2.52;',
+			'	s += 0.015625 * noise(r);',
+			'	return s;',
+
+			'}',
+
+			'float MakeNoise( vec3 r ){',
+
+			'	float s,t;',
+			'	s = NOISE( r * 2e-4 * ( 1.0 - cloud_size ) );',
+			'	t = ( 1.0 - cloud_covr ) * 0.5 + 0.2;',
+			'	s = smoothstep( t, t+.2 , s );',
+			'	s *= 0.5 * cloud_dens;',
+			'	return s;',
+
+			'}',
+
+			'void cloudLayer( in vec3 r,out float s,out float t,out float u ){',
+
+			'	float v,w;',
+			'	v = length( r-vm ) - c;',
+			'	w=0.0;',
+			'	if( 5e3 < v && v < 1e4 ) w = MakeNoise( r ) * sin( pi*(v-5e3)/5e3 );',
+			'	s = exp(-v*icc) + fog;',
+			'	t = exp(-v*jcc) + w + fog;',
+			'	u = w + fog;',
+
+			'}',
+
+			'float ca(in vec3 r,in vec3 s,in float t){',
+
+			'	vec3 u = r-vm;',
+			'	float v,w,x,y,z,A;',
+			'	v = dot(u,s);',
+			'	w = dot(u,u)-t*t;',
+			'	x = v*v-w;',
+			'	if( x<0.0 ) return -1.0;',
+			'	y = sqrt(x);',
+			'	z = -v-y;',
+			'	A = -v+y;',
+			'	return z >= 0.0 ? z : A;',
+
+			'}',
+
+			'vec3 makeSky( in vec3 r, in vec3 s, out float t){',
+
+			'    int SAMPLE = int( nSample );',
+			'    int STEP = int ( iteration ) ;',
+				
+			'	float u,v,w,x,y,z,A,B,C,m,F;',
+			'	vec3 p = normalize( lightdir );',
+			'	u = ca(r,s,d);',
+			'	v = dot(s,p);',
+			'	w = 1.0+v*v;',
+			'	x = 0.0596831*w;',
+			'	y = 0.0253662*(1.0-h)*w/((2.0+h)*pow(abs(1.0+h-2.0*g*v),1.5));',
+			'	z = 50.*pow(abs(1.+dot(s,-p)),2.0)*dot(vec3(0,1,0),p)*(1.0-cloud_covr)*(1.0-min(fog,1.0));',
+			'	A = 0.0;',
+			'	B = 0.0;',
+			'	C = 0.0;',
+			'	m = 0.0;',
+			'	vec3 D,E;',
+				//float H,J,K,L,M, N,O,P,Q, S,U,V,W;
+			'	D = vec3(0);',
+			'	E = vec3(0);',
+			'	F = u / float( SAMPLE );',
+
+			'	for( int G=0; G<SAMPLE; ++G ){',
+			'		float H,J,K,L,M;',
+			'		H = float(G)*F;',
+			'		vec3 I = r + s * H;',
+			'		L = 0.0;',
+			'		cloudLayer( I, J, K, L );',
+			'		J *= F;',
+			'		K *= F;',
+			'		A += J;',
+			'		B += K;',
+			'		C += L;',
+			'		M = ca(I,p,d);',
+			'		if( M > 0.0 ){',
+			'			float N,O,P,Q;',
+			'			N=M/float(STEP);',
+			'			O=0.0;',
+			'			P=0.0;',
+			'			Q=0.0;',
+			'			for( int R=0; R<STEP; ++R ){',
+			'				float S,U,V,W;',
+			'				S = float(R)*N;',
+			'				vec3 T=I+p*S;',
+			'				W = 0.0;',
+			'				cloudLayer( T, U, V, W );',
+			'				O+=U*N;',
+			'				P+=V*N;',
+			'				Q+=W*N;',
+			'			}',
+			'			vec3 S = exp(-(vo*(O+A)+vn*(P+B)));',
+			'			m+=L;',
+			'			D+=S*J;',
+			'			E+=S*K+z*m;',
+			'		}',
+			'		else return vec3(0.0);',
+			'	}',
+			'	t = m * 0.0125;',
+			'	return ( (D * vo * x) + (E * vn * y)) * 15.0;',
+			'}',
+
+			'void main(){',
+
+			'	vec3 light = normalize( lightdir );',
+			'	vec3 r = normalize( worldPosition );',
+			'	float uvy = acos( r.y ) / pi;',
+
+			'	float top = uvy <= 0.505 ? 1.0 : smoothstep(1.0, 0.0, (uvy-0.505)*25.0);',
+			'	float low = uvy > 0.505 ? 1.0 : smoothstep(1.0, 0.0, (0.505-uvy)*100.0);',
+
+
+
+			'	vec3 s = vec3( 0, 0.99, 0 );',
+
+			'	float m = 0.0;',
+			'	vec3 sky = clamp( makeSky( s, r, m ), vec3( 0.0 ), vec3( 10000.0 ) );',
+
+				//float u = pow( abs( 1.0 - abs(r.y) ), 10.0 );
+				//float top = r.y >= 0.0 ? 1.0 : u; 
+				//float low = r.y <= 0.0 ? 1.0 : 
+			'	float luma = 0.005 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
+				//x = ;
+				//sky = mix(vec3(x),t,v*0.8);
+				// cloudColor
+			'	sky = mix( groundColor*luma, sky , top);',
+				//sky = smoothstep( groundColor*x, sky , vec3(v));
+			'	float alpha = clamp( m + low, 0.0 , 0.99 ) + 0.01;',
+
+			'	vec3 color = pow( abs( sky ), vec3( .5 ) );',
+
+				//color = vec3(worldPosition.y);
+
+			'	gl_FragColor = vec4( color, alpha );',
+
+				//#include <tonemapping_fragment>
+
+			'}'
+		].join( '\n' ),
+
+		depthWrite: false,
+		depthTest: false,
+		side:THREE.BackSide,
+		
+	});
+
+    this.scene = new THREE.Scene();
+	var sphere = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 30, 15 ), this.materialSky );
+	this.scene.add( sphere );
+
+	this.camera = new THREE.CubeCamera( 0.5, 2, setting.resolution );
+	this.scene.add( this.camera );
+	this.camera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
+	this.camera.renderTarget.texture.format = THREE.RGBAFormat;
+
+
+	this.material = new THREE.ShaderMaterial( {
+
+			uniforms: {
+				lightdir: { value: this.sunPosition },
+				lunardir: { value: this.moonPosition },
+				tCube: { value: this.camera.renderTarget.texture },
+                tDome: { value: nightMap },
+			},
+			vertexShader:[
+				'varying vec3 worldPosition;',
+				'void main(){',
+				'	worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
+				'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+				'}'
+			].join( '\n' ),
+
+			fragmentShader: [
+			    'varying vec3 worldPosition;',
+
+				'uniform vec3 lightdir;',
+				'uniform vec3 lunardir;',
+				'uniform sampler2D tDome;',
+				'uniform samplerCube tCube;',
+
+				'const float pi = 3.141592653589793;',
+
+				'vec3 M33(vec3 e){ return e-floor(e*(1./289.))*289.; }',
+				'vec4 M44(vec4 e){ return e-floor(e*(1./289.))*289.; }',
+				'vec4 N(vec4 e){ return M44((e*34.+1.)*e); }',
+				'vec4 O(vec4 e){ return 1.79284291400159-.85373472095314*e; }',
+
+				'float P(vec3 e){',
+				'	const vec2 f = vec2(1./6.,1./3.);',
+				'	const vec4 g = vec4(0,.5,1,2);',
+				'	vec3 h,i,j,k,l,m,n,o,p,s,G,H,I,J;',
+				'	h = floor(e+dot(e,f.yyy));',
+				'	i = e-h+dot(h,f.xxx);',
+				'	j = step(i.yzx,i.xyz);',
+				'	k = 1.-j;l=min(j.xyz,k.zxy);',
+				'	m = max(j.xyz,k.zxy);',
+				'	n = i-l+f.xxx;',
+				'	o = i-m+f.yyy;',
+				'	p = i-g.yyy;',
+				'	h = M33(h);',
+				'	vec4 q,t,u,v,w,x,y,z,A,B,C,D,E,F,K,L;',
+				'	q = N(N(N(h.z+vec4(0,l.z,m.z,1))+h.y+vec4(0,l.y,m.y,1))+h.x+vec4(0,l.x,m.x,1));',
+				'	float r = 0.142857142857;',
+				'	s = r*g.wyz-g.xzx;',
+				'	t = q-49.*floor(q*s.z*s.z);',
+				'	u = floor(t*s.z);',
+				'	v = floor(t-7.*u);',
+				'	w = u*s.x+s.yyyy;',
+				'	x = v*s.x+s.yyyy;',
+				'	y = 1.-abs(w)-abs(x);',
+				'	z = vec4(w.xy,x.xy);',
+				'	A = vec4(w.zw,x.zw);',
+				'	B = floor(z)*2.+1.;',
+				'	C = floor(A)*2.+1.;',
+				'	D = -step(y,vec4(0));',
+				'	E = z.xzyw+B.xzyw*D.xxyy;',
+				'	F = A.xzyw+C.xzyw*D.zzww;',
+				'	G = vec3(E.xy,y.x);',
+				'	H = vec3(E.zw,y.y);',
+				'	I = vec3(F.xy,y.z);',
+				'	J = vec3(F.zw,y.w);',
+				'	K = O(vec4(dot(G,G),dot(H,H),dot(I,I),dot(J,J)));',
+				'	G *= K.x;',
+				'	H *= K.y;',
+				'	I *= K.z;',
+				'	J *= K.w;',
+				'	L = max(.6-vec4(dot(i,i),dot(n,n),dot(o,o),dot(p,p)),0.);',
+				'	L = L*L;',
+				'	return 21.*dot(L*L,vec4(dot(G,i),dot(H,n),dot(I,o),dot(J,p)))+.5;',
+				'}',
+
+				'vec2 Q(vec3 e){',
+				'	return vec2(.5+atan(e.z,e.x)/(2.*pi),.5+atan(e.y,length(e.xz))/pi);',
+				'}',
+
+				'mat3 R(vec3 e,vec3 f){',
+				'	vec3 g,h;',
+				'	g = normalize(cross(f,e));',
+				'	h = normalize(cross(e,g));',
+				'	return mat3(g.x,g.y,g.z,h.x,h.y,h.z,e.x,e.y,e.z);',
+				'}',
+
+				'void main(){',
+
+				'	vec3 light = normalize( lightdir );',
+				'	vec3 e = normalize( worldPosition );',
+				'	vec3 f = R( light, vec3(0,1,0) )*e;',
+				'	vec3 milk = texture2D( tDome, Q(f) ).rgb;',
+				'	float h,j,k,l;',
+				'	h=(milk.x+milk.y+milk.z)/3.;',
+				'	const float i=1.0;',
+				'	j = P(f*i*134.);',
+				'	j += P( f*i*370.);',
+				'	j += P( f*i*870.);',
+				'	k = pow(abs(j),9.)*2e-4;',
+				'	l = pow(abs(j),19.)*1e-8;',
+				'	vec3 star = clamp(mix(normalize(milk)*(l+k*h),milk,h*.1),0.,2.);',
+				'	vec4 cubi = textureCube( tCube, e );',
+				'	star = star*(1.0-cubi.a)*clamp(pow(abs(1.-light.y),10.),0.,1.);',
+				'	gl_FragColor = vec4( star + cubi.rgb,1);',
+					
+				'	#include <tonemapping_fragment>',
+
+				'}'
+			].join( '\n' ),
+
+			side: THREE.BackSide,
+			depthWrite: false,
+			//depthTest: false,
+		
+		});
+
+	    this.geometry = new THREE.SphereBufferGeometry( 1, 30, 15 );
+
+	    // fake sun / moon
+	    this.sun = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensSun, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
+	    this.moon = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensMoon, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
+
+	    
+	    this.lensflare = new THREE.Lensflare();
+	    var c = this.sun.material.color;
+		this.lensflare.addElement( new THREE.LensflareElement( lens0, 700, 0, c ) );
+		this.lensflare.addElement( new THREE.LensflareElement( lens1, 60, 0.6, c ) );
+		this.lensflare.addElement( new THREE.LensflareElement( lens1, 70, 0.7, c ) );
+		this.lensflare.addElement( new THREE.LensflareElement( lens1, 120, 0.9, c ) );
+		this.lensflare.addElement( new THREE.LensflareElement( lens1, 70, 1, c ) );
+		this.sun.add( this.lensflare );
+		
+
+		this.dome = new THREE.Mesh( this.geometry, this.material )
+
+		//THREE.Mesh.call( this, this.geometry, this.material );
+
+		THREE.Group.call( this );
+
+		
+		this.add( this.sun );
+		this.add( this.moon );
+		this.add( this.dome );
+
+		this.setSize();
+		this.update( o );
+
+		this.view.followGroup.add( this );
+
+}
+
+
+SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
+
+    constructor: SuperSky,
+
+    clear: function () {
+
+    	this.remove(this.sun);
+    	this.remove(this.moon);
+    	this.remove( this.dome );
+
+    	this.view.followGroup.remove( this );
+
+    },
+
+    setSize: function ( v ) {
+
+    	if( v !== undefined ) this.setting.distance = v;
+    	var s = this.setting.distance * 0.05;
+    	//console.log(s)
+    	this.astralDistance = this.setting.distance; //- s;
+    	//console.log( this.astralDistance )
+    	this.dome.scale.set( 1,1,1 ).multiplyScalar( this.setting.distance );
+    	this.sun.scale.set( s,s,1 );
+    	this.moon.scale.set( s,s,1 );
+
+    },
+
+    k: function ( e, p ) {
+
+    	var n = p.dot(p), a = 2 * p.dot(e), o = e.dot(e) - 1, 
+    	    r = a * a - 4 * n * o,
+            i = Math.sqrt(r), l = (-a - i) * 0.5;
+        return o / l;
+
+    },
+
+    calculateSunColor: function ( position ) {
+
+    	var c = { r:0, g:0, b:0 };
+    	var e = 0.028 / this.k( this.sv0, position );
+    	var t = 1.8;
+    	var r = position.y >= 0 ? 1 : 0;
+    	c.r = (t - t * Math.pow( this.sv1.x, e )) * r;
+    	c.g = (t - t * Math.pow( this.sv1.y, e )) * r;
+    	c.b = (t - t * Math.pow( this.sv1.z, e )) * r;
+    	c.r = c.r > 1.0 ? 1.0 : c.r;
+        c.g = c.g > 1.0 ? 1.0 : c.g;
+        c.b = c.b > 1.0 ? 1.0 : c.b;
+    	this.sunColor.setRGB( c.r, c.g, c.b );
+
+        var mr = 1 - c.r;
+        var mg = 1 - c.g;
+        var mb = 1 - c.b;
+        
+        this.moonColor.setRGB( mr, mg, mb );
+
+    },
+
+    timelap: function ( t, f ) {
+
+    	var s = this.setting;
+    	s.hour += t;
+    	s.timelap += t;
+    	if(s.hour>24) s.hour = 0;
+        if(s.hour<0) s.hour = 24;
+
+        this.n ++;
+
+        if(this.n===f){
+        	this.n = 0;
+        	this.update ();
+        }
+
+    },
+
+    update: function ( o ) {
+
+    	o = o || {};
+    	var s = this.setting;
+    	var r = this.torad;
+
+    	for( var i in o ){
+			if( s[i] !== undefined ) s[i] = o[i];
+		}
+
+    	s.inclination = ( s.hour * 15 ) - 90;
+
+    	this.sunSphere.phi = ( s.inclination - 90 ) * r;
+        this.sunSphere.theta = ( s.azimuth - 90 ) * r;
+        this.sunPosition.setFromSpherical( this.sunSphere );
+        
+        this.moonSphere.phi = ( s.inclination + 90 ) * r;
+        this.moonSphere.theta = ( s.azimuth - 90 ) * r;
+        this.moonPosition.setFromSpherical( this.moonSphere );
+
+        // fake sun / moon
+        this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
+        this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
+
+        this.calculateSunColor( this.sunPosition );
+
+        this.sun.material.color.copy( this.sunColor );
+        this.moon.material.color.copy( this.moonColor );
+
+        // light
+
+        this.view.sun.position.copy( this.sunPosition ).multiplyScalar( this.view.lightDistance );
+        this.view.moon.position.copy( this.moonPosition ).multiplyScalar( this.view.lightDistance );
+
+        this.view.sun.color.copy( this.sunColor );
+        this.view.sun.intensity = this.sunColor.r + (this.sunColor.r*0.3);
+        this.view.moon.color.copy( this.moonColor );
+        this.view.moon.intensity = this.moonColor.r - (this.moonColor.r*0.3);
+
+        this.materialSky.uniforms.lightdir.value = this.sunPosition;
+		this.material.uniforms.lightdir.value = this.sunPosition;
+
+		this.materialSky.uniforms.t.value = s.timelap;
+		this.materialSky.uniforms.fog.value = s.fog;
+		this.materialSky.uniforms.cloud_size.value = s.cloud_size;
+		this.materialSky.uniforms.cloud_covr.value = s.cloud_covr;
+		this.materialSky.uniforms.cloud_dens.value = s.cloud_dens;
+
+        this.needsUpdate = true;
+
+    },
+
+    render: function () {
+
+    	if( this.needsUpdate ){
+
+    		this.camera.update( this.view.renderer, this.scene );
+    		this.view.updateEnvMap( this.camera.renderTarget.texture );
+		    this.needsUpdate = false;
+
+    	}
+
+    },
+
+    getEnvMap: function () {
+
+    	return this.camera.renderTarget.texture;
+
+    },
+
+    updateMatrixWorld: function ( force ) {
+
+    	this.render();
+
+		if ( this.matrixAutoUpdate ) this.updateMatrix();
+
+		if ( this.matrixWorldNeedsUpdate || force ) {
+
+			if ( this.parent === null ) {
+
+				this.matrixWorld.copy( this.matrix );
+
+			} else {
+
+				this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+
+			}
+
+			this.matrixWorldNeedsUpdate = false;
+
+			force = true;
+
+		}
+
+		// update children
+
+		var children = this.children;
+
+		for ( var i = 0, l = children.length; i < l; i ++ ) {
+
+			children[ i ].updateMatrixWorld( force );
+
+		}
+
+	},
+
+ });
 var intro = ( function () {
 
     intro = function () {};
@@ -64596,6 +65433,8 @@ function View () {
 
     this.matType = 'Lambert';//'Standard';
 
+    this.lightDistance = 200;
+
 	this.isMobile = this.testMobile();
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
@@ -64651,7 +65490,7 @@ function View () {
 
     // 3 CAMERA / CONTROLER
 
-    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 0.1, 10000 );
+    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 0.1, 20000 );
     this.camera.position.set( 0, 15, 30 );
     this.controler = new THREE.OrbitControlsExtra( this.camera, this.canvas );
     this.controler.target.set( 0, 0, 0 );
@@ -64943,6 +65782,7 @@ View.prototype = {
         //for( var t in this.txt ) this.txt[t].dispose();
 
         this.removeRay();
+        this.removeSky();
         
 
         this.update = function () {};
@@ -65252,10 +66092,10 @@ View.prototype = {
         if( this.isWithLight ) return;
 
     	this.sun = new THREE.DirectionalLight( 0xffffff, 1 );
-    	this.sun.position.set( 0, 200, 10 );
+    	this.sun.position.set( 0, this.lightDistance, 10 );
 
-    	this.moon = new THREE.PointLight( 0x909090, 1, 400, 2 );
-    	this.moon.position.set( 0, -200, -10 );
+    	this.moon = new THREE.PointLight( 0x909090, 1, this.lightDistance*2, 2 );
+    	this.moon.position.set( 0, -this.lightDistance, 0 );
 
     	this.ambient =  new THREE.AmbientLight( 0x303130 ); //new THREE.HemisphereLight( 0x303030, 0x101010, 0.5 );
 
@@ -65314,12 +66154,26 @@ View.prototype = {
     //
     //-----------------------------
 
-    addSky: function () {
+    removeSky: function () {
+
+        if( !this.isWithSky ) return;
+
+        this.sky.clear();
+        this.isWithSky = false;
+
+    },
+
+    addSky: function ( o ) {
 
         if( this.isWithSky ) return;
         if( !this.isWithLight ) this.addLights();
 
-        this.sky = new THREE.Sky();
+        this.sky = new SuperSky( this, o );
+
+        this.isWithSky = true;
+        
+
+        /*this.sky = new THREE.Sky();
         this.sky.scale.setScalar( 5000 );
         this.scene.add( this.sky );
 
@@ -65356,7 +66210,7 @@ View.prototype = {
 
         this.isWithSky = true;
 
-        this.updateSky();
+        this.updateSky();*/
 
     },
 
@@ -65366,7 +66220,9 @@ View.prototype = {
 
         o = o || {};
 
-        if(o.hour){
+        this.sky.update( o );
+
+        /*if(o.hour){
             if(o.hour>24) o.hour = 0;
             if(o.hour<0) o.hour = 24;
             this.skyset.inclination = (o.hour*15)-90;
@@ -65430,7 +66286,7 @@ View.prototype = {
         this.moon.intensity = mi;
 
         // update envmap
-        this.updateEnvMap( this.cubeSky.renderTarget.texture );
+        this.updateEnvMap( this.cubeSky.renderTarget.texture );*/
 
     },
 
@@ -65439,7 +66295,7 @@ View.prototype = {
         this.envmap = texture;
 
         for( var m in this.mat ){
-            if(this.mat[m].envMap) this.mat[m].envMap = this.envmap;
+            if( this.mat[m].envMap ) this.mat[m].envMap = this.envmap;
         }
 
     },

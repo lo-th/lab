@@ -17,6 +17,8 @@ function View () {
 
     this.matType = 'Lambert';//'Standard';
 
+    this.lightDistance = 200;
+
 	this.isMobile = this.testMobile();
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
@@ -72,7 +74,7 @@ function View () {
 
     // 3 CAMERA / CONTROLER
 
-    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 0.1, 10000 );
+    this.camera = new THREE.PerspectiveCamera( 60 , 1 , 0.1, 20000 );
     this.camera.position.set( 0, 15, 30 );
     this.controler = new THREE.OrbitControlsExtra( this.camera, this.canvas );
     this.controler.target.set( 0, 0, 0 );
@@ -364,6 +366,7 @@ View.prototype = {
         //for( var t in this.txt ) this.txt[t].dispose();
 
         this.removeRay();
+        this.removeSky();
         
 
         this.update = function () {};
@@ -673,10 +676,10 @@ View.prototype = {
         if( this.isWithLight ) return;
 
     	this.sun = new THREE.DirectionalLight( 0xffffff, 1 );
-    	this.sun.position.set( 0, 200, 10 );
+    	this.sun.position.set( 0, this.lightDistance, 10 );
 
-    	this.moon = new THREE.PointLight( 0x909090, 1, 400, 2 );
-    	this.moon.position.set( 0, -200, -10 );
+    	this.moon = new THREE.PointLight( 0x909090, 1, this.lightDistance*2, 2 );
+    	this.moon.position.set( 0, -this.lightDistance, 0 );
 
     	this.ambient =  new THREE.AmbientLight( 0x303130 ); //new THREE.HemisphereLight( 0x303030, 0x101010, 0.5 );
 
@@ -735,12 +738,26 @@ View.prototype = {
     //
     //-----------------------------
 
-    addSky: function () {
+    removeSky: function () {
+
+        if( !this.isWithSky ) return;
+
+        this.sky.clear();
+        this.isWithSky = false;
+
+    },
+
+    addSky: function ( o ) {
 
         if( this.isWithSky ) return;
         if( !this.isWithLight ) this.addLights();
 
-        this.sky = new THREE.Sky();
+        this.sky = new SuperSky( this, o );
+
+        this.isWithSky = true;
+        
+
+        /*this.sky = new THREE.Sky();
         this.sky.scale.setScalar( 5000 );
         this.scene.add( this.sky );
 
@@ -777,7 +794,7 @@ View.prototype = {
 
         this.isWithSky = true;
 
-        this.updateSky();
+        this.updateSky();*/
 
     },
 
@@ -787,7 +804,9 @@ View.prototype = {
 
         o = o || {};
 
-        if(o.hour){
+        this.sky.update( o );
+
+        /*if(o.hour){
             if(o.hour>24) o.hour = 0;
             if(o.hour<0) o.hour = 24;
             this.skyset.inclination = (o.hour*15)-90;
@@ -851,7 +870,7 @@ View.prototype = {
         this.moon.intensity = mi;
 
         // update envmap
-        this.updateEnvMap( this.cubeSky.renderTarget.texture );
+        this.updateEnvMap( this.cubeSky.renderTarget.texture );*/
 
     },
 
@@ -860,7 +879,7 @@ View.prototype = {
         this.envmap = texture;
 
         for( var m in this.mat ){
-            if(this.mat[m].envMap) this.mat[m].envMap = this.envmap;
+            if( this.mat[m].envMap ) this.mat[m].envMap = this.envmap;
         }
 
     },
