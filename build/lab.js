@@ -63904,7 +63904,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     	var s = this.setting;
     	s.hour += t;
-    	s.timelap += t;
+    	//s.timelap += t;
     	if(s.hour>24) s.hour = 0;
         if(s.hour<0) s.hour = 24;
 
@@ -63928,6 +63928,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 		}
 
     	s.inclination = ( s.hour * 15 ) - 90;
+    	s.timelap = s.hour;
 
     	this.sunSphere.phi = ( s.inclination - 90 ) * r;
         this.sunSphere.theta = ( s.azimuth - 90 ) * r;
