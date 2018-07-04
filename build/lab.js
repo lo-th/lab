@@ -62623,7 +62623,7 @@ Planet.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
    
 });
-function Terrain( o ) {
+function Terrain ( o ) {
 
     o = o == undefined ? {} : o;
 
@@ -62681,14 +62681,16 @@ function Terrain( o ) {
     this.material = new THREE.MeshStandardMaterial({ 
         vertexColors: THREE.VertexColors, 
         name:'terrain', 
-        metalness:this.isWater? 0.8 : 0.4, 
-        roughness:this.isWater? 0.2 : 0.6, 
+        metalness: this.isWater ? 0.8 : 0.4, 
+        roughness: this.isWater ? 0.5 : 0.6, 
         wireframe:false, 
         envMap: view.getEnvMap(),
         normalMap:this.wn,
-        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
+        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(1,1),
         
     });
+
+    
 
     var map = [
         '#ifdef USE_MAP',
