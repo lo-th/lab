@@ -154,7 +154,7 @@
 
 	    css : {
 	        //unselect: '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;', 
-	        basic: 'position:absolute; pointer-events:none; box-sizing:border-box; margin:0; padding:0; overflow:hidden; ',// + '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;',
+	        basic: 'position:absolute; pointer-events:none; box-sizing:border-box; margin:0; padding:0; overflow:hidden; ' + '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select:none;',
 	    },
 
 	    // svg path
@@ -651,6 +651,8 @@
 	        delta:0,
 	    },
 
+	    isMobile: false,
+
 	    
 
 		add: function ( o ) {
@@ -659,6 +661,14 @@
 	        R.getZone( o );
 
 	        if( !R.isEventsInit ) R.initEvents();
+
+	    },
+
+	    testMobile: function () {
+
+	        var n = navigator.userAgent;
+	        if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
+	        else return false;  
 
 	    },
 
@@ -686,17 +696,19 @@
 
 	        var domElement = document.body;
 
-	        domElement.addEventListener( 'contextmenu', R, false );
+	        R.isMobile = R.testMobile();
 
-	        domElement.addEventListener( 'mousedown', R, false );
-	        domElement.addEventListener( 'wheel', R, false );
-
-	        domElement.addEventListener( 'touchstart', R, false );
-	        domElement.addEventListener( 'touchend', R, false );
-	        domElement.addEventListener( 'touchmove', R, false );
-
-	        document.addEventListener( 'mousemove', R, false );
-	        document.addEventListener( 'mouseup', R, false );
+	        if( R.isMobile ){
+	            domElement.addEventListener( 'touchstart', R, false );
+	            domElement.addEventListener( 'touchend', R, false );
+	            domElement.addEventListener( 'touchmove', R, false );
+	        }else{
+	            domElement.addEventListener( 'mousedown', R, false );
+	            domElement.addEventListener( 'contextmenu', R, false );
+	            domElement.addEventListener( 'wheel', R, false );
+	            document.addEventListener( 'mousemove', R, false );
+	            document.addEventListener( 'mouseup', R, false );
+	        }
 
 	        window.addEventListener( 'keydown', R, false );
 	        window.addEventListener( 'resize', R.resize , false );
@@ -711,17 +723,17 @@
 
 	        var domElement = document.body;
 
-	        domElement.removeEventListener( 'contextmenu', R );
-
-	        domElement.removeEventListener( 'mousedown', R );
-	        domElement.removeEventListener( 'wheel', R );
-
-	        domElement.removeEventListener( 'touchstart', R );
-	        domElement.removeEventListener( 'touchend', R );
-	        domElement.removeEventListener( 'touchmove', R );
-
-	        document.removeEventListener( 'mousemove', R );
-	        document.removeEventListener( 'mouseup', R );
+	        if( R.isMobile ){
+	            domElement.removeEventListener( 'touchstart', R, false );
+	            domElement.removeEventListener( 'touchend', R, false );
+	            domElement.removeEventListener( 'touchmove', R, false );
+	        }else{
+	            domElement.removeEventListener( 'mousedown', R, false );
+	            domElement.removeEventListener( 'contextmenu', R, false );
+	            domElement.removeEventListener( 'wheel', R, false );
+	            document.removeEventListener( 'mousemove', R, false );
+	            document.removeEventListener( 'mouseup', R, false );
+	        }
 
 	        window.removeEventListener( 'keydown', R );
 	        window.removeEventListener( 'resize', R.resize  );
@@ -751,20 +763,20 @@
 
 	    handleEvent: function ( event ) {
 
+	        //if(!event.type) return;
+
+	      //  console.log( event.type )
+
 	        if( event.type === 'contextmenu' ){ event.preventDefault(); return; }
 
 	        //if( event.type === 'keydown'){ R.editText( event ); return;}
 
-	        if( event.type !== 'keydown' && event.type !== 'wheel' ) event.preventDefault();
+	        //if( event.type !== 'keydown' && event.type !== 'wheel' ) event.preventDefault();
 	        //event.stopPropagation();
 
 	        R.findZone();
 	       
 	        var e = R.e;
-
-
-
-
 
 	        if( event.type === 'keydown') R.editText( event );
 
@@ -775,10 +787,25 @@
 	        e.clientY = event.clientY || 0;
 	        e.type = event.type;
 
+	        // mobile
+
+	        if( event.touches && event.touches.length > 0 ){
+	        
+	            e.clientX = event.touches[ 0 ].clientX || 0;
+	            e.clientY = event.touches[ 0 ].clientY || 0;
+
+	        }
+
+	        
+	        if( event.type === 'touchstart'){ e.type = 'mousedown'; R.findID( e ); }
+	        if( event.type === 'touchend'){ e.type = 'mouseup'; R.clearOldID();}
+	        if( event.type === 'touchmove'){ e.type = 'mousemove';  }
+
+
 	        if( e.type === 'mousedown' ) R.lock = true;
 	        if( e.type === 'mouseup' ) R.lock = false;
 
-	        if( (e.type === 'mousemove') && (!R.lock) ){ 
+	        if( ( e.type === 'mousemove'  ) && (!R.lock) ){ 
 	            R.findID( e );
 	        }
 
@@ -1229,10 +1256,6 @@
 
 
 	} );
-
-	/**
-	 * @author lth / https://github.com/lo-th
-	 */
 
 	function Proto ( o ) {
 
@@ -3251,26 +3274,15 @@
 
 	            case 'content':
 
+	            if( Roots.isMobile && type === 'mousedown' ) this.getNext( e, change );
+
 	            if( this.target ) targetChange = this.target.handleEvent( e );
 
 	            //if( type === 'mousemove' ) change = this.styles('def');
 
 	            if( !Roots.lock ){
 
-	                //var next = this.findID( e );
-	                var next = Roots.findTarget( this.uis, e );
-
-	                if( next !== this.current ){
-	                    this.clearTarget();
-	                    this.current = next;
-	                    change = true;
-	                }
-
-	                if( next !== -1 ){ 
-	                    this.target = this.uis[this.current];
-	                    this.target.uiover();
-	                   // this.target.handleEvent( e );
-	                }
+	                this.getNext( e, change );
 
 	            }
 
@@ -3289,6 +3301,23 @@
 	        if( targetChange ) change = true;
 
 	        return change;
+
+	    },
+
+	    getNext: function ( e, change ) {
+
+	        var next = Roots.findTarget( this.uis, e );
+
+	        if( next !== this.current ){
+	            this.clearTarget();
+	            this.current = next;
+	            change = true;
+	        }
+
+	        if( next !== -1 ){ 
+	            this.target = this.uis[ this.current ];
+	            this.target.uiover();
+	        }
 
 	    },
 
@@ -3542,6 +3571,8 @@
 
 	    reset: function () {
 
+	        if( this.pos.x!==0 || this.pos.y!==0 ) this.interval = setInterval( this.update.bind(this), 10 );
+
 	        this.mode(0);
 
 	    },
@@ -3549,7 +3580,7 @@
 	    mouseup: function ( e ) {
 
 	        this.isDown = false;
-	        this.interval = setInterval(this.update.bind(this), 10);
+	        this.interval = setInterval( this.update.bind(this), 10 );
 	        
 	    },
 
@@ -4938,15 +4969,6 @@
 
 	} );
 
-	/*function autoType () {
-
-	    var a = arguments;
-	    var type = 'Slide';
-	    if( a[2].type ) type = a[2].type;
-	    return type;
-
-	};*/
-
 	function add () {
 
 	    var a = arguments; 
@@ -5001,10 +5023,6 @@
 	    
 
 	}
-
-	/**
-	 * @author lth / https://github.com/lo-th
-	 */
 
 	function Gui ( o ) {
 
@@ -5298,25 +5316,21 @@
 
 	                e.clientY = this.isScroll ?  e.clientY + this.decal : e.clientY;
 
+
+	                if( Roots.isMobile && type === 'mousedown' ) this.getNext( e, change );
+
+
+
+
 		    		if( this.target ) targetChange = this.target.handleEvent( e );
 
 		    		if( type === 'mousemove' ) change = this.mode('def');
 	                if( type === 'wheel' && !targetChange && this.isScroll ) change = this.onWheel( e );
 
+	               
 		    		if( !Roots.lock ){
 
-		    			var next = Roots.findTarget( this.uis, e );
-
-		    			if( next !== this.current ){
-			                this.clearTarget();
-			                this.current = next;
-			                change = true;
-			            }
-
-			            if( next !== -1 ){ 
-			                this.target = this.uis[this.current];
-			                this.target.uiover();
-			            }
+	                    this.getNext( e, change );
 
 		    		}
 
@@ -5351,6 +5365,23 @@
 	    	if( targetChange ) change = true;
 
 	    	if( change ) this.draw();
+
+	    },
+
+	    getNext: function ( e, change ) {
+
+	        var next = Roots.findTarget( this.uis, e );
+
+	        if( next !== this.current ){
+	            this.clearTarget();
+	            this.current = next;
+	            change = true;
+	        }
+
+	        if( next !== -1 ){ 
+	            this.target = this.uis[ this.current ];
+	            this.target.uiover();
+	        }
 
 	    },
 

@@ -7,7 +7,7 @@ function SuperSky ( view, o ) {
 
 	this.n = 0;
 
-	
+	this.debug = true;
 
 	
 
@@ -17,10 +17,15 @@ function SuperSky ( view, o ) {
 	this.sv0 = new THREE.Vector3( 0, .99, 0 );
     this.sv1 = new THREE.Vector3( .188, .458, .682 );
 
+    this.lup = new THREE.Vector3( 0, 1.0, 0 );
+
     this.torad = 0.0174532925199432957;
 
     this.sunColor = new THREE.Color(1,1,1);
     this.moonColor = new THREE.Color(1,1,1);
+
+    this.groundColor = new THREE.Color(1,1,1);
+    this.skyColor = new THREE.Color(1,1,1);
 
     this.q = 2;
 	var q = this.q;
@@ -215,7 +220,7 @@ function SuperSky ( view, o ) {
 
 			'}',
 
-			'float ca(in vec3 r,in vec3 s,in float t){',
+			'float ca( in vec3 r,in vec3 s,in float t ){',
 
 			'	vec3 u = r-vm;',
 			'	float v,w,x,y,z,A;',
@@ -301,10 +306,7 @@ function SuperSky ( view, o ) {
 			'	float top = uvy <= 0.505 ? 1.0 : smoothstep(1.0, 0.0, (uvy-0.505)*25.0);',
 			'	float low = uvy > 0.505 ? 1.0 : smoothstep(1.0, 0.0, (0.505-uvy)*100.0);',
 
-
-
 			'	vec3 s = vec3( 0, 0.99, 0 );',
-
 			'	float m = 0.0;',
 			'	vec3 sky = clamp( makeSky( s, r, m ), vec3( 0.0 ), vec3( 10000.0 ) );',
 
@@ -451,7 +453,7 @@ function SuperSky ( view, o ) {
 				'	star = star*(1.0-cubi.a)*clamp(pow(abs(1.-light.y),10.),0.,1.);',
 				'	gl_FragColor = vec4( star + cubi.rgb,1);',
 					
-				'	#include <tonemapping_fragment>',
+				//'	#include <tonemapping_fragment>',
 
 				'}'
 			].join( '\n' ),
@@ -479,7 +481,9 @@ function SuperSky ( view, o ) {
 		this.sun.add( this.lensflare );
 		
 
-		this.dome = new THREE.Mesh( this.geometry, this.material )
+		this.dome = new THREE.Mesh( this.geometry, this.material );
+
+
 
 		//THREE.Mesh.call( this, this.geometry, this.material );
 
@@ -489,6 +493,8 @@ function SuperSky ( view, o ) {
 		this.add( this.sun );
 		this.add( this.moon );
 		this.add( this.dome );
+
+		this.initColorTest();
 
 		this.setSize();
 		this.update( o );
@@ -504,8 +510,8 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     clear: function () {
 
-    	this.remove(this.sun);
-    	this.remove(this.moon);
+    	this.remove( this.sun );
+    	this.remove( this.moon );
     	this.remove( this.dome );
 
     	this.view.followGroup.remove( this );
@@ -556,6 +562,10 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     },
 
+    calculateSkyColor: function (){
+
+    },
+
     timelap: function ( t, f ) {
 
     	var s = this.setting;
@@ -594,6 +604,16 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.moonSphere.theta = ( s.azimuth - 90 ) * r;
         this.moonPosition.setFromSpherical( this.moonSphere );
 
+        
+
+        
+
+        
+
+
+
+        
+
         // fake sun / moon
         this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
         this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
@@ -612,6 +632,27 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.view.sun.intensity = this.sunColor.r + (this.sunColor.r*0.3);
         this.view.moon.color.copy( this.moonColor );
         this.view.moon.intensity = this.moonColor.r - (this.moonColor.r*0.3);
+
+
+        
+
+
+        /*var luma = 0.005 + Math.max( this.lup.dot( this.sunPosition ), 0 ) * 0.2;
+        this.groundColor.setHex( s.groundColor ).multiplyScalar( luma );
+
+        if( this.view.isWithSphereLight ){
+        	
+
+        	//this.view.ambient.intensity = 1;
+        	//this.view.ambient.color.copy( this.groundColor )
+        	this.view.ambient.groundColor.copy( this.groundColor );
+
+
+        } else {
+        	this.view.ambient.color.copy( this.groundColor );
+        }*/
+
+        
 
         this.materialSky.uniforms.lightdir.value = this.sunPosition;
 		this.material.uniforms.lightdir.value = this.sunPosition;
@@ -632,9 +673,52 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     		this.camera.update( this.view.renderer, this.scene );
     		this.view.updateEnvMap( this.camera.renderTarget.texture );
+
+    		this.getColor();
+
 		    this.needsUpdate = false;
 
     	}
+
+    },
+
+    initColorTest: function () {
+
+    	if( !this.view.isWithSphereLight ) return;
+
+    	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
+        this.vUp = new THREE.Vector3( 0,1,0 );
+        this.vDown = new THREE.Vector3( 0,-1,0 );
+        this.camPixel = new THREE.OrthographicCamera( -1,1,1,-1, 0.5, 2 );
+        this.scene.add( this.camPixel );
+
+    },
+
+    getColor: function () {
+
+    	if( !this.view.isWithSphereLight ) return;
+
+    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
+        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+
+        this.camPixel.lookAt( this.vUp );
+        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+        this.skyColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+        this.camPixel.lookAt( this.vDown );
+        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+        this.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+        
+        this.view.sphereLight.color.copy( this.skyColor );
+        this.view.sphereLight.groundColor.copy( this.groundColor );
+        this.view.sphereLight.intensity = 0.6;
+
+        this.view.ambient.color.copy( this.groundColor );
 
     },
 
