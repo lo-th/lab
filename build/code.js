@@ -21218,7 +21218,7 @@ var editor = ( function () {
 
 var styles;
 
-var subtitle, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
+var subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
 var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
 
 var callback = function(){};
@@ -21242,7 +21242,7 @@ var selectColor = '#DE5825';
 var offColor ='rgba(256,256,256,0.1)';
 var bg = '#222322';
 var bgMenu = 'rgba(21,21,21,0.75)';
-var space = 5;//16;
+var space = 10;//16;
 
 var isMenu = false;
 var isWithCode = false;
@@ -21287,8 +21287,8 @@ editor = {
 
             saveButton: 'position:absolute; width:30px; height:30px; right:5px; top:5px; border-radius:6px; pointer-events:auto; cursor:pointer; ',
 
-            buttonStyle : 'padding:0 0; width:70px; height:30px; font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; pointer-events:auto; cursor:pointer; display: inline-block; margin-left:'+space+'px; border-radius:6px;line-height: 30px; ',//
-            menuButton : 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; margin: 3px 3px; padding: 3px 3px; border-radius:6px;',
+            buttonStyle : 'padding:0 0; width:70px; height:30px; font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; pointer-events:auto; cursor:pointer; display: inline-block; margin-left:'+space+'px; border-radius:6px;line-height: 30px; text-shadow: 1px 1px #000000;',//
+            menuButton : 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; margin: 3px 3px; padding: 3px 3px; border-radius:6px; text-shadow: 1px 1px #000000;',
 
         }
 
@@ -21307,14 +21307,18 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space*2)+'px; bottom: '+(space+12)+'px; color:#888988;';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space*2)+'px; bottom: '+(space*2+14)+'px; color:#888988; text-shadow: 1px 1px #000000;';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space*2)+'px; bottom:'+space+'px; color:#787978;';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space*2)+'px; bottom:'+(space*2)+'px; color:#787978; ';
         document.body.appendChild( subtitle );
+
+        subtitleS = document.createElement( 'div' );
+        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+((space*2)+1)+'px; bottom:'+((space*2)-1)+'px; color:rgba(0,0,0,0.5);';
+        document.body.appendChild( subtitleS );
 
         if( Link !== undefined ) this.setLink( Link );
 
@@ -21571,6 +21575,7 @@ editor = {
         bigmenu.style.left = left +'px';
         title.style.left = left +'px';
         subtitle.style.left = left +'px';
+        subtitleS.style.left = ( left + 1 ) +'px';
         github.style.right = right + 'px';
 
         if( isUiInit ){
@@ -21594,6 +21599,7 @@ editor = {
     tell: function ( str ) { 
 
         subtitle.textContent  = str;
+        subtitleS.textContent  = str;
 
     },
 
@@ -21775,6 +21781,7 @@ editor = {
         e.preventDefault();
         //e.target.style.background = 'none';
         e.target.style.color = "#dedede";
+        //e.target.style.textShadow = "1px 1px #000000";
         
     },
 
@@ -21783,6 +21790,7 @@ editor = {
         e.preventDefault();
         e.target.style.background = selectColor;
         e.target.style.color = "#000000";
+        e.target.style.textShadow = "1px 1px "+selectColor;
 
     },
 
@@ -21809,6 +21817,7 @@ editor = {
 
         b.style.background = 'none';
         b.style.color = selectColor;
+        b.style.textShadow = "1px 1px #000000";
         b.style.pointerEvents = 'auto';
 
     },
@@ -21817,6 +21826,7 @@ editor = {
 
         b.style.background = "#3f3f3f";
         b.style.color = "#999999";
+        b.style.textShadow = "1px 1px #333333";
 
     },
 

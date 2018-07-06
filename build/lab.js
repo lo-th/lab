@@ -63357,7 +63357,7 @@ function SuperSky ( view, o ) {
 
 	
 
-	this.needsUpdate = true;
+	this.needsUpdate = false;
 
 	// contant sun color
 	this.sv0 = new THREE.Vector3( 0, .99, 0 );
@@ -63840,10 +63840,12 @@ function SuperSky ( view, o ) {
 		this.add( this.moon );
 		this.add( this.dome );
 
-		this.initColorTest();
+		//this.initColorTest();
+
+		this.view.updateEnvMap( this.camera.renderTarget.texture );
 
 		this.setSize();
-		this.update( o );
+		this.update( o, true );
 
 		this.view.followGroup.add( this );
 
@@ -63908,10 +63910,6 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     },
 
-    calculateSkyColor: function (){
-
-    },
-
     timelap: function ( t, f ) {
 
     	var s = this.setting;
@@ -63929,7 +63927,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     },
 
-    update: function ( o ) {
+    update: function ( o, first ) {
 
     	o = o || {};
     	var s = this.setting;
@@ -63949,14 +63947,6 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.moonSphere.phi = ( s.inclination + 90 ) * r;
         this.moonSphere.theta = ( s.azimuth - 90 ) * r;
         this.moonPosition.setFromSpherical( this.moonSphere );
-
-        
-
-        
-
-        
-
-
 
         
 
@@ -64009,16 +63999,21 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 		this.materialSky.uniforms.cloud_covr.value = s.cloud_covr;
 		this.materialSky.uniforms.cloud_dens.value = s.cloud_dens;
 
-        this.needsUpdate = true;
+        if( !first ) this.needsUpdate = true;
 
     },
 
     render: function () {
 
+
+
     	if( this.needsUpdate ){
 
+    		//console.log('up')
+
     		this.camera.update( this.view.renderer, this.scene );
-    		this.view.updateEnvMap( this.camera.renderTarget.texture );
+    		this.view.envmap = this.camera.renderTarget.texture;
+    		//
 
     		this.getColor();
 
@@ -65714,6 +65709,16 @@ View.prototype = {
 
     },
 
+    resetMaterial: function (){
+
+        for( var m in this.mat ){
+            this.mat[m].dispose();
+        }
+
+        this.initMaterial();
+
+    },
+
     initMaterial: function (){
 
         this.mat = {
@@ -65867,6 +65872,8 @@ View.prototype = {
 
         this.removeRay();
         this.removeSky();
+        this.resetLight();
+        this.resetMaterial();
         
 
         this.update = function () {};
@@ -66171,15 +66178,32 @@ View.prototype = {
     //
     //-----------------------------
 
-    addLights: function(){
+    resetLight: function () {
+
+        if( !this.isWithLight ) return;
+
+        this.lightDistance = 200;
+
+        this.sun.color.setHex(0xffffff);
+        this.sun.intensity = 1.3;
+
+        this.moon.color.setHex(0x919091);
+        this.moon.intensity = 1;
+
+        this.sun.position.set( 0, this.lightDistance, 10 );
+        this.moon.position.set( 0, -this.lightDistance, -10 );
+
+    },
+
+    addLights: function () {
 
         if( this.isWithLight ) return;
 
-    	this.sun = new THREE.DirectionalLight( 0xffffff, 1 );
+    	this.sun = new THREE.DirectionalLight( 0xffffff, 1.3 );
     	this.sun.position.set( 0, this.lightDistance, 10 );
 
-    	this.moon = new THREE.PointLight( 0x909090, 1, this.lightDistance*2, 2 );
-    	this.moon.position.set( 0, -this.lightDistance, 0 );
+    	this.moon = new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
+    	this.moon.position.set( 0, -this.lightDistance, -10 );
 
         if( this.isWithSphereLight ){
             this.sphereLight = new THREE.HemisphereLight( 0xff0000, this.bg, 0.6 );
@@ -66253,6 +66277,9 @@ View.prototype = {
         this.sky.clear();
         this.isWithSky = false;
 
+        this.initEnvMap();
+        this.updateEnvMap();
+
     },
 
     addSky: function ( o ) {
@@ -66275,7 +66302,7 @@ View.prototype = {
 
     updateEnvMap: function ( texture ) {
 
-        this.envmap = texture;
+        if( texture !== undefined ) this.envmap = texture;
 
         for( var m in this.mat ){
             if( this.mat[m].envMap ) this.mat[m].envMap = this.envmap;

@@ -211,6 +211,16 @@ View.prototype = {
 
     },
 
+    resetMaterial: function (){
+
+        for( var m in this.mat ){
+            this.mat[m].dispose();
+        }
+
+        this.initMaterial();
+
+    },
+
     initMaterial: function (){
 
         this.mat = {
@@ -364,6 +374,8 @@ View.prototype = {
 
         this.removeRay();
         this.removeSky();
+        this.resetLight();
+        this.resetMaterial();
         
 
         this.update = function () {};
@@ -668,15 +680,32 @@ View.prototype = {
     //
     //-----------------------------
 
-    addLights: function(){
+    resetLight: function () {
+
+        if( !this.isWithLight ) return;
+
+        this.lightDistance = 200;
+
+        this.sun.color.setHex(0xffffff);
+        this.sun.intensity = 1.3;
+
+        this.moon.color.setHex(0x919091);
+        this.moon.intensity = 1;
+
+        this.sun.position.set( 0, this.lightDistance, 10 );
+        this.moon.position.set( 0, -this.lightDistance, -10 );
+
+    },
+
+    addLights: function () {
 
         if( this.isWithLight ) return;
 
-    	this.sun = new THREE.DirectionalLight( 0xffffff, 1 );
+    	this.sun = new THREE.DirectionalLight( 0xffffff, 1.3 );
     	this.sun.position.set( 0, this.lightDistance, 10 );
 
-    	this.moon = new THREE.PointLight( 0x909090, 1, this.lightDistance*2, 2 );
-    	this.moon.position.set( 0, -this.lightDistance, 0 );
+    	this.moon = new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
+    	this.moon.position.set( 0, -this.lightDistance, -10 );
 
         if( this.isWithSphereLight ){
             this.sphereLight = new THREE.HemisphereLight( 0xff0000, this.bg, 0.6 );
@@ -750,6 +779,9 @@ View.prototype = {
         this.sky.clear();
         this.isWithSky = false;
 
+        this.initEnvMap();
+        this.updateEnvMap();
+
     },
 
     addSky: function ( o ) {
@@ -772,7 +804,7 @@ View.prototype = {
 
     updateEnvMap: function ( texture ) {
 
-        this.envmap = texture;
+        if( texture !== undefined ) this.envmap = texture;
 
         for( var m in this.mat ){
             if( this.mat[m].envMap ) this.mat[m].envMap = this.envmap;

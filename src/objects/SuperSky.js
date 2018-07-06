@@ -11,7 +11,7 @@ function SuperSky ( view, o ) {
 
 	
 
-	this.needsUpdate = true;
+	this.needsUpdate = false;
 
 	// contant sun color
 	this.sv0 = new THREE.Vector3( 0, .99, 0 );
@@ -494,10 +494,12 @@ function SuperSky ( view, o ) {
 		this.add( this.moon );
 		this.add( this.dome );
 
-		this.initColorTest();
+		//this.initColorTest();
+
+		this.view.updateEnvMap( this.camera.renderTarget.texture );
 
 		this.setSize();
-		this.update( o );
+		this.update( o, true );
 
 		this.view.followGroup.add( this );
 
@@ -562,10 +564,6 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     },
 
-    calculateSkyColor: function (){
-
-    },
-
     timelap: function ( t, f ) {
 
     	var s = this.setting;
@@ -583,7 +581,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     },
 
-    update: function ( o ) {
+    update: function ( o, first ) {
 
     	o = o || {};
     	var s = this.setting;
@@ -603,14 +601,6 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.moonSphere.phi = ( s.inclination + 90 ) * r;
         this.moonSphere.theta = ( s.azimuth - 90 ) * r;
         this.moonPosition.setFromSpherical( this.moonSphere );
-
-        
-
-        
-
-        
-
-
 
         
 
@@ -663,16 +653,21 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 		this.materialSky.uniforms.cloud_covr.value = s.cloud_covr;
 		this.materialSky.uniforms.cloud_dens.value = s.cloud_dens;
 
-        this.needsUpdate = true;
+        if( !first ) this.needsUpdate = true;
 
     },
 
     render: function () {
 
+
+
     	if( this.needsUpdate ){
 
+    		//console.log('up')
+
     		this.camera.update( this.view.renderer, this.scene );
-    		this.view.updateEnvMap( this.camera.renderTarget.texture );
+    		this.view.envmap = this.camera.renderTarget.texture;
+    		//
 
     		this.getColor();
 
