@@ -684,6 +684,8 @@ View.prototype = {
 
         if( !this.isWithLight ) return;
 
+        this.followGroup.position.set(0,0,0);
+
         this.lightDistance = 200;
 
         this.sun.color.setHex(0xffffff);
@@ -830,12 +832,15 @@ View.prototype = {
         if( name === 'none' ) this.controler.resetFollow();
         if( !this.byName[ name ] ) return;
         o = o || {};
-        this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;
+
+        this.controler.initFollow( this.byName[ name ], o );
+
+        /*this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;
         this.controler.cam.distance = o.distance !== undefined ? o.distance : 10;
         this.controler.cam.height = o.height !== undefined ? o.height : 4;
         this.controler.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
         this.controler.cam.speed = o.speed !== undefined ? o.speed : 10;
-        this.controler.followTarget = this.byName[ name ];
+        this.controler.followTarget = this.byName[ name ];*/
 
     },
 

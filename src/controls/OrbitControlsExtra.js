@@ -9,14 +9,17 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	this.cam = {
 
 	    isFollow: false,
-	    rotation:180,
-	    height:4,
+	    theta:180,
+        phi:20,
+	    height:0.6,
 	    acceleration: 0.05,
 	    speed:10,
 	    distance:10,
 
 	    v: new THREE.Vector3(),
+        d: new THREE.Vector3(),
         s: new THREE.Spherical(),
+        tmp: new THREE.Vector3(),
 
 	}
 
@@ -38,6 +41,33 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
 	constructor: THREE.OrbitControlsExtra,
 
+    upExtra: function (z){
+
+        //console.log(z)
+        this.cam.distance *= z
+
+    },
+
+    initFollow: function ( mesh, o ) {
+
+        this.followTarget = mesh;
+
+        
+        this.cam.height = o.height !== undefined ? o.height : 0.6;
+        this.cam.d.set(0,this.cam.height,0);
+
+        this.cam.theta = o.theta !== undefined ? o.theta : 180;
+        this.cam.phi = o.phi !== undefined ? o.phi : 20;
+        this.cam.distance = o.distance !== undefined ? o.distance : 10;
+        
+        this.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
+        this.cam.speed = o.speed !== undefined ? o.speed : 10;
+
+        var sph = this.getSpherical();
+        sph.radius = this.cam.distance;
+        
+    },
+
 	resetFollow: function () {
 
 		this.followTarget = null;
@@ -52,18 +82,45 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         this.stopMoveCam();
 
+        
+
         var cam = this.cam;
 
-        this.enabled = false;
+        var sph = this.getSpherical();
+        var state = this.getState();
+
+
+
+        var p = this.followTarget.position;
+        
+
+        //this.enabled = false;
         cam.isFollow = true;
 
         var rotMatrix = new THREE.Matrix4().makeRotationFromQuaternion( this.followTarget.quaternion );
-        var yRotation = Math.atan2( rotMatrix.elements[8], rotMatrix.elements[10] );
+        var tRotation = Math.atan2( rotMatrix.elements[8], rotMatrix.elements[10] );//yaw
+        //var pRotation = Math.atan2( rotMatrix.elements[1], rotMatrix.elements[5] );//roll
+        //var pRotation = Math.atan2( rotMatrix.elements[0], rotMatrix.elements[3] );
 
-        var radians = ( cam.rotation * THREE.Math.DEG2RAD ) + yRotation;
+        var theta = ( cam.theta * THREE.Math.DEG2RAD ) + tRotation;// + this.getAzimuthalDeltaAngle();
+        var phi = ( (90-cam.phi) * THREE.Math.DEG2RAD );
+        
 
-        cam.v.copy( this.followTarget.position );
-        cam.v.add( { x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
+        var radius = cam.distance;
+
+        if( state === 0 || state === 3 ){ phi = sph.phi; theta = sph.theta; sph.radius = radius; }
+        if( state === -1 ) { sph.phi = phi; sph.theta = theta; } 
+
+        cam.s.set( radius, phi, theta );
+        cam.s.makeSafe();
+
+        //
+        //if( state === -1 ) 
+        cam.tmp.setFromSpherical( cam.s );
+        //else cam.tmp.setFromSpherical( sph );
+
+        cam.v.copy( p ).add(cam.d);
+        cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
         cam.v.sub( this.object.position );
         cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
 
@@ -75,10 +132,19 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         
 
         this.object.position.add( cam.v );
-        this.target.copy( this.followTarget.position );
+        this.target.copy( p ).add(cam.d);
         this.object.lookAt( this.target );
 
+        //cam.distance = sph.radius
+
         this.updateFollowGroup();
+
+    },
+
+    updateFollowGroup: function(){
+
+        this.followGroup.position.copy( this.target );
+        this.followGroup.position.y = 0;
 
     },
 
@@ -138,7 +204,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     	o.phi = o.polar !== undefined ? o.polar : o.phi;
     	o.theta = o.azim !== undefined ? o.azim : o.theta;
 
-        this.enabled = false;
+        //this.enabled = false;
 
         if( o.time === 0 ){
 
@@ -176,11 +242,6 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
     },
 
-    updateFollowGroup: function(){
-
-    	this.followGroup.position.copy( this.target );
-    	this.followGroup.position.y = 0;
-
-    },
+    
 
 });

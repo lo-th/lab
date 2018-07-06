@@ -86,6 +86,21 @@ THREE.OrbitControls = function ( object, domElement ) {
 	// public methods
 	//
 
+	this.getSpherical = function () {
+
+		return spherical;
+
+	};
+
+	this.getState = function () {
+
+		return state;
+
+	};
+
+
+	////
+
 	this.getPolarAngle = function () {
 
 		return spherical.phi;
@@ -120,6 +135,10 @@ THREE.OrbitControls = function ( object, domElement ) {
 		state = STATE.NONE;
 
 	};
+
+	/*this.upExtra = function () {
+
+	};*/
 
 	// this method is exposed, but perhaps it would be better if we can make it private...
 	this.update = function () {
@@ -386,6 +405,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 		if ( scope.object.isPerspectiveCamera ) {
 
 			scale /= dollyScale;
+			if( scope.upExtra ) scope.upExtra( scale );
 
 		} else if ( scope.object.isOrthographicCamera ) {
 
@@ -400,6 +420,8 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 		}
 
+		
+
 	}
 
 	function dollyOut( dollyScale ) {
@@ -407,6 +429,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 		if ( scope.object.isPerspectiveCamera ) {
 
 			scale *= dollyScale;
+			if( scope.upExtra ) scope.upExtra( scale );
 
 		} else if ( scope.object.isOrthographicCamera ) {
 
@@ -420,6 +443,8 @@ THREE.OrbitControls = function ( object, domElement ) {
 			scope.enableZoom = false;
 
 		}
+
+
 
 	}
 
@@ -532,6 +557,8 @@ THREE.OrbitControls = function ( object, domElement ) {
 			dollyIn( getZoomScale() );
 
 		}
+
+		//if(scope.upExtra) scope.upExtra( getZoomScale() *( event.deltaY > 0? 1 : -1)  )
 
 		scope.update();
 
