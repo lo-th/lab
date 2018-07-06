@@ -219,6 +219,8 @@ View.prototype = {
 
         this.initMaterial();
 
+
+
     },
 
     initMaterial: function (){
@@ -249,6 +251,8 @@ View.prototype = {
             shadow: new THREE.ShadowMaterial({ opacity:0.4, depthWrite:false }),
 
         }
+
+        for( var m in this.mat ) this.mat[m].shadowSide = false;
 
     },
 
@@ -757,11 +761,13 @@ View.prototype = {
 
         this.sun.shadow.mapSize.width = 2048;
         this.sun.shadow.mapSize.height = 2048;
-        //this.sun.shadow.bias = 0.001;
+        this.sun.shadow.bias = 0.001;
         //this.sun.shadow.bias = 0.0001;
         this.sun.castShadow = true;
 
         for( var m in this.mat ) this.mat[m].shadowSide = false;
+
+
         
 
         //this.followGroup.add( new THREE.CameraHelper( this.sun.shadow.camera ));
