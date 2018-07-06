@@ -15161,7 +15161,7 @@
 
 			} else {
 
-				var extension = extensions.get( 'ANGLE_instanced_arrays' );
+				extension = extensions.get( 'ANGLE_instanced_arrays' );
 
 				if ( extension === null ) {
 

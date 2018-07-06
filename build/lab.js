@@ -15164,7 +15164,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			} else {
 
-				var extension = extensions.get( 'ANGLE_instanced_arrays' );
+				extension = extensions.get( 'ANGLE_instanced_arrays' );
 
 				if ( extension === null ) {
 
@@ -62777,6 +62777,7 @@ function Terrain ( o ) {
     }
 
     this.material = new THREE.MeshStandardMaterial({ 
+
         vertexColors: THREE.VertexColors, 
         name:'terrain', 
         metalness: this.isWater ? 0.8 : 0.4, 
@@ -62785,6 +62786,7 @@ function Terrain ( o ) {
         envMap: view.getEnvMap(),
         normalMap:this.wn,
         normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(1,1),
+        shadowSide:false,
         
     });
 
