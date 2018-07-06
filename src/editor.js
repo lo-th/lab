@@ -22,6 +22,8 @@ var errorLines = [];
 var widgets = [];
 var interval = null;
 
+var joystick;
+
 var left = 0;
 var oldLeft = 0;
 var isLeftDown = false;
@@ -101,17 +103,17 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space*2)+'px; bottom: '+(space*2+14)+'px; color:#888988; text-shadow: 1px 1px #000000;';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space)+'px; bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000;';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space*2)+'px; bottom:'+(space*2)+'px; color:#787978; ';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space)+'px; bottom:'+(space)+'px; color:#787978; ';
         document.body.appendChild( subtitle );
 
         subtitleS = document.createElement( 'div' );
-        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+((space*2)+1)+'px; bottom:'+((space*2)-1)+'px; color:rgba(0,0,0,0.5);';
+        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+((space)+1)+'px; bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5);';
         document.body.appendChild( subtitleS );
 
         if( Link !== undefined ) this.setLink( Link );
@@ -868,6 +870,30 @@ editor = {
     Gdown: function(){
 
         if( link ) window.location.assign('https://github.com/lo-th/' + link );
+
+    },
+
+
+    // JOYSTICK
+
+    joyMove: function ( t ) {
+
+        //console.log(t)
+
+        user.key[0] = -t[0];
+        user.key[1] = -t[1];
+
+    },
+
+    addJoystick: function(){
+
+        joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'40px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#D4B87B' }).onChange( editor.joyMove );
+
+    },
+
+    removeJoystick: function(){
+
+        joystick.clear()
 
     },
 

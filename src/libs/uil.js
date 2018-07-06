@@ -1257,6 +1257,10 @@
 
 	} );
 
+	/**
+	 * @author lth / https://github.com/lo-th
+	 */
+
 	function Proto ( o ) {
 
 	    o = o || {};
@@ -1625,6 +1629,8 @@
 	            if( this.isUI ) this.main.clearOne( this );
 	            else document.body.removeChild( this.c[0] );
 	        }
+
+	        if( !this.isUI ) Roots.remove(this);
 
 	        this.c = null;
 	        this.s = null;
@@ -3280,11 +3286,7 @@
 
 	            //if( type === 'mousemove' ) change = this.styles('def');
 
-	            if( !Roots.lock ){
-
-	                this.getNext( e, change );
-
-	            }
+	            if( !Roots.lock ) this.getNext( e, change );
 
 	            break;
 	            case 'title':
@@ -3667,6 +3669,13 @@
 	        this.value[1] =  ( this.pos.y * this.multiplicator ).toFixed( this.precision ) * 1;
 
 	        this.c[2].textContent = this.value;
+
+	    },
+
+	    clear: function () {
+	        
+	        if( this.interval !== null ) clearInterval( this.interval );
+	        Proto.prototype.clear.call( this );
 
 	    },
 
@@ -4969,6 +4978,15 @@
 
 	} );
 
+	/*function autoType () {
+
+	    var a = arguments;
+	    var type = 'Slide';
+	    if( a[2].type ) type = a[2].type;
+	    return type;
+
+	};*/
+
 	function add () {
 
 	    var a = arguments; 
@@ -5023,6 +5041,10 @@
 	    
 
 	}
+
+	/**
+	 * @author lth / https://github.com/lo-th
+	 */
 
 	function Gui ( o ) {
 
@@ -5316,23 +5338,14 @@
 
 	                e.clientY = this.isScroll ?  e.clientY + this.decal : e.clientY;
 
-
 	                if( Roots.isMobile && type === 'mousedown' ) this.getNext( e, change );
-
-
-
 
 		    		if( this.target ) targetChange = this.target.handleEvent( e );
 
 		    		if( type === 'mousemove' ) change = this.mode('def');
 	                if( type === 'wheel' && !targetChange && this.isScroll ) change = this.onWheel( e );
-
 	               
-		    		if( !Roots.lock ){
-
-	                    this.getNext( e, change );
-
-		    		}
+		    		if( !Roots.lock ) this.getNext( e, change );
 
 	    		break;
 	    		case 'bottom':

@@ -65619,6 +65619,7 @@ function View () {
 
 	this.isMobile = this.testMobile();
 
+    this.isWithJoystick = false;
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
     this.isWithSky = false;
@@ -65707,6 +65708,22 @@ function View () {
 View.prototype = {
 
 	byName: {},
+
+    addJoystick: function () {
+
+        editor.addJoystick();
+        this.isWithJoystick = true;
+
+    },
+
+    removeJoystick: function () {
+
+        if( !this.isWithJoystick ) return;
+
+        editor.removeJoystick();
+        this.isWithJoystick = false;
+
+    },
 
     getGL: function ( forceV1 ) {
 
@@ -65978,6 +65995,7 @@ View.prototype = {
         this.removeSky();
         this.resetLight();
         this.resetMaterial();
+        this.removeJoystick();
         
 
         this.update = function () {};
