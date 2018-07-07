@@ -888,8 +888,8 @@ editor = {
     },
 
     addJoystick: function(){
-
-        joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
+        joystick = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
+        //joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 
     },
 

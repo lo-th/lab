@@ -702,6 +702,7 @@ var global;
 	        var i = R.ui.indexOf( o );
 	        
 	        if ( i !== -1 ) {
+	            R.removeListen( o );
 	            R.ui.splice( i, 1 ); 
 	        }
 
@@ -825,7 +826,7 @@ var global;
 	        }
 	        
 	        if( event.type === 'touchstart'){ e.type = 'mousedown'; R.findID( e ); }
-	        if( event.type === 'touchend'){ e.type = 'mouseup'; R.clearOldID(); }
+	        if( event.type === 'touchend'){ e.type = 'mouseup';  if( R.ID !== null )R.ID.handleEvent( e ); R.clearOldID(); }
 	        if( event.type === 'touchmove'){ e.type = 'mousemove';  }
 
 
@@ -1144,8 +1145,11 @@ var global;
 
 	    removeListen: function ( proto ) {
 
+	        
+
 	        var id = R.listens.indexOf( proto );
-	        R.listens.splice(id, 1);
+	        console.log('OOO', id);
+	        if( id !== -1 ){ R.listens.splice(id, 1);console.log('XOO');}
 
 	        if( R.listens.length === 0 ) R.isLoop = false;
 
@@ -1606,7 +1610,7 @@ var global;
 	    listen: function () {
 
 	        Roots.addListen( this );
-	        Roots.listens.push( this );
+	        //Roots.listens.push( this );
 	        return this;
 
 	    },
@@ -3678,8 +3682,8 @@ var global;
 	    // ----------------------
 
 	    addInterval: function (){
-
-	        if( this.interval !== null || this.pos.isZero() ) return;
+	        //if( this.interval !== null ) this.stopInterval();
+	        if( this.pos.isZero() ) return;
 	        this.interval = setInterval( function(){ this.update(); }.bind(this), 10 );
 
 	    },
@@ -3702,6 +3706,7 @@ var global;
 	    mouseup: function ( e ) {
 
 	        this.addInterval();
+	        console.log('up');
 	        this.isDown = false;
 	    
 	    },
@@ -3737,9 +3742,11 @@ var global;
 
 	    },
 
-	    setValue: function ( x, y ) {
+	    setValue: function ( v ) {
 
-	        this.pos.set( x || 0, y || 0 );
+	        if(v===undefined) v=[0,0];
+
+	        this.pos.set( v[0] || 0, v[1]  || 0 );
 	        this.updateSVG();
 
 	    },
@@ -22223,8 +22230,8 @@ editor = {
     },
 
     addJoystick: function(){
-
-        joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
+        joystick = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
+        //joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 
     },
 

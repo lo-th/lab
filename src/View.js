@@ -101,7 +101,13 @@ function View () {
     var _this = this;
     window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
 
-    // 7 START RENDER
+
+    // 7 KEYBOARD & JOSTICK 
+    
+    if(!this.isMobile) user.init();
+
+
+    // 8 START RENDER
 
     this.render( 0 );
 
@@ -334,6 +340,8 @@ View.prototype = {
         if( this.needResize ) this.upResize();
 
         THREE.SEA3D.AnimationHandler.update( 0.017 );
+
+        user.update();
 
 		//requestAnimationFrame( function(s){ this.render(s); }.bind(this) );
 

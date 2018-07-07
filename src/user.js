@@ -29,28 +29,42 @@ var user = ( function () {
     //var key = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];//new Float32Array( 20 );
     var gamepad;
     var useGamepad = false;
+    var isInit = false;
 
     user = {
+
+        axeL:[0,0],
 
         key: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 
         init: function () {
+
+            if(isInit) return;
 
             gamepad = new user.Gamepad( user.key ); 
 
             document.addEventListener( 'keydown', user.keyDown, false );
             document.addEventListener( 'keyup', user.keyUp, false );
 
+            isInit = true;
+
         },
 
         update: function () {
 
+            if(!isInit) return;
+
+
             gamepad.update();
 
             if( gamepad.ready ){ 
-                if(!useGamepad) useGamepad = true;
+                if( !useGamepad ) useGamepad = true;
                 gamepad.getValue(0);
             }
+
+            user.axeL[ 0 ] = user.key[ 0 ];
+            user.axeL[ 1 ] = user.key[ 1 ];
+
             // else { if() useGamepad = true; }
 
             //if( full ) ammo.send( 'key', { key:key } );
@@ -146,13 +160,13 @@ var user = ( function () {
 
         },
 
-        getGamepad: function () {
+        /*getGamepad: function () {
 
             return useGamepad;
 
         },
 
-        /*getKey: function () {
+        getKey: function () {
 
             return key;
 

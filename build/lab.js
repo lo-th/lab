@@ -64293,28 +64293,42 @@ var user = ( function () {
     //var key = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];//new Float32Array( 20 );
     var gamepad;
     var useGamepad = false;
+    var isInit = false;
 
     user = {
+
+        axeL:[0,0],
 
         key: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 
         init: function () {
+
+            if(isInit) return;
 
             gamepad = new user.Gamepad( user.key ); 
 
             document.addEventListener( 'keydown', user.keyDown, false );
             document.addEventListener( 'keyup', user.keyUp, false );
 
+            isInit = true;
+
         },
 
         update: function () {
 
+            if(!isInit) return;
+
+
             gamepad.update();
 
             if( gamepad.ready ){ 
-                if(!useGamepad) useGamepad = true;
+                if( !useGamepad ) useGamepad = true;
                 gamepad.getValue(0);
             }
+
+            user.axeL[ 0 ] = user.key[ 0 ];
+            user.axeL[ 1 ] = user.key[ 1 ];
+
             // else { if() useGamepad = true; }
 
             //if( full ) ammo.send( 'key', { key:key } );
@@ -64410,13 +64424,13 @@ var user = ( function () {
 
         },
 
-        getGamepad: function () {
+        /*getGamepad: function () {
 
             return useGamepad;
 
         },
 
-        /*getKey: function () {
+        getKey: function () {
 
             return key;
 
@@ -65699,7 +65713,13 @@ function View () {
     var _this = this;
     window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
 
-    // 7 START RENDER
+
+    // 7 KEYBOARD & JOSTICK 
+    
+    if(!this.isMobile) user.init();
+
+
+    // 8 START RENDER
 
     this.render( 0 );
 
@@ -65932,6 +65952,8 @@ View.prototype = {
         if( this.needResize ) this.upResize();
 
         THREE.SEA3D.AnimationHandler.update( 0.017 );
+
+        user.update();
 
 		//requestAnimationFrame( function(s){ this.render(s); }.bind(this) );
 
