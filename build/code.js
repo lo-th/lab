@@ -103,7 +103,8 @@ var global;
 	    frag: document.createDocumentFragment(),
 
 	    colorRing: null,
-	    joystick: null,
+	    joystick_0: null,
+	    joystick_1: null,
 	    circular: null,
 	    knob: null,
 	    //graph: null,
@@ -456,7 +457,7 @@ var global;
 
 	    },*/
 
-	    makeKnob: function () {
+	    makeKnob: function ( model ) {
 
 	        var w = 128;
 	        var radius = 34;
@@ -469,7 +470,7 @@ var global;
 
 	    },
 
-	    makeCircular: function () {
+	    makeCircular: function ( model ) {
 
 	        var w = 128;
 	        var radius = 40;
@@ -480,7 +481,7 @@ var global;
 
 	    },
 
-	    makeJoystick: function () {
+	    makeJoystick: function ( model ) {
 
 	        //+' background:#f00;'
 
@@ -491,31 +492,49 @@ var global;
 	        T.dom( 'defs', null, {}, svg );
 	        T.dom( 'g', null, {}, svg );
 
-	        // gradian background
-	        var ccc = [ [40, 'rgb(0,0,0)', 0.3], [80, 'rgb(0,0,0)', 0], [90, 'rgb(50,50,50)', 0.4], [100, 'rgb(50,50,50)', 0] ];
-	        T.makeGradiant( 'radialGradient', { id:'grad', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
+	        if( model === 0 ){
 
-	        // gradian shadow
-	        ccc = [ [60, 'rgb(0,0,0)', 0.5], [100, 'rgb(0,0,0)', 0] ];
-	        T.makeGradiant( 'radialGradient', { id:'gradS', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
+	        
 
-	        // gradian stick
-	        var cc0 = ['rgb(40,40,40)', 'rgb(48,48,48)', 'rgb(30,30,30)'];
-	        var cc1 = ['rgb(1,90,197)', 'rgb(3,95,207)', 'rgb(0,65,167)'];
+	            // gradian background
+	            var ccc = [ [40, 'rgb(0,0,0)', 0.3], [80, 'rgb(0,0,0)', 0], [90, 'rgb(50,50,50)', 0.4], [100, 'rgb(50,50,50)', 0] ];
+	            T.makeGradiant( 'radialGradient', { id:'grad', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
 
-	        ccc = [ [30, cc0[0], 1], [60, cc0[1], 1], [80, cc0[1], 1], [100, cc0[2], 1] ];
-	        T.makeGradiant( 'radialGradient', { id:'gradIn', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
+	            // gradian shadow
+	            ccc = [ [60, 'rgb(0,0,0)', 0.5], [100, 'rgb(0,0,0)', 0] ];
+	            T.makeGradiant( 'radialGradient', { id:'gradS', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
 
-	        ccc = [ [30, cc1[0], 1], [60, cc1[1], 1], [80, cc1[1], 1], [100, cc1[2], 1] ];
-	        T.makeGradiant( 'radialGradient', { id:'gradIn2', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
+	            // gradian stick
+	            var cc0 = ['rgb(40,40,40)', 'rgb(48,48,48)', 'rgb(30,30,30)'];
+	            var cc1 = ['rgb(1,90,197)', 'rgb(3,95,207)', 'rgb(0,65,167)'];
 
-	        // graph
+	            ccc = [ [30, cc0[0], 1], [60, cc0[1], 1], [80, cc0[1], 1], [100, cc0[2], 1] ];
+	            T.makeGradiant( 'radialGradient', { id:'gradIn', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
 
-	        T.dom( 'circle', '', { cx:64, cy:64, r:radius, fill:'url(#grad)' }, svg );//2
-	        T.dom( 'circle', '', { cx:64+5, cy:64+10, r:innerRadius+10, fill:'url(#gradS)' }, svg );//3
-	        T.dom( 'circle', '', { cx:64, cy:64, r:innerRadius, fill:'url(#gradIn)' }, svg );//4
+	            ccc = [ [30, cc1[0], 1], [60, cc1[1], 1], [80, cc1[1], 1], [100, cc1[2], 1] ];
+	            T.makeGradiant( 'radialGradient', { id:'gradIn2', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
 
-	        T.joystick = svg;
+	            // graph
+
+	            T.dom( 'circle', '', { cx:64, cy:64, r:radius, fill:'url(#grad)' }, svg );//2
+	            T.dom( 'circle', '', { cx:64+5, cy:64+10, r:innerRadius+10, fill:'url(#gradS)' }, svg );//3
+	            T.dom( 'circle', '', { cx:64, cy:64, r:innerRadius, fill:'url(#gradIn)' }, svg );//4
+
+	            T.joystick_0 = svg;
+
+	        } else {
+	             // gradian shadow
+	            ccc = [ [69, 'rgb(0,0,0)', 0],[70, 'rgb(0,0,0)', 0.3], [100, 'rgb(0,0,0)', 0] ];
+	            T.makeGradiant( 'radialGradient', { id:'gradX', cx:'50%', cy:'50%', r:'50%', fx:'50%', fy:'50%' }, svg, ccc );
+
+	            T.dom( 'circle', '', { cx:64, cy:64, r:radius, fill:'none', stroke:'rgba(100,100,100,0.25)', 'stroke-width':'4' }, svg );//2
+	            T.dom( 'circle', '', { cx:64, cy:64, r:innerRadius+14, fill:'url(#gradX)' }, svg );//3
+	            T.dom( 'circle', '', { cx:64, cy:64, r:innerRadius, fill:'none', stroke:'rgb(100,100,100)', 'stroke-width':'4' }, svg );//4
+
+	            T.joystick_1 = svg;
+	        }
+
+	        
 
 	    },
 
@@ -1227,6 +1246,15 @@ var global;
 
 		},
 
+		negate: function () {
+
+			this.x *= -1;
+			this.y *= -1;
+
+			return this;
+
+		},
+
 		neg: function () {
 
 			this.x = -1;
@@ -1260,10 +1288,6 @@ var global;
 
 
 	} );
-
-	/**
-	 * @author lth / https://github.com/lo-th
-	 */
 
 	function Proto ( o ) {
 
@@ -1479,23 +1503,23 @@ var global;
 
 	    },
 
-	    getJoystick: function () {
+	    getJoystick: function ( model ) {
 
-	        if( !Tools.joystick ) Tools.makeJoystick();
-	        return Tools.clone( Tools.joystick );
+	        if( !Tools[ 'joystick_'+ model ] ) Tools.makeJoystick( model );
+	        return Tools.clone( Tools[ 'joystick_'+ model ] );
 
 	    },
 
-	    getCircular: function () {
+	    getCircular: function ( model ) {
 
-	        if( !Tools.circular ) Tools.makeCircular();
+	        if( !Tools.circular ) Tools.makeCircular( model );
 	        return Tools.clone( Tools.circular );
 
 	    },
 
-	    getKnob: function () {
+	    getKnob: function ( model ) {
 
-	        if( !Tools.knob ) Tools.makeKnob();
+	        if( !Tools.knob ) Tools.makeKnob( model );
 	        return Tools.clone( Tools.knob );
 
 	    },
@@ -1634,7 +1658,7 @@ var global;
 	            else document.body.removeChild( this.c[0] );
 	        }
 
-	        if( !this.isUI ) Roots.remove(this);
+	        if( !this.isUI ) Roots.remove( this );
 
 	        this.c = null;
 	        this.s = null;
@@ -2964,7 +2988,7 @@ var global;
 	    this.precision = o.precision || 2;
 	    this.multiplicator = o.multiplicator || 1;
 
-	    this.autoWidth = false;
+	    this.autoWidth = true;
 	    this.isNumber = false;
 
 	    this.isDown = false;
@@ -2978,7 +3002,10 @@ var global;
 	    if( this.c[1] !== undefined ) { // with title
 
 	        this.c[1].style.width = this.w +'px';
-	        this.c[1].style.textAlign = 'center';
+	        
+	        
+	        //this.c[1].style.background = '#ff0000';
+	        //this.c[1].style.textAlign = 'center';
 	        this.top = 10;
 	        this.h += 10;
 
@@ -2992,6 +3019,7 @@ var global;
 
 	    var svg = this.dom( 'svg', this.css.basic , { viewBox:'0 0 '+this.w+' '+this.rh, width:this.w, height:this.rh, preserveAspectRatio:'none' } );
 	    this.setCss( svg, { width:this.w, height:this.rh, left:0, top:this.top });
+
 	    this.dom( 'path', '', { d:'', stroke:this.colors.text, 'stroke-width':2, fill:'none', 'stroke-linecap':'butt' }, svg );
 	    this.dom( 'rect', '', { x:10, y:10, width:this.gw+8, height:this.gh+8, stroke:'rgba(0,0,0,0.3)', 'stroke-width':1 , fill:'none'}, svg );
 
@@ -3016,6 +3044,12 @@ var global;
 	    this.c[3] = svg;
 
 	    this.init();
+
+	    if( this.c[1] !== undefined ){
+	        this.c[1].style.top = 0 +'px';
+	        this.c[1].style.height = 20 +'px';
+	        this.s[1].lineHeight = (20-5)+'px';
+	    }
 
 	    this.update( false );
 
@@ -3165,9 +3199,11 @@ var global;
 
 	    updateSVG: function () {
 
+	        this.setSvg( this.c[3], 'd', this.makePath(), 0 );
+
 	    	for(var i = 0; i<this.lng; i++ ){
 
-	    		this.setSvg( this.c[3], 'd', this.makePath(), 0 );
+	    		
 	    		this.setSvg( this.c[3], 'height', this.v[i]*this.gh, i+2 );
 	    		this.setSvg( this.c[3], 'y', 14 + (this.gh - this.v[i]*this.gh), i+2 );
 	    		this.value[i] = (this.v[i] * this.multiplicator).toFixed( this.precision ) * 1;
@@ -3175,6 +3211,31 @@ var global;
 		    }
 
 		    this.c[2].textContent = this.value;
+
+	    },
+
+	    rSize: function () {
+
+	        Proto.prototype.rSize.call( this );
+
+	        var s = this.s;
+	        if( this.c[1] !== undefined )s[1].width = this.w + 'px';
+	        s[2].width = this.w + 'px';
+	        s[3].width = this.w + 'px';
+
+	        var gw = this.w - 28;
+	        var iw = ((gw-(4*(this.lng-1)))/this.lng);
+
+	        var t = [];
+
+	        for( var i = 0; i < this.lng; i++ ){
+
+	            t[i] = [ 14 + (i*iw) + (i*4), iw ];
+	            t[i][2] = t[i][0] + t[i][1];
+
+	        }
+
+	        this.tmp = t;
 
 	    }
 
@@ -3507,6 +3568,7 @@ var global;
 	    this.value = [0,0];
 
 	    this.joyType = 'analogique';
+	    this.model = o.mode !== undefined ? o.mode : 0;
 
 	    this.precision = o.precision || 2;
 	    this.multiplicator = o.multiplicator || 1;
@@ -3537,7 +3599,7 @@ var global;
 	    this.c[2] = this.dom( 'div', this.css.txt + 'text-align:center; top:'+(this.h-20)+'px; width:'+this.w+'px; color:'+ this.fontColor );
 	    this.c[2].textContent = this.value;
 
-	    this.c[3] = this.getJoystick();
+	    this.c[3] = this.getJoystick( this.model );
 	    this.setSvg( this.c[3], 'viewBox', '0 0 '+this.w+' '+this.w );
 	    this.setCss( this.c[3], { width:this.w, height:this.w, left:0, top:this.top });
 
@@ -3558,12 +3620,27 @@ var global;
 
 	        switch(mode){
 	            case 0: // base
-	                this.setSvg( this.c[3], 'fill', 'url(#gradIn)', 4 );
-	                this.setSvg( this.c[3], 'stroke', '#000', 4 );
+	                if(this.model===0){
+	                    this.setSvg( this.c[3], 'fill', 'url(#gradIn)', 4 );
+	                    this.setSvg( this.c[3], 'stroke', '#000', 4 );
+	                } else {
+	                    this.setSvg( this.c[3], 'stroke', 'rgba(100,100,100,0.25)', 2 );
+	                    //this.setSvg( this.c[3], 'stroke', 'rgb(0,0,0,0.1)', 3 );
+	                    this.setSvg( this.c[3], 'stroke', '#666', 4 );
+	                    this.setSvg( this.c[3], 'fill', 'none', 4 );
+	                }
+	                
 	            break;
 	            case 1: // over
-	                this.setSvg( this.c[3], 'fill', 'url(#gradIn2)', 4 );
-	                this.setSvg( this.c[3], 'stroke', 'rgba(0,0,0,0)', 4 );
+	                if(this.model===0){
+	                    this.setSvg( this.c[3], 'fill', 'url(#gradIn2)', 4 );
+	                    this.setSvg( this.c[3], 'stroke', 'rgba(0,0,0,0)', 4 );
+	                } else {
+	                    this.setSvg( this.c[3], 'stroke', 'rgba(48,138,255,0.25)', 2 );
+	                    //this.setSvg( this.c[3], 'stroke', 'rgb(0,0,0,0.3)', 3 );
+	                    this.setSvg( this.c[3], 'stroke', this.colors.select, 4 );
+	                    this.setSvg( this.c[3], 'fill', 'rgba(48,138,255,0.25)', 4 );
+	                }
 	            break;
 	            case 2: // edit
 	            break;
@@ -3615,7 +3692,7 @@ var global;
 	            this.tmp.y = Math.cos( angle ) * this.distance;
 	        }
 
-	        this.pos.copy( this.tmp ).divideScalar( this.distance );
+	        this.pos.copy( this.tmp ).divideScalar( this.distance ).negate();
 	        this.update();
 
 	    },
@@ -3634,8 +3711,10 @@ var global;
 	        if( this.interval !== null ){
 
 	            if( !this.isDown ){
-	                this.pos.x += (0 - this.pos.x)/3;
-	                this.pos.y += (0 - this.pos.y)/3;
+	                //this.pos.x += this.pos.x/3;
+	                //this.pos.y += this.pos.y/3;
+	                this.pos.x *= 0.9;//+= (0 - this.pos.x)/3;
+	                this.pos.y *= 0.9;//+= (0 - this.pos.y)/3;
 	                if(this.isUI && this.main.isCanvas ) this.main.draw();
 	            }
 
@@ -3656,13 +3735,25 @@ var global;
 
 	    updateSVG: function () {
 
-	        var x = this.radius - ( this.pos.x * this.distance );
-	        var y = this.radius - ( this.pos.y * this.distance );
-	        var sx = x + ((1-this.pos.x)*5) + 5;
-	        var sy = y + ((1-this.pos.y)*5) + 10;
+	        var x = this.radius - ( -this.pos.x * this.distance );
+	        var y = this.radius - ( -this.pos.y * this.distance );
+	        //var x = this.radius - ( this.pos.x * this.distance );
+	        //var y = this.radius - ( this.pos.y * this.distance );
+	       // var sx = x + ((1-this.pos.x)*5) + 5;
+	       // var sy = y + ((1-this.pos.y)*5) + 10;
 
-	        this.setSvg( this.c[3], 'cx', sx*this.ratio, 3 );
-	        this.setSvg( this.c[3], 'cy', sy*this.ratio, 3 );
+	         if(this.model === 0){
+	            var sx = x + ((this.pos.x)*5) + 5;
+	            var sy = y + ((this.pos.y)*5) + 10;
+
+	            this.setSvg( this.c[3], 'cx', sx*this.ratio, 3 );
+	            this.setSvg( this.c[3], 'cy', sy*this.ratio, 3 );
+	        } else {
+	            this.setSvg( this.c[3], 'cx', x*this.ratio, 3 );
+	            this.setSvg( this.c[3], 'cy', y*this.ratio, 3 );
+	        }
+
+	        
 
 	        this.setSvg( this.c[3], 'cx', x*this.ratio, 4 );
 	        this.setSvg( this.c[3], 'cy', y*this.ratio, 4 );
@@ -4616,7 +4707,9 @@ var global;
 
 	    this.setTypeNumber( o );
 
-	    this.stype = o.stype || 0;
+
+	    this.model = o.stype || 0;
+	    if( o.mode !== undefined ) this.model = o.mode;
 	    this.buttonColor = o.bColor || this.colors.button;
 
 	    this.isDown = false;
@@ -4632,22 +4725,22 @@ var global;
 
 	    this.c[2].isNum = true;
 
-	    if(this.stype !== 0){
-	        if(this.stype === 1 || this.stype === 3){
+	    if(this.model !== 0){
+	        if(this.model === 1 || this.model === 3){
 	            var h1 = 4;
 	            var h2 = 8;
 	            var ww = this.h-4;
 	            var ra = 20;
 	        }
 
-	        if(this.stype === 2){
+	        if(this.model === 2){
 	            h1 = 2;
 	            h2 = 4;
 	            ra = 2;
 	            ww = (this.h-4)*0.5;
 	        }
 
-	        if(this.stype === 3) this.c[5].style.visible = 'none';
+	        if(this.model === 3) this.c[5].style.visible = 'none';
 
 	        this.c[4].style.borderRadius = h1 + 'px';
 	        this.c[4].style.height = h2 + 'px';
@@ -4801,7 +4894,7 @@ var global;
 
 	        var ww = Math.floor( this.ww * (( this.value - this.min ) / this.range ));
 	       
-	        if(this.stype !== 3) this.s[5].width = ww + 'px';
+	        if(this.model !== 3) this.s[5].width = ww + 'px';
 	        if(this.s[6]) this.s[6].left = ( this.sa + ww + 3 ) + 'px';
 	        this.c[2].textContent = this.value;
 
@@ -4982,15 +5075,6 @@ var global;
 
 	} );
 
-	/*function autoType () {
-
-	    var a = arguments;
-	    var type = 'Slide';
-	    if( a[2].type ) type = a[2].type;
-	    return type;
-
-	};*/
-
 	function add () {
 
 	    var a = arguments; 
@@ -5045,10 +5129,6 @@ var global;
 	    
 
 	}
-
-	/**
-	 * @author lth / https://github.com/lo-th
-	 */
 
 	function Gui ( o ) {
 
@@ -21254,7 +21334,7 @@ var isRightDown = false;
 var option = null;
 
 var selectColor = '#DE5825';
-var offColor ='rgba(256,256,256,0.1)';
+var offColor ='rgba(255,255,255,0.05)';
 var bg = '#222322';
 var bgMenu = 'rgba(21,21,21,0.75)';
 var space = 10;//16;
@@ -21322,17 +21402,17 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px; padding-left:'+(space)+'px; bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000;';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space)+'px';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+(space)+'px; bottom:'+(space)+'px; color:#787978; ';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; bottom:'+(space)+'px; color:#787978; text-align:right; right:'+(space)+'px';
         document.body.appendChild( subtitle );
 
         subtitleS = document.createElement( 'div' );
-        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute; padding-left:'+((space)+1)+'px; bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5);';
+        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5); text-align:right; right:'+(space-1)+'px';
         document.body.appendChild( subtitleS );
 
         if( Link !== undefined ) this.setLink( Link );
@@ -22052,8 +22132,10 @@ editor = {
 
     addGithubLink: function () {
 
+        var bgx = 'rgba(0,0,0,0.3)';
+
         var icon_Github = [
-            "<svg width='60' height='60' viewBox='0 0 250 250' style='fill:"+offColor+"; color:"+bg+"; position: absolute; top: 0; border: 0; right: 0;'>",
+            "<svg width='60' height='60' viewBox='0 0 250 250' style='fill:"+offColor+"; color:"+bgx+"; position: absolute; top: 0; border: 0; right: 0;'>",
             "<path d='M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z' id='octo' onmouseover='editor.Gover();' onmouseout='editor.Gout();' onmousedown='editor.Gdown();' style='cursor:pointer; pointer-events:auto;'></path>",
             "<path d='M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2' fill='currentColor' style='transform-origin: 130px 106px; pointer-events:none;' id='octo-arm'></path>",
             "<path d='M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z' fill='currentColor' id='octo-body' style='pointer-events:none;'></path></svg>",
@@ -22073,7 +22155,7 @@ editor = {
 
     Gover: function(){
 
-        octo.setAttribute('fill', selectColor); 
+        octo.setAttribute('fill', selectColor);
         octoArm.style.webkitAnimationName = 'octocat-wave'; 
         octoArm.style.webkitAnimationDuration = '560ms';
 
@@ -22099,14 +22181,14 @@ editor = {
 
         //console.log(t)
 
-        user.key[0] = -t[0];
-        user.key[1] = -t[1];
+        user.key[0] = t[0];
+        user.key[1] = t[1];
 
     },
 
     addJoystick: function(){
 
-        joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'40px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#D4B87B' }).onChange( editor.joyMove );
+        joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 
     },
 
