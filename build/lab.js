@@ -65713,9 +65713,8 @@ function View () {
     var _this = this;
     window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
 
-
     // 7 KEYBOARD & JOSTICK 
-    
+
     if(!this.isMobile) user.init();
 
 
@@ -65728,22 +65727,6 @@ function View () {
 View.prototype = {
 
 	byName: {},
-
-    addJoystick: function () {
-
-        editor.addJoystick();
-        this.isWithJoystick = true;
-
-    },
-
-    removeJoystick: function () {
-
-        if( !this.isWithJoystick ) return;
-
-        editor.removeJoystick();
-        this.isWithJoystick = false;
-
-    },
 
     getGL: function ( forceV1 ) {
 
@@ -65797,141 +65780,6 @@ View.prototype = {
 
     },
 
-    // GEOMETRY
-
-    initGeometry: function (){
-
-        var geo = {
-
-            agent: new THREE.CircleBufferGeometry( 1, 3 ),
-            cicle: new THREE.CircleBufferGeometry( 1, 6 ),
-
-            plane:      new THREE.PlaneBufferGeometry(1,1,1,1),
-            box:        new THREE.BoxBufferGeometry(1,1,1),
-            hardbox:    new THREE.BoxBufferGeometry(1,1,1),
-            cone:       new THREE.CylinderBufferGeometry( 0,1,0.5 ),
-            wheel:      new THREE.CylinderBufferGeometry( 1,1,1, 18 ),
-            sphere:     new THREE.SphereBufferGeometry( 1, 16, 12 ),
-            highsphere: new THREE.SphereBufferGeometry( 1, 32, 24 ),
-            cylinder:   new THREE.CylinderBufferGeometry( 1,1,1,12,1 ),
-
-        }
-
-        geo.cicle.rotateX( -Math.PI90 );
-        geo.agent.rotateX( -Math.PI90 );
-        geo.agent.rotateY( -Math.PI90 );
-        geo.plane.rotateX( -Math.PI90 );
-        geo.wheel.rotateZ( -Math.PI90 );
-
-        this.geo = geo;
-
-    },
-
-    // MATERIAL
-
-    initEnvMap: function ( url ){
-
-        this.envmap = this.loader.load( url || './assets/textures/spherical/metal.jpg' );
-        this.envmap.mapping = THREE.SphericalReflectionMapping;
-
-    },
-
-    makeMaterial: function ( option ){
-
-        if( this.matType !== 'Standard' ){
-            option.reflectivity = option.metalness || 0.5;
-            delete( option.metalness ); delete( option.roughness );
-        }
-        return new THREE['Mesh'+this.matType+'Material']( option );
-
-    },
-
-    resetMaterial: function (){
-
-        for( var m in this.mat ){
-            this.mat[m].dispose();
-        }
-
-        this.initMaterial();
-
-
-
-    },
-
-    initMaterial: function (){
-
-        this.mat = {
-
-            contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
-            contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
-
-            basic: this.makeMaterial({ color:0x999999, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
-            sleep: this.makeMaterial({ color:0x6666DD, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-
-            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
-            plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
-           
-            kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
-            donut: this.makeMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
-
-            hide: new THREE.MeshBasicMaterial({ color:0x111111, name:'hide', wireframe:true, visible:false }),
-            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true}),//, opacity:0.1, transparent:true }),
-            skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
-
-            hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
-            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
-
-            shadow: new THREE.ShadowMaterial({ opacity:0.4, depthWrite:false }),
-
-        }
-
-        for( var m in this.mat ) this.mat[m].shadowSide = false;
-
-    },
-
-    addMaterial: function( option ) {
-
-        var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
-
-        var i = maptype.length;
-        while(i--){
-            if( option[maptype[i]] ){ 
-                option[maptype[i]] = this.loader.load( './assets/textures/' + option[maptype[i]] );
-                option[maptype[i]].flipY = false;
-            }
-        }
-        
-        option.envMap = this.envmap;
-        option.shadowSide = false;
-
-        this.mat[option.name] = this.makeMaterial( option );
-
-    },
-
-    addMap: function( url, name ) {
-
-        var map = this.loader.load( './assets/textures/' + url );
-        //map.wrapS = THREE.RepeatWrapping;
-        //map.wrapT = THREE.RepeatWrapping;
-        map.flipY = false;
-        this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });
-
-    },
-
-    // GRID
-
-    initGrid: function ( c1, c2 ){
-
-        this.helper = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
-        this.helper.position.y = -0.001;
-        this.scene.add( this.helper );
-
-    },
-
-    
-
 	update: function(){},
 
 	updateIntern: function(){},
@@ -65951,19 +65799,17 @@ View.prototype = {
 
         if( this.needResize ) this.upResize();
 
-        THREE.SEA3D.AnimationHandler.update( 0.017 );
+        THREE.SEA3D.AnimationHandler.update( 0.017 ); // sea3d model
 
-        user.update();
+        user.update(); // gamepad
 
-		//requestAnimationFrame( function(s){ this.render(s); }.bind(this) );
-
-        TWEEN.update();
+        TWEEN.update(); // tweener
 
         this.updateExtra();
 
-        //user.update(); // gamepad
-
 		if( this.isNeedUpdate ){
+
+            // if physics change 
 
             this.updateIntern();
             this.update();
@@ -65973,6 +65819,8 @@ View.prototype = {
 		}
 
 		this.renderer.render( this.scene, this.camera );
+
+        // fps
 
         this.t[0] = stamp === undefined ? now() : stamp;
         if ( (this.t[0] - 1000) > this.t[1] ){ this.t[1] = this.t[0]; this.fps = this.t[2]; this.t[2] = 0; }; this.t[2]++;
@@ -66180,72 +66028,9 @@ View.prototype = {
 
     },
 
-    //-----------------------------
-    //
-    // RAYCAST
-    //
-    //-----------------------------
-
-    activeRay: function ( callback ) {
-
-        this.isWithRay = true;
-
-        this.ray = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
-
-        //var g = new THREE.PlaneBufferGeometry( 100, 100 );
-        //g.rotateX( -Math.PI90 );
-        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
-        this.moveplane.scale.set(100, 1, 100);
-        this.moveplane.castShadow = false;
-        this.moveplane.receiveShadow = false;
-        this.content.add( this.moveplane );
-        //moveplane.visible = false;
-
-        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({color:0xFF0000}));
-        this.scene.add( this.targetMouse );
-
-        this.canvas.addEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-
-        this.rayCallBack = callback;
-
-    },
-
-    removeRay: function(){
-
-        if( this.isWithRay ){
-            this.isWithRay = false;
-
-            this.canvas.removeEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-            this.rayCallBack = null;
-
-            this.content.remove( this.moveplane );
-            this.scene.remove( this.targetMouse );
-
-        }
-
-    },
-
-    rayTest: function ( e ) {
-
-        this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
-        this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
-
-        this.ray.setFromCamera( this.mouse, this.camera );
-        var intersects = this.ray.intersectObjects( this.content.children, true );
-        if ( intersects.length) {
-            this.targetMouse.position.copy( intersects[0].point )
-            //paddel.position.copy( intersects[0].point.add(new THREE.Vector3( 0, 20, 0 )) );
-
-            this.rayCallBack( this.targetMouse );
-        }
-    },
+   
 
     //-----------------------------
-
-    // SET
-
-
 
     // GET
 
@@ -66278,6 +66063,150 @@ View.prototype = {
         var n = navigator.userAgent;
         if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
         else return false;  
+
+    },
+
+
+    //-----------------------------
+    //
+    // GEOMETRY
+    //
+    //-----------------------------
+
+    initGeometry: function (){
+
+        var geo = {
+
+            agent: new THREE.CircleBufferGeometry( 1, 3 ),
+            cicle: new THREE.CircleBufferGeometry( 1, 6 ),
+
+            plane:      new THREE.PlaneBufferGeometry(1,1,1,1),
+            box:        new THREE.BoxBufferGeometry(1,1,1),
+            hardbox:    new THREE.BoxBufferGeometry(1,1,1),
+            cone:       new THREE.CylinderBufferGeometry( 0,1,0.5 ),
+            wheel:      new THREE.CylinderBufferGeometry( 1,1,1, 18 ),
+            sphere:     new THREE.SphereBufferGeometry( 1, 16, 12 ),
+            highsphere: new THREE.SphereBufferGeometry( 1, 32, 24 ),
+            cylinder:   new THREE.CylinderBufferGeometry( 1,1,1,12,1 ),
+
+        }
+
+        geo.cicle.rotateX( -Math.PI90 );
+        geo.agent.rotateX( -Math.PI90 );
+        geo.agent.rotateY( -Math.PI90 );
+        geo.plane.rotateX( -Math.PI90 );
+        geo.wheel.rotateZ( -Math.PI90 );
+
+        this.geo = geo;
+
+    },
+
+    //-----------------------------
+    //
+    // MATERIALS
+    //
+    //-----------------------------
+
+    initEnvMap: function ( url ){
+
+        this.envmap = this.loader.load( url || './assets/textures/spherical/metal.jpg' );
+        this.envmap.mapping = THREE.SphericalReflectionMapping;
+
+    },
+
+    makeMaterial: function ( option ){
+
+        if( this.matType !== 'Standard' ){
+            option.reflectivity = option.metalness || 0.5;
+            delete( option.metalness ); delete( option.roughness );
+        }
+        return new THREE['Mesh'+this.matType+'Material']( option );
+
+    },
+
+    resetMaterial: function (){
+
+        for( var m in this.mat ){
+            this.mat[m].dispose();
+        }
+
+        this.initMaterial();
+
+    },
+
+    initMaterial: function (){
+
+        this.mat = {
+
+            contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+
+            basic: this.makeMaterial({ color:0x999999, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            sleep: this.makeMaterial({ color:0x6666DD, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+
+            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
+            plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
+           
+            kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
+            donut: this.makeMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
+
+            hide: new THREE.MeshBasicMaterial({ color:0x111111, name:'hide', wireframe:true, visible:false }),
+            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true}),//, opacity:0.1, transparent:true }),
+            skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
+
+            hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
+            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
+
+            shadow: new THREE.ShadowMaterial({ opacity:0.4, depthWrite:false }),
+
+        }
+
+        for( var m in this.mat ) this.mat[m].shadowSide = false;
+
+    },
+
+    addMaterial: function( option ) {
+
+        var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
+
+        var i = maptype.length;
+        while(i--){
+            if( option[maptype[i]] ){ 
+                option[maptype[i]] = this.loader.load( './assets/textures/' + option[maptype[i]] );
+                option[maptype[i]].flipY = false;
+            }
+        }
+        
+        option.envMap = this.envmap;
+        option.shadowSide = false;
+
+        this.mat[option.name] = this.makeMaterial( option );
+
+    },
+
+    addMap: function( url, name ) {
+
+        var map = this.loader.load( './assets/textures/' + url );
+        //map.wrapS = THREE.RepeatWrapping;
+        //map.wrapT = THREE.RepeatWrapping;
+        map.flipY = false;
+        this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });
+
+    },
+
+    //-----------------------------
+    //
+    // GRID
+    //
+    //-----------------------------
+
+    initGrid: function ( c1, c2 ){
+
+        this.helper = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
+        this.helper.position.y = -0.001;
+        this.scene.add( this.helper );
 
     },
 
@@ -66405,9 +66334,6 @@ View.prototype = {
 
         for( var m in this.mat ) this.mat[m].shadowSide = false;
 
-
-        
-
         //this.followGroup.add( new THREE.CameraHelper( this.sun.shadow.camera ));
 
     },
@@ -66461,7 +66387,7 @@ View.prototype = {
 
     //--------------------------------------
     //
-    //   CAMERA AUTO CONTROL
+    //   CAMERA CONTROL AUTO AND FOLLOW
     //
     //--------------------------------------
 
@@ -66479,13 +66405,67 @@ View.prototype = {
 
         this.controler.initFollow( this.byName[ name ], o );
 
-        /*this.controler.cam.rotation = o.rotation !== undefined ? o.rotation : 180;
-        this.controler.cam.distance = o.distance !== undefined ? o.distance : 10;
-        this.controler.cam.height = o.height !== undefined ? o.height : 4;
-        this.controler.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
-        this.controler.cam.speed = o.speed !== undefined ? o.speed : 10;
-        this.controler.followTarget = this.byName[ name ];*/
+    },
 
+     //-----------------------------
+    //
+    // RAYCAST
+    //
+    //-----------------------------
+
+    activeRay: function ( callback ) {
+
+        this.isWithRay = true;
+
+        this.ray = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+
+        //var g = new THREE.PlaneBufferGeometry( 100, 100 );
+        //g.rotateX( -Math.PI90 );
+        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        this.moveplane.scale.set(100, 1, 100);
+        this.moveplane.castShadow = false;
+        this.moveplane.receiveShadow = false;
+        this.content.add( this.moveplane );
+        //moveplane.visible = false;
+
+        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({color:0xFF0000}));
+        this.scene.add( this.targetMouse );
+
+        this.canvas.addEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
+
+        this.rayCallBack = callback;
+
+    },
+
+    removeRay: function(){
+
+        if( this.isWithRay ){
+            this.isWithRay = false;
+
+            this.canvas.removeEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
+            this.rayCallBack = null;
+
+            this.content.remove( this.moveplane );
+            this.scene.remove( this.targetMouse );
+
+        }
+
+    },
+
+    rayTest: function ( e ) {
+
+        this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
+        this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
+
+        this.ray.setFromCamera( this.mouse, this.camera );
+        var intersects = this.ray.intersectObjects( this.content.children, true );
+        if ( intersects.length) {
+            this.targetMouse.position.copy( intersects[0].point )
+            //paddel.position.copy( intersects[0].point.add(new THREE.Vector3( 0, 20, 0 )) );
+
+            this.rayCallBack( this.targetMouse );
+        }
     },
 
     //--------------------------------------
@@ -66515,6 +66495,31 @@ View.prototype = {
     getGeomtryInfo: function ( o ) {
 
         return THREE.GeometryTools.getGeomtryInfo( o );
+
+    },
+
+    //--------------------------------------
+    //
+    //   Joystick support html / mobile
+    //
+    //--------------------------------------
+
+
+    addJoystick: function () {
+
+        if( this.isWithJoystick ) return;
+
+        editor.addJoystick();
+        this.isWithJoystick = true;
+
+    },
+
+    removeJoystick: function () {
+
+        if( !this.isWithJoystick ) return;
+
+        editor.removeJoystick();
+        this.isWithJoystick = false;
 
     },
 
