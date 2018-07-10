@@ -62756,7 +62756,7 @@ function Terrain ( o ) {
 
 
     this.sample = o.sample == undefined ? [64,64] : o.sample;
-    this.size = o.size == undefined ? [100,10,100] : o.size;
+    this.size = o.size === undefined ? [100,10,100] : o.size;
 
     this.data = {
         level: o.level || [1,0.2,0.05],
@@ -62952,8 +62952,9 @@ function Terrain ( o ) {
     THREE.Mesh.call( this, this.geometry, this.material );
 
     this.name = o.name === undefined ? 'terrain' : o.name;
+    this.position.fromArray( o.pos );
 
-    
+
 
     this.castShadow = false;
     this.receiveShadow = true;
@@ -63014,7 +63015,9 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     getHeight: function ( x, z ) {
 
-        return this.height[ this.findId( x, z ) ] * this.size[ 1 ];
+        x += this.sample[0]*0.5;
+        z += this.sample[0]*0.5;
+        return (this.height[ this.findId( x, z ) ] * this.size[ 1 ])+this.position.y;
 
     },
 
