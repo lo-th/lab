@@ -2,7 +2,13 @@ function Terrain ( o ) {
 
     o = o == undefined ? {} : o;
 
+    
+
+    this.callback = null;
+    this.physicsUpdate = function(){};
+
     this.uvx = [ o.uv || 18, o.uv || 18 ];
+
 
     this.sample = o.sample == undefined ? [64,64] : o.sample;
     this.size = o.size == undefined ? [100,10,100] : o.size;
@@ -33,9 +39,15 @@ function Terrain ( o ) {
     this.pp = new THREE.Vector3();
 
     this.lng = this.sample[0] * this.sample[1];
-    this.heightData = new Float64Array( this.lng );
-    this.heightData32 = new Float32Array( this.lng );
+
+    this.is64 = o.is64 || false;
+
+    this.heightData = this.is64 ? new Float64Array( this.lng ) : new Float32Array( this.lng );
     this.height = [];
+
+    this.isAbsolute = o.isAbsolute || false;
+    this.isReverse = o.isReverse || false;
+    if( this.isReverse ) this.getReverseID();
 
     this.colors = new Float32Array( this.lng * 3 );
     this.geometry = new THREE.PlaneBufferGeometry( this.size[0], this.size[2], this.sample[0] - 1, this.sample[1] - 1 );
@@ -194,6 +206,10 @@ function Terrain ( o ) {
 
     THREE.Mesh.call( this, this.geometry, this.material );
 
+    this.name = o.name === undefined ? 'terrain' : o.name;
+
+    
+
     this.castShadow = false;
     this.receiveShadow = true;
 
@@ -210,9 +226,12 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         
     },
 
-    easing: function () {
+    easing: function ( wait ) {
 
         var key = user.key;
+
+        if( !key[0] || !key[1] ) return;
+
         var r = view.getAzimuthal();
 
         if( key[7] ) this.maxspeed = 1.5;
@@ -244,7 +263,7 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         this.local.z += Math.sin(r) * this.ease.x + Math.cos(r) * this.ease.y;
         this.local.x += Math.cos(r) * this.ease.x - Math.sin(r) * this.ease.y;
 
-        this.update();
+        this.update( wait );
 
     },
 
@@ -260,7 +279,25 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     },
 
-    update: function () {
+    getReverseID: function () {
+
+        this.invId = [];
+
+        var i = this.lng, n, x, z, zr, c, l=0;
+
+        var r = 1 / this.sample[0];
+        var sz = this.sample[1] - 1;
+
+        while(i--){
+            x = i % this.sample[0];
+            z = Math.floor( i * r );
+            zr = sz - z;
+            this.invId[i] = this.findId( x, zr );
+        }
+
+    },
+
+    update: function ( wait ) {
 
         if( this.isWater ){ 
             this.wn.offset.x+=0.002;
@@ -269,8 +306,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
             this.material.map.offset.x = this.local.x * ( 1.0 / (this.size[0]/ this.uvx[0]));
             this.material.map.offset.y = - this.local.z * ( 1.0 / (this.size[2]/this.uvx[1]));
         }
-
-   
 
         var v = this.pp;
         var r = 1 / this.sample[0];
@@ -281,14 +316,17 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         var cc = [1,1,1];
         //var idss = 0;
 
-        var i = this.lng, n, x, y, yr, c, l=0;//, c, d, e, l;
+        var i = this.lng, n, x, z, zr, c, l=0, id, result;
+
+
+
         while(i--){
+
             n = i * 3;
             x = i % this.sample[0];
-            y = Math.floor( i * r );
-            yr = sz - y;
+            z = Math.floor( i * r );
 
-            v.set( x+(this.local.x*rx), this.local.y, y+(this.local.z*rz) );
+            v.set( x+(this.local.x*rx), this.local.y, z+(this.local.z*rz) );
 
             c = Math.noise( v, this.data );
 
@@ -297,23 +335,27 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
             //c = Math.linear(c,0.2, 1);
             //c = Math.clamp(c,0.2,1)
 
-            c = Math.pow(c, this.data.expo);
+            c = Math.pow( c, this.data.expo );
 
             c = c>1 ? 1:c;
             c = c<0 ? 0:c;
             
             this.height[ i ] = c;
-            this.heightData32[ i ] = c * this.size[1];// 0 to 1
-            this.heightData[ this.findId( x, yr ) ] = c;// 0 to 1
+
+            id = this.isReverse ? this.invId[i] : i;
+            result = this.isAbsolute ? c : c * this.size[1];
+
+          //  if( this.is64 ) this.heightData[ this.findId( x, zr ) ] = c;
+           // else 
+
+            this.heightData[ id ] = result;
+
+
             this.vertices[ n + 1 ] = c * this.size[ 1 ];
 
-            /*vv.set(this.vertices[ n ], this.vertices[ n + 1 ], this.vertices[ n + 2 ])
-            l = vv.normalize().dot(sun);
-            l = l>1 ? 1:l;
-            l = l<0 ? 0:l;*/
 
 
-            if(this.isWater){
+            if( this.isWater ){
 
                 cc = [ c * this.colorBase.r, c * this.colorBase.g, c * this.colorBase.b ];
 
@@ -323,8 +365,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             }
 
-
-
             this.colors[ n ] = cc[0];
             this.colors[ n + 1 ] = cc[1];
             this.colors[ n + 2 ] = cc[2];
@@ -332,12 +372,17 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         }
 
+        this.physicsUpdate( this.name, this.heightData );
+
+        if( wait === undefined ) this.updateGeometry();
+
+    },
+
+    updateGeometry: function () {
+
         this.geometry.attributes.position.needsUpdate = true;
         this.geometry.attributes.color.needsUpdate = true;
-        
-        //this.geometry.computeBoundingSphere();
         this.geometry.computeVertexNormals();
-
 
     }
 

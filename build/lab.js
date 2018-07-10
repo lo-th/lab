@@ -60442,6 +60442,9 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         s: new THREE.Spherical(),
         tmp: new THREE.Vector3(),
         old: new THREE.Vector3(),
+        oldObj: new THREE.Vector3(),
+
+        isDecal:false,
 
 	}
 
@@ -60518,6 +60521,16 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var sph = this.getSpherical();
         var state = this.getState();
 
+        if(cam.isDecal){
+            this.followGroup.position.sub(cam.old);
+            //console.log(cam.old)
+            var yy = this.object.position.y;
+            this.object.position.sub(cam.old);
+            this.object.position.y = yy;
+            this.target.copy( p ).add(cam.d);
+            this.object.lookAt( this.target ); 
+        }
+
 
 
         
@@ -60537,21 +60550,25 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         var radius = cam.distance;
 
-        if( state === 0 || state === 3 || dist < 0.01){ phi = sph.phi; theta = sph.theta; sph.radius = radius; }
+        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; sph.radius = radius; }
         else if( state === -1 ) { sph.phi = phi; sph.theta = theta; } 
 
         cam.s.set( radius, phi, theta );
         cam.s.makeSafe();
 
         //
-        //if( state === -1 ) 
+        
         cam.tmp.setFromSpherical( cam.s );
-        //else cam.tmp.setFromSpherical( sph );
 
-        cam.v.copy( p ).add( cam.d );
-        cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
-        cam.v.sub( this.object.position );
-        cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
+        
+
+
+            cam.v.copy( p ).add( cam.d );
+            cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
+            cam.v.sub( this.object.position );
+            cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
+
+        
 
         var v = cam.v;
 
@@ -60560,7 +60577,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         if (v.z > cam.speed || v.z < -cam.speed) v.z = v.z < 1 ? -cam.speed : cam.speed;
         
 
-        this.object.position.add( cam.v );
+        //if(!cam.isDecal) 
+            this.object.position.add( cam.v );
         this.target.copy( p ).add(cam.d);
         this.object.lookAt( this.target );
 
@@ -60570,7 +60588,11 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         cam.old.copy( p );
 
+        if(cam.isDecal) cam.isDecal = false
+        //cam.oldObj.copy( this.object.position );
+
     },
+
 
     updateFollowGroup: function(){
 
@@ -62725,7 +62747,13 @@ function Terrain ( o ) {
 
     o = o == undefined ? {} : o;
 
+    
+
+    this.callback = null;
+    this.physicsUpdate = function(){};
+
     this.uvx = [ o.uv || 18, o.uv || 18 ];
+
 
     this.sample = o.sample == undefined ? [64,64] : o.sample;
     this.size = o.size == undefined ? [100,10,100] : o.size;
@@ -62756,9 +62784,15 @@ function Terrain ( o ) {
     this.pp = new THREE.Vector3();
 
     this.lng = this.sample[0] * this.sample[1];
-    this.heightData = new Float64Array( this.lng );
-    this.heightData32 = new Float32Array( this.lng );
+
+    this.is64 = o.is64 || false;
+
+    this.heightData = this.is64 ? new Float64Array( this.lng ) : new Float32Array( this.lng );
     this.height = [];
+
+    this.isAbsolute = o.isAbsolute || false;
+    this.isReverse = o.isReverse || false;
+    if( this.isReverse ) this.getReverseID();
 
     this.colors = new Float32Array( this.lng * 3 );
     this.geometry = new THREE.PlaneBufferGeometry( this.size[0], this.size[2], this.sample[0] - 1, this.sample[1] - 1 );
@@ -62917,6 +62951,10 @@ function Terrain ( o ) {
 
     THREE.Mesh.call( this, this.geometry, this.material );
 
+    this.name = o.name === undefined ? 'terrain' : o.name;
+
+    
+
     this.castShadow = false;
     this.receiveShadow = true;
 
@@ -62933,9 +62971,12 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         
     },
 
-    easing: function () {
+    easing: function ( wait ) {
 
         var key = user.key;
+
+        if( !key[0] || !key[1] ) return;
+
         var r = view.getAzimuthal();
 
         if( key[7] ) this.maxspeed = 1.5;
@@ -62967,7 +63008,7 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         this.local.z += Math.sin(r) * this.ease.x + Math.cos(r) * this.ease.y;
         this.local.x += Math.cos(r) * this.ease.x - Math.sin(r) * this.ease.y;
 
-        this.update();
+        this.update( wait );
 
     },
 
@@ -62983,7 +63024,25 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     },
 
-    update: function () {
+    getReverseID: function () {
+
+        this.invId = [];
+
+        var i = this.lng, n, x, z, zr, c, l=0;
+
+        var r = 1 / this.sample[0];
+        var sz = this.sample[1] - 1;
+
+        while(i--){
+            x = i % this.sample[0];
+            z = Math.floor( i * r );
+            zr = sz - z;
+            this.invId[i] = this.findId( x, zr );
+        }
+
+    },
+
+    update: function ( wait ) {
 
         if( this.isWater ){ 
             this.wn.offset.x+=0.002;
@@ -62992,8 +63051,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
             this.material.map.offset.x = this.local.x * ( 1.0 / (this.size[0]/ this.uvx[0]));
             this.material.map.offset.y = - this.local.z * ( 1.0 / (this.size[2]/this.uvx[1]));
         }
-
-   
 
         var v = this.pp;
         var r = 1 / this.sample[0];
@@ -63004,14 +63061,17 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         var cc = [1,1,1];
         //var idss = 0;
 
-        var i = this.lng, n, x, y, yr, c, l=0;//, c, d, e, l;
+        var i = this.lng, n, x, z, zr, c, l=0, id, result;
+
+
+
         while(i--){
+
             n = i * 3;
             x = i % this.sample[0];
-            y = Math.floor( i * r );
-            yr = sz - y;
+            z = Math.floor( i * r );
 
-            v.set( x+(this.local.x*rx), this.local.y, y+(this.local.z*rz) );
+            v.set( x+(this.local.x*rx), this.local.y, z+(this.local.z*rz) );
 
             c = Math.noise( v, this.data );
 
@@ -63020,23 +63080,27 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
             //c = Math.linear(c,0.2, 1);
             //c = Math.clamp(c,0.2,1)
 
-            c = Math.pow(c, this.data.expo);
+            c = Math.pow( c, this.data.expo );
 
             c = c>1 ? 1:c;
             c = c<0 ? 0:c;
             
             this.height[ i ] = c;
-            this.heightData32[ i ] = c * this.size[1];// 0 to 1
-            this.heightData[ this.findId( x, yr ) ] = c;// 0 to 1
+
+            id = this.isReverse ? this.invId[i] : i;
+            result = this.isAbsolute ? c : c * this.size[1];
+
+          //  if( this.is64 ) this.heightData[ this.findId( x, zr ) ] = c;
+           // else 
+
+            this.heightData[ id ] = result;
+
+
             this.vertices[ n + 1 ] = c * this.size[ 1 ];
 
-            /*vv.set(this.vertices[ n ], this.vertices[ n + 1 ], this.vertices[ n + 2 ])
-            l = vv.normalize().dot(sun);
-            l = l>1 ? 1:l;
-            l = l<0 ? 0:l;*/
 
 
-            if(this.isWater){
+            if( this.isWater ){
 
                 cc = [ c * this.colorBase.r, c * this.colorBase.g, c * this.colorBase.b ];
 
@@ -63046,8 +63110,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             }
 
-
-
             this.colors[ n ] = cc[0];
             this.colors[ n + 1 ] = cc[1];
             this.colors[ n + 2 ] = cc[2];
@@ -63055,12 +63117,17 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         }
 
+        this.physicsUpdate( this.name, this.heightData );
+
+        if( wait === undefined ) this.updateGeometry();
+
+    },
+
+    updateGeometry: function () {
+
         this.geometry.attributes.position.needsUpdate = true;
         this.geometry.attributes.color.needsUpdate = true;
-        
-        //this.geometry.computeBoundingSphere();
         this.geometry.computeVertexNormals();
-
 
     }
 
@@ -63472,9 +63539,12 @@ function SuperSky ( view, o ) {
 
     this.groundColor = new THREE.Color(1,1,1);
     this.skyColor = new THREE.Color(1,1,1);
+    this.fogColor = new THREE.Color(1,1,1);
 
     this.q = 2;
 	var q = this.q;
+
+
 
 	var setting = {
 
@@ -63482,7 +63552,7 @@ function SuperSky ( view, o ) {
 		resolution: 256*q,
 
 		timelap:0,
-		fog:0,
+		fog:0.1,
 		cloud_size: .45,
 		cloud_covr: .3,
 		cloud_dens: 40,
@@ -63658,7 +63728,7 @@ function SuperSky ( view, o ) {
 
 			'	float v,w;',
 			'	v = length( r-vm ) - c;',
-			'	w=0.0;',
+			'	w = 0.0;',
 			'	if( 5e3 < v && v < 1e4 ) w = MakeNoise( r ) * sin( pi*(v-5e3)/5e3 );',
 			'	s = exp(-v*icc) + fog;',
 			'	t = exp(-v*jcc) + w + fog;',
@@ -63683,8 +63753,8 @@ function SuperSky ( view, o ) {
 
 			'vec3 makeSky( in vec3 r, in vec3 s, out float t){',
 
-			'    int SAMPLE = int( nSample );',
-			'    int STEP = int ( iteration ) ;',
+			'   int SAMPLE = int( nSample );',
+			'   int STEP = int ( iteration ) ;',
 				
 			'	float u,v,w,x,y,z,A,B,C,m,F;',
 			'	vec3 p = normalize( lightdir );',
@@ -63693,7 +63763,7 @@ function SuperSky ( view, o ) {
 			'	w = 1.0+v*v;',
 			'	x = 0.0596831*w;',
 			'	y = 0.0253662*(1.0-h)*w/((2.0+h)*pow(abs(1.0+h-2.0*g*v),1.5));',
-			'	z = 50.*pow(abs(1.+dot(s,-p)),2.0)*dot(vec3(0,1,0),p)*(1.0-cloud_covr)*(1.0-min(fog,1.0));',
+			'	z = 50. * pow( abs(1.+dot(s,-p)),2.0 ) * dot( vec3(0,1,0), p ) * ( 1.0-cloud_covr ) * ( 1.0 - min( fog, 1.0 ) );',
 			'	A = 0.0;',
 			'	B = 0.0;',
 			'	C = 0.0;',
@@ -63781,6 +63851,7 @@ function SuperSky ( view, o ) {
 		depthWrite: false,
 		depthTest: false,
 		side:THREE.BackSide,
+		fog:false,
 		
 	});
 
@@ -63906,6 +63977,7 @@ function SuperSky ( view, o ) {
 
 			side: THREE.BackSide,
 			depthWrite: false,
+			fog:false,
 			//depthTest: false,
 		
 		});
@@ -63940,7 +64012,7 @@ function SuperSky ( view, o ) {
 		this.add( this.moon );
 		this.add( this.dome );
 
-		//this.initColorTest();
+		this.initColorTest();
 
 		this.view.updateEnvMap( this.camera.renderTarget.texture );
 
@@ -64054,6 +64126,8 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
         this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
 
+
+
         this.calculateSunColor( this.sunPosition );
 
         this.sun.material.color.copy( this.sunColor );
@@ -64063,6 +64137,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
         this.view.sun.position.copy( this.sunPosition ).multiplyScalar( this.view.lightDistance );
         this.view.moon.position.copy( this.moonPosition ).multiplyScalar( this.view.lightDistance );
+        //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
 
         this.view.sun.color.copy( this.sunColor );
         this.view.sun.intensity = this.sunColor.r + (this.sunColor.r*0.3);
@@ -64125,41 +64200,59 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     initColorTest: function () {
 
-    	if( !this.view.isWithSphereLight ) return;
+    	//if( !this.view.isWithSphereLight ) return;
 
     	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
+        this.vMid = new THREE.Vector3( 1,0.1,0 );
         this.vUp = new THREE.Vector3( 0,1,0 );
         this.vDown = new THREE.Vector3( 0,-1,0 );
-        this.camPixel = new THREE.OrthographicCamera( -1,1,1,-1, 0.5, 2 );
+        var x = 0.1;
+        this.camPixel = new THREE.OrthographicCamera( -x, x, x, -x, 0.5, 2 );
         this.scene.add( this.camPixel );
 
     },
 
     getColor: function () {
 
-    	if( !this.view.isWithSphereLight ) return;
+    	if( this.view.isWithFog ) {
 
-    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
-        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
 
-        this.camPixel.lookAt( this.vUp );
-        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+	    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
+	        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
 
-        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-        this.skyColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+	        this.camPixel.lookAt( this.vMid );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
 
-        this.camPixel.lookAt( this.vDown );
-        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.fogColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
-        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-        this.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+	        //console.log(this.fogColor.getHexString())
 
-        
-        this.view.sphereLight.color.copy( this.skyColor );
-        this.view.sphereLight.groundColor.copy( this.groundColor );
-        this.view.sphereLight.intensity = 0.6;
+	        this.view.fog.color.copy( this.fogColor );
+	    }
 
-        this.view.ambient.color.copy( this.groundColor );
+        if( this.view.isWithSphereLight ) {
+
+	        this.camPixel.lookAt( this.vUp );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.skyColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        this.camPixel.lookAt( this.vDown );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        
+	        this.view.sphereLight.color.copy( this.skyColor );
+	        this.view.sphereLight.groundColor.copy( this.groundColor );
+	        this.view.sphereLight.intensity = 0.6;
+
+	        this.view.ambient.color.copy( this.groundColor );
+
+	    }
 
     },
 
@@ -64206,6 +64299,124 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 	},
 
  });
+THREE.CarHelper = function ( p, center, deep ) {
+
+    var s = 0.2;
+    var d = -deep * 0.6;
+
+    this.py = p[1] - center[1];
+
+    var vertices = new Float32Array( [
+        -s, 0, 0,  s, 0, 0,
+        0, 0, 0,  0, s*2, 0,
+        0, 0, -s,  0, 0, s,
+
+        p[0]-d, this.py, p[2],    p[0]-d, this.py+1, p[2],
+        -p[0]+d, this.py, p[2],   -p[0]+d, this.py+1, p[2],
+        -p[0]+d, this.py,-p[2],   -p[0]+d, this.py+1, -p[2],
+        p[0]-d, this.py, -p[2],    p[0]-d, this.py+1, -p[2],
+
+        p[0]-d, this.py, p[2], -p[0]+d, this.py, p[2],
+        p[0]-d, this.py, -p[2], -p[0]+d, this.py, -p[2],
+    ] );
+
+    var colors = new Float32Array( [
+        1, 1, 0,  1, 1, 0,
+        1, 1, 0,  0, 1, 0,
+        1, 1, 0,  1, 1, 0,
+
+        1,1,0,    1,1,0,
+        1,1,0,    1,1,0,
+        1,1,0,    1,1,0,
+        1,1,0,    1,1,0,
+
+        1,1,0,    1,1,0,
+        1,1,0,    1,1,0,
+    ] );
+
+    this.geometry = new THREE.BufferGeometry();
+    this.geometry.addAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+    this.geometry.addAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
+
+    this.positions = this.geometry.attributes.position.array;
+
+    this.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, name:'helper' } );
+
+    THREE.LineSegments.call( this, this.geometry, this.material );
+
+};
+
+THREE.CarHelper.prototype = Object.create( THREE.LineSegments.prototype );
+THREE.CarHelper.prototype.constructor = THREE.CarHelper;
+
+THREE.CarHelper.prototype.dispose = function () {
+
+    this.geometry.dispose();
+    this.material.dispose();
+
+};
+
+THREE.CarHelper.prototype.updateSuspension = function ( s0, s1, s2, s3 ) {
+
+    this.positions[22] = this.py-s0;
+    this.positions[28] = this.py-s1;
+    this.positions[34] = this.py-s2;
+    this.positions[40] = this.py-s3;
+
+    this.geometry.attributes.position.needsUpdate = true;
+
+};
+
+
+THREE.PointHelper = function ( size, color ) {
+
+	size = size || 1;
+
+	var sx = size * 0.5;
+	var mx = size * 0.1;
+
+	var vertices = [
+		-sx, 0, 0,	sx, 0, 0,
+		0, -sx, 0,	0, sx, 0,
+		0, 0, -sx,	0, 0, sx,
+
+
+		-mx, mx, mx,	mx, mx, mx,
+		-mx, -mx, mx,	mx, -mx, mx,
+		-mx, -mx, -mx,	mx, -mx, -mx,
+		-mx, mx, -mx,	mx, mx, -mx,
+
+		mx,-mx,  mx,	mx,mx,  mx,
+		-mx,-mx,  mx,	-mx,mx,  mx,
+		-mx,-mx,  -mx,	-mx,mx,  -mx,
+		 mx,-mx, -mx,	mx,mx,  -mx,
+
+		  mx, mx,-mx,	 mx, mx,mx,
+		  -mx,mx,-mx,	 -mx, mx,mx,
+		 -mx, -mx,-mx,	 -mx, -mx,mx,
+		 mx, -mx,-mx,	 mx, -mx,mx,
+
+
+	];
+
+	/*var colors = [
+		1, 0, 0,	1, 0.6, 0,
+		0, 1, 0,	0.6, 1, 0,
+		0, 0, 1,	0, 0.6, 1
+	];*/
+
+	var geometry = new THREE.BufferGeometry();
+	geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+	//geometry.addAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+	var material = new THREE.LineBasicMaterial( { color: color } );
+
+	THREE.LineSegments.call( this, geometry, material );
+
+}
+
+THREE.PointHelper.prototype = Object.create( THREE.LineSegments.prototype );
+THREE.PointHelper.prototype.constructor = THREE.PointHelper;
 var intro = ( function () {
 
     intro = function () {};
@@ -65612,12 +65823,16 @@ var pool = ( function () {
 })();
 function View () {
 
+    
+
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
     this.tmpName = [];
 
     this.pause = false;
     this.isPause = false;
+
+    this.fog = null;
 
     // overwrite shadowmap code
     /*
@@ -65633,11 +65848,13 @@ function View () {
 
 	this.isMobile = this.testMobile();
 
+    this.isDebug = false;
     this.isWithJoystick = false;
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
     this.isWithSky = false;
     this.isWithLight = false;
+    this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
 	this.needResize = false;
@@ -65654,6 +65871,8 @@ function View () {
 	this.solids = [];
 	this.extraMesh = [];
 	this.extraGeo = [];
+
+    this.helper = [];
 
     this.mesh = {};
     this.geo = {};
@@ -65702,6 +65921,7 @@ function View () {
 
     this.extraMesh = new THREE.Group();
     this.scene.add( this.extraMesh );
+
 
     // 5 TEXTURE LOADER
 
@@ -65812,8 +66032,9 @@ View.prototype = {
             // if physics change 
 
             this.updateIntern();
-            this.update();
             this.controler.follow();
+            this.update();
+            
 			this.isNeedUpdate = false;
 
 		}
@@ -65833,20 +66054,21 @@ View.prototype = {
 
         this.isNeedUpdate = false;
 
-        this.helper.visible = true;
+        this.grid.visible = true;
         if( this.shadowGround !== null ) this.shadowGround.visible = true;
 
         while( this.extraMesh.children.length > 0 ) this.scene.remove( this.extraMesh.children.pop() );
 
         while( this.extraGeo.length > 0 ) this.extraGeo.pop().dispose();
 
-        while( this.bodys.length > 0 ) this.scene.remove( this.bodys.pop() );
-        while( this.solids.length > 0 ) this.scene.remove( this.solids.pop() );
-        while( this.heros.length > 0 ) this.scene.remove( this.heros.pop() );
-        while( this.softs.length > 0 ) this.scene.remove( this.softs.pop() );
+        while( this.bodys.length > 0 ) this.clear( this.bodys.pop() );
+        while( this.solids.length > 0 ) this.clear( this.solids.pop() );
+        while( this.heros.length > 0 ) this.clear( this.heros.pop() );
+        while( this.softs.length > 0 ) this.clear( this.softs.pop() );
         //while( terrains.length > 0 ) this.scene.remove( terrains.pop() );
 
         while( this.cars.length > 0 ){
+
             var c = this.cars.pop();
             if( c.userData.helper ){
                 c.remove( c.userData.helper );
@@ -65863,6 +66085,7 @@ View.prototype = {
 
         this.removeRay();
         this.removeSky();
+        this.removeFog();
         this.resetLight();
         this.resetMaterial();
         this.removeJoystick();
@@ -65871,6 +66094,19 @@ View.prototype = {
         this.update = function () {};
         this.tmpCallback = function(){};
         this.byName = {};
+
+    },
+
+    clear: function ( b ) {
+
+        var m;
+        while( b.children.length > 0 ) {
+            m = b.children.pop();
+            while( m.children.length > 0 ) m.remove( m.children.pop() );
+            b.remove( m );
+        }
+
+        this.scene.remove( b );
 
     },
 
@@ -66146,7 +66382,7 @@ View.prototype = {
             move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
             movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
 
-            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
+            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.2, depthTest:true, depthWrite:false }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
             kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
@@ -66204,16 +66440,16 @@ View.prototype = {
 
     initGrid: function ( c1, c2 ){
 
-        this.helper = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
-        this.helper.position.y = -0.001;
-        this.scene.add( this.helper );
+        this.grid = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
+        this.grid.position.y = -0.001;
+        this.scene.add( this.grid );
 
     },
 
     hideGrid: function () {
 
-        if( this.helper.visible ){ this.helper.visible = false; if( this.shadowGround !== null ) this.shadowGround.visible = false; }
-        else{ this.helper.visible = true; if( this.shadowGround !== null ) this.shadowGround.visible = true; }
+        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null ) this.shadowGround.visible = false; }
+        else{ this.grid.visible = true; if( this.shadowGround !== null ) this.shadowGround.visible = true; }
 
     },
 
@@ -66244,6 +66480,82 @@ View.prototype = {
         this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;
 
     },
+
+    //-----------------------------
+    //
+    // DEBUG
+    //
+    //-----------------------------
+
+    debug: function () {
+
+        if( !this.isDebug ){
+
+            this.helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
+            this.helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
+            this.helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
+
+
+            /*this.vMid = new THREE.Vector3( 1,0.1,0 );
+            this.camPixel = new THREE.OrthographicCamera( -0.1,0.1,0.1,-0.1, 1, 2 );
+            this.scene.add( this.camPixel );
+            this.camPixel.lookAt( this.vMid );
+
+            this.helper[2].add(this.camPixel)
+
+            this.scene.add(new THREE.CameraHelper(this.camPixel))
+            */
+
+            
+
+            this.sun.add( this.helper[0] )
+            this.moon.add( this.helper[1] )
+            this.followGroup.add( this.helper[2] )
+
+            this.isDebug = true;
+
+        } else {
+
+            this.sun.remove( this.helper[0] )
+            this.moon.remove( this.helper[1] )
+            this.followGroup.remove( this.helper[2] )
+
+            this.isDebug = false;
+
+        }
+        
+
+    },
+
+    //-----------------------------
+    //
+    // FOG
+    //
+    //-----------------------------
+
+    addFog: function ( o ) {
+        
+        if(this.isWithFog) return;
+        o = o || {};
+        if(o.exp) this.fog = new THREE.FogExp2( o.color || 0x3b4c5a, o.exp );
+        else this.fog = new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
+
+        this.scene.fog = this.fog;
+
+        this.isWithFog = true;
+
+    },
+
+    removeFog: function () {
+        
+        if(!this.isWithFog) return;
+        this.fog = null;
+        this.scene.fog = null;
+        this.isWithFog = false;
+
+    },
+
+
 
     //-----------------------------
     //
@@ -66291,8 +66603,13 @@ View.prototype = {
         //this.ambient.position.set( 0, 50, 0 );
 
     	this.followGroup.add( this.sun );
+        this.followGroup.add( this.sun.target );
     	this.followGroup.add( this.moon );
-    	this.followGroup.add( this.ambient );
+    	this.scene.add( this.ambient );
+
+        /*this.scene.add( this.sun );
+        this.scene.add( this.moon );
+        this.scene.add( this.ambient );*/
 
         this.isWithLight = true;
 
@@ -66324,6 +66641,7 @@ View.prototype = {
 
         var d = 150;
         var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        //this.followGroup.add( this.camShadow );
         this.sun.shadow = new THREE.LightShadow( camShadow );
 
         this.sun.shadow.mapSize.width = 2048;
@@ -66522,5 +66840,13 @@ View.prototype = {
         this.isWithJoystick = false;
 
     },
+
+    distanceFromCenter: function () {
+
+        var p = this.followGroup.position;
+        return Math.sqrt( p.x * p.x + p.z * p.z );
+
+
+    }
 
 }

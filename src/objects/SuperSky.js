@@ -26,9 +26,12 @@ function SuperSky ( view, o ) {
 
     this.groundColor = new THREE.Color(1,1,1);
     this.skyColor = new THREE.Color(1,1,1);
+    this.fogColor = new THREE.Color(1,1,1);
 
     this.q = 2;
 	var q = this.q;
+
+
 
 	var setting = {
 
@@ -36,7 +39,7 @@ function SuperSky ( view, o ) {
 		resolution: 256*q,
 
 		timelap:0,
-		fog:0,
+		fog:0.1,
 		cloud_size: .45,
 		cloud_covr: .3,
 		cloud_dens: 40,
@@ -212,7 +215,7 @@ function SuperSky ( view, o ) {
 
 			'	float v,w;',
 			'	v = length( r-vm ) - c;',
-			'	w=0.0;',
+			'	w = 0.0;',
 			'	if( 5e3 < v && v < 1e4 ) w = MakeNoise( r ) * sin( pi*(v-5e3)/5e3 );',
 			'	s = exp(-v*icc) + fog;',
 			'	t = exp(-v*jcc) + w + fog;',
@@ -237,8 +240,8 @@ function SuperSky ( view, o ) {
 
 			'vec3 makeSky( in vec3 r, in vec3 s, out float t){',
 
-			'    int SAMPLE = int( nSample );',
-			'    int STEP = int ( iteration ) ;',
+			'   int SAMPLE = int( nSample );',
+			'   int STEP = int ( iteration ) ;',
 				
 			'	float u,v,w,x,y,z,A,B,C,m,F;',
 			'	vec3 p = normalize( lightdir );',
@@ -247,7 +250,7 @@ function SuperSky ( view, o ) {
 			'	w = 1.0+v*v;',
 			'	x = 0.0596831*w;',
 			'	y = 0.0253662*(1.0-h)*w/((2.0+h)*pow(abs(1.0+h-2.0*g*v),1.5));',
-			'	z = 50.*pow(abs(1.+dot(s,-p)),2.0)*dot(vec3(0,1,0),p)*(1.0-cloud_covr)*(1.0-min(fog,1.0));',
+			'	z = 50. * pow( abs(1.+dot(s,-p)),2.0 ) * dot( vec3(0,1,0), p ) * ( 1.0-cloud_covr ) * ( 1.0 - min( fog, 1.0 ) );',
 			'	A = 0.0;',
 			'	B = 0.0;',
 			'	C = 0.0;',
@@ -335,6 +338,7 @@ function SuperSky ( view, o ) {
 		depthWrite: false,
 		depthTest: false,
 		side:THREE.BackSide,
+		fog:false,
 		
 	});
 
@@ -460,6 +464,7 @@ function SuperSky ( view, o ) {
 
 			side: THREE.BackSide,
 			depthWrite: false,
+			fog:false,
 			//depthTest: false,
 		
 		});
@@ -494,7 +499,7 @@ function SuperSky ( view, o ) {
 		this.add( this.moon );
 		this.add( this.dome );
 
-		//this.initColorTest();
+		this.initColorTest();
 
 		this.view.updateEnvMap( this.camera.renderTarget.texture );
 
@@ -608,6 +613,8 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
         this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
         this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
 
+
+
         this.calculateSunColor( this.sunPosition );
 
         this.sun.material.color.copy( this.sunColor );
@@ -617,6 +624,7 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
         this.view.sun.position.copy( this.sunPosition ).multiplyScalar( this.view.lightDistance );
         this.view.moon.position.copy( this.moonPosition ).multiplyScalar( this.view.lightDistance );
+        //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
 
         this.view.sun.color.copy( this.sunColor );
         this.view.sun.intensity = this.sunColor.r + (this.sunColor.r*0.3);
@@ -679,41 +687,59 @@ SuperSky.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
 
     initColorTest: function () {
 
-    	if( !this.view.isWithSphereLight ) return;
+    	//if( !this.view.isWithSphereLight ) return;
 
     	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
+        this.vMid = new THREE.Vector3( 1,0.1,0 );
         this.vUp = new THREE.Vector3( 0,1,0 );
         this.vDown = new THREE.Vector3( 0,-1,0 );
-        this.camPixel = new THREE.OrthographicCamera( -1,1,1,-1, 0.5, 2 );
+        var x = 0.1;
+        this.camPixel = new THREE.OrthographicCamera( -x, x, x, -x, 0.5, 2 );
         this.scene.add( this.camPixel );
 
     },
 
     getColor: function () {
 
-    	if( !this.view.isWithSphereLight ) return;
+    	if( this.view.isWithFog ) {
 
-    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
-        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
 
-        this.camPixel.lookAt( this.vUp );
-        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+	    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
+	        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
 
-        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-        this.skyColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+	        this.camPixel.lookAt( this.vMid );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
 
-        this.camPixel.lookAt( this.vDown );
-        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.fogColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
-        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-        this.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+	        //console.log(this.fogColor.getHexString())
 
-        
-        this.view.sphereLight.color.copy( this.skyColor );
-        this.view.sphereLight.groundColor.copy( this.groundColor );
-        this.view.sphereLight.intensity = 0.6;
+	        this.view.fog.color.copy( this.fogColor );
+	    }
 
-        this.view.ambient.color.copy( this.groundColor );
+        if( this.view.isWithSphereLight ) {
+
+	        this.camPixel.lookAt( this.vUp );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.skyColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        this.camPixel.lookAt( this.vDown );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.groundColor.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        
+	        this.view.sphereLight.color.copy( this.skyColor );
+	        this.view.sphereLight.groundColor.copy( this.groundColor );
+	        this.view.sphereLight.intensity = 0.6;
+
+	        this.view.ambient.color.copy( this.groundColor );
+
+	    }
 
     },
 

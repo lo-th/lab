@@ -1,11 +1,15 @@
 function View () {
 
+    
+
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
     this.tmpName = [];
 
     this.pause = false;
     this.isPause = false;
+
+    this.fog = null;
 
     // overwrite shadowmap code
     /*
@@ -21,11 +25,13 @@ function View () {
 
 	this.isMobile = this.testMobile();
 
+    this.isDebug = false;
     this.isWithJoystick = false;
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
     this.isWithSky = false;
     this.isWithLight = false;
+    this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
 	this.needResize = false;
@@ -42,6 +48,8 @@ function View () {
 	this.solids = [];
 	this.extraMesh = [];
 	this.extraGeo = [];
+
+    this.helper = [];
 
     this.mesh = {};
     this.geo = {};
@@ -90,6 +98,7 @@ function View () {
 
     this.extraMesh = new THREE.Group();
     this.scene.add( this.extraMesh );
+
 
     // 5 TEXTURE LOADER
 
@@ -200,8 +209,9 @@ View.prototype = {
             // if physics change 
 
             this.updateIntern();
-            this.update();
             this.controler.follow();
+            this.update();
+            
 			this.isNeedUpdate = false;
 
 		}
@@ -221,20 +231,21 @@ View.prototype = {
 
         this.isNeedUpdate = false;
 
-        this.helper.visible = true;
+        this.grid.visible = true;
         if( this.shadowGround !== null ) this.shadowGround.visible = true;
 
         while( this.extraMesh.children.length > 0 ) this.scene.remove( this.extraMesh.children.pop() );
 
         while( this.extraGeo.length > 0 ) this.extraGeo.pop().dispose();
 
-        while( this.bodys.length > 0 ) this.scene.remove( this.bodys.pop() );
-        while( this.solids.length > 0 ) this.scene.remove( this.solids.pop() );
-        while( this.heros.length > 0 ) this.scene.remove( this.heros.pop() );
-        while( this.softs.length > 0 ) this.scene.remove( this.softs.pop() );
+        while( this.bodys.length > 0 ) this.clear( this.bodys.pop() );
+        while( this.solids.length > 0 ) this.clear( this.solids.pop() );
+        while( this.heros.length > 0 ) this.clear( this.heros.pop() );
+        while( this.softs.length > 0 ) this.clear( this.softs.pop() );
         //while( terrains.length > 0 ) this.scene.remove( terrains.pop() );
 
         while( this.cars.length > 0 ){
+
             var c = this.cars.pop();
             if( c.userData.helper ){
                 c.remove( c.userData.helper );
@@ -251,6 +262,7 @@ View.prototype = {
 
         this.removeRay();
         this.removeSky();
+        this.removeFog();
         this.resetLight();
         this.resetMaterial();
         this.removeJoystick();
@@ -259,6 +271,19 @@ View.prototype = {
         this.update = function () {};
         this.tmpCallback = function(){};
         this.byName = {};
+
+    },
+
+    clear: function ( b ) {
+
+        var m;
+        while( b.children.length > 0 ) {
+            m = b.children.pop();
+            while( m.children.length > 0 ) m.remove( m.children.pop() );
+            b.remove( m );
+        }
+
+        this.scene.remove( b );
 
     },
 
@@ -534,7 +559,7 @@ View.prototype = {
             move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
             movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
 
-            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
+            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.2, depthTest:true, depthWrite:false }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
             kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
@@ -592,16 +617,16 @@ View.prototype = {
 
     initGrid: function ( c1, c2 ){
 
-        this.helper = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
-        this.helper.position.y = -0.001;
-        this.scene.add( this.helper );
+        this.grid = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
+        this.grid.position.y = -0.001;
+        this.scene.add( this.grid );
 
     },
 
     hideGrid: function () {
 
-        if( this.helper.visible ){ this.helper.visible = false; if( this.shadowGround !== null ) this.shadowGround.visible = false; }
-        else{ this.helper.visible = true; if( this.shadowGround !== null ) this.shadowGround.visible = true; }
+        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null ) this.shadowGround.visible = false; }
+        else{ this.grid.visible = true; if( this.shadowGround !== null ) this.shadowGround.visible = true; }
 
     },
 
@@ -632,6 +657,82 @@ View.prototype = {
         this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;
 
     },
+
+    //-----------------------------
+    //
+    // DEBUG
+    //
+    //-----------------------------
+
+    debug: function () {
+
+        if( !this.isDebug ){
+
+            this.helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
+            this.helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
+            this.helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
+
+
+            /*this.vMid = new THREE.Vector3( 1,0.1,0 );
+            this.camPixel = new THREE.OrthographicCamera( -0.1,0.1,0.1,-0.1, 1, 2 );
+            this.scene.add( this.camPixel );
+            this.camPixel.lookAt( this.vMid );
+
+            this.helper[2].add(this.camPixel)
+
+            this.scene.add(new THREE.CameraHelper(this.camPixel))
+            */
+
+            
+
+            this.sun.add( this.helper[0] )
+            this.moon.add( this.helper[1] )
+            this.followGroup.add( this.helper[2] )
+
+            this.isDebug = true;
+
+        } else {
+
+            this.sun.remove( this.helper[0] )
+            this.moon.remove( this.helper[1] )
+            this.followGroup.remove( this.helper[2] )
+
+            this.isDebug = false;
+
+        }
+        
+
+    },
+
+    //-----------------------------
+    //
+    // FOG
+    //
+    //-----------------------------
+
+    addFog: function ( o ) {
+        
+        if(this.isWithFog) return;
+        o = o || {};
+        if(o.exp) this.fog = new THREE.FogExp2( o.color || 0x3b4c5a, o.exp );
+        else this.fog = new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
+
+        this.scene.fog = this.fog;
+
+        this.isWithFog = true;
+
+    },
+
+    removeFog: function () {
+        
+        if(!this.isWithFog) return;
+        this.fog = null;
+        this.scene.fog = null;
+        this.isWithFog = false;
+
+    },
+
+
 
     //-----------------------------
     //
@@ -679,8 +780,13 @@ View.prototype = {
         //this.ambient.position.set( 0, 50, 0 );
 
     	this.followGroup.add( this.sun );
+        this.followGroup.add( this.sun.target );
     	this.followGroup.add( this.moon );
-    	this.followGroup.add( this.ambient );
+    	this.scene.add( this.ambient );
+
+        /*this.scene.add( this.sun );
+        this.scene.add( this.moon );
+        this.scene.add( this.ambient );*/
 
         this.isWithLight = true;
 
@@ -712,6 +818,7 @@ View.prototype = {
 
         var d = 150;
         var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        //this.followGroup.add( this.camShadow );
         this.sun.shadow = new THREE.LightShadow( camShadow );
 
         this.sun.shadow.mapSize.width = 2048;
@@ -910,5 +1017,13 @@ View.prototype = {
         this.isWithJoystick = false;
 
     },
+
+    distanceFromCenter: function () {
+
+        var p = this.followGroup.position;
+        return Math.sqrt( p.x * p.x + p.z * p.z );
+
+
+    }
 
 }

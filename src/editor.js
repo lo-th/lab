@@ -15,6 +15,7 @@ var styles;
 var subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
 var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
 
+
 var callback = function(){};
 var isSelfDrag = false;
 var isFocus = false;
@@ -22,7 +23,7 @@ var errorLines = [];
 var widgets = [];
 var interval = null;
 
-var joystick;
+var joystickLeft = null;
 
 var left = 0;
 var oldLeft = 0;
@@ -367,6 +368,8 @@ editor = {
         }
 
         if( view ) view.setLeft( left, right );
+
+        if(joystickLeft!==null){ joystickLeft.s[0].left = left +'px';joystickLeft.needZone()}
         
         bigmenu.style.left = left +'px';
         title.style.left = left +'px';
@@ -888,14 +891,15 @@ editor = {
     },
 
     addJoystick: function(){
-        joystick = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
-        //joystick = UIL.add('joystick', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
+        joystickLeft = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:left+'px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
+        //joystickLeft = UIL.add('joystickLeft', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 
     },
 
     removeJoystick: function(){
 
-        joystick.clear()
+        joystickLeft.clear()
+        joystickLeft = null;
 
     },
 
