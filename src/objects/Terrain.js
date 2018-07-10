@@ -39,6 +39,13 @@ function Terrain ( o ) {
     this.pp = new THREE.Vector3();
 
     this.lng = this.sample[0] * this.sample[1];
+    var sx = this.sample[0] - 1;
+    var sz = this.sample[1] - 1;
+    this.rx = sx / this.size[0];
+    this.rz = sz / this.size[2];
+    this.ratio = 1 / this.sample[0];
+    this.ruvx =  1.0 / ( this.size[0] / this.uvx[0] );
+    this.ruvy = - ( 1.0 / ( this.size[2] / this.uvx[1] ) );
 
     this.is64 = o.is64 || false;
 
@@ -270,9 +277,14 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     getHeight: function ( x, z ) {
 
+        x *= this.rx; //this.size[0];
+        z *= this.rz; ///= this.size[2]; 
         x += this.sample[0]*0.5;
-        z += this.sample[0]*0.5;
-        return (this.height[ this.findId( x, z ) ] * this.size[ 1 ])+this.position.y;
+        z += this.sample[1]*0.5;
+        x = Math.floor(x);
+        z = Math.floor(z);
+        var h = this.height[ this.findId( x, z ) ] || 1;
+        return ( h * this.size[ 1 ] ) + this.position.y;
 
     },
 
@@ -287,13 +299,11 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         this.invId = [];
 
         var i = this.lng, n, x, z, zr, c, l=0;
-
-        var r = 1 / this.sample[0];
         var sz = this.sample[1] - 1;
 
         while(i--){
             x = i % this.sample[0];
-            z = Math.floor( i * r );
+            z = Math.floor( i * this.ratio );
             zr = sz - z;
             this.invId[i] = this.findId( x, zr );
         }
@@ -306,30 +316,23 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
             this.wn.offset.x+=0.002;
             this.wn.offset.y+=0.001;
         } else {
-            this.material.map.offset.x = this.local.x * ( 1.0 / (this.size[0]/ this.uvx[0]));
-            this.material.map.offset.y = - this.local.z * ( 1.0 / (this.size[2]/this.uvx[1]));
+            this.material.map.offset.x = this.local.x * this.ruvx;
+            this.material.map.offset.y = this.local.z * this.ruvy;
         }
 
         var v = this.pp;
-        var r = 1 / this.sample[0];
-        var sx = this.sample[0] - 1;
-        var sz = this.sample[1] - 1;
-        var rx = sx / this.size[0];
-        var rz = sz / this.size[2];
         var cc = [1,1,1];
-        //var idss = 0;
-
-        var i = this.lng, n, x, z, zr, c, l=0, id, result;
+        var i = this.lng, n, x, z,  c, l=0, id, result;
 
 
 
-        while(i--){
+        while( i-- ){
 
             n = i * 3;
             x = i % this.sample[0];
-            z = Math.floor( i * r );
+            z = Math.floor( i * this.ratio );
 
-            v.set( x+(this.local.x*rx), this.local.y, z+(this.local.z*rz) );
+            v.set( x + ( this.local.x*this.rx ), this.local.y, z + ( this.local.z*this.rz ) );
 
             c = Math.noise( v, this.data );
 
@@ -347,9 +350,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             id = this.isReverse ? this.invId[i] : i;
             result = this.isAbsolute ? c : c * this.size[1];
-
-          //  if( this.is64 ) this.heightData[ this.findId( x, zr ) ] = c;
-           // else 
 
             this.heightData[ id ] = result;
 
