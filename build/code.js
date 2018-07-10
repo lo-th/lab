@@ -21361,7 +21361,7 @@ var editor = ( function () {
 
 var styles;
 
-var subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
+var fullSc, subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
 var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
 
 
@@ -21402,6 +21402,8 @@ var isWithOption = false;
 var currentCode = '';
 var fileName = '';
 var link = '';
+
+var isFullScreen = false;
 
 var octo, octoArm;
 
@@ -21453,18 +21455,32 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space)+'px';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 12px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space+40)+'px';
         document.body.appendChild( title );
 
         // subtitle
 
         subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; bottom:'+(space)+'px; color:#787978; text-align:right; right:'+(space)+'px';
+        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; bottom:'+(space)+'px; color:#787978; text-align:right; right:'+(space+40)+'px';
         document.body.appendChild( subtitle );
 
         subtitleS = document.createElement( 'div' );
-        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5); text-align:right; right:'+(space-1)+'px';
+        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5); text-align:right; right:'+(space+40-1)+'px';
         document.body.appendChild( subtitleS );
+
+        fullSc = document.createElement( 'div' );
+        fullSc.style.cssText = 'position:absolute; width:30px; height:30px; right:10px; bottom:10px; pointer-events:auto; cursor:pointer; '
+        fullSc.innerHTML = editor.icon('scr', '#787978', 30, 30);
+        document.body.appendChild( fullSc );
+
+        fullSc.addEventListener('click', editor.toggleFullScreen, false );
+        fullSc.addEventListener('mouseover', function(){ this.innerHTML = editor.icon('scr', selectColor, 30, 30); }, false );
+        fullSc.addEventListener('mouseout', function(){ this.innerHTML = editor.icon('scr', '#787978', 30, 30); }, false );
+
+        document.addEventListener("fullscreenchange", editor.screenChange, false );
+        document.addEventListener("webkitfullscreenchange", editor.screenChange, false );
+        document.addEventListener("mozfullscreenchange", editor.screenChange, false );
+        document.addEventListener("MSFullscreenChange", editor.screenChange, false );
 
         if( Link !== undefined ) this.setLink( Link );
 
@@ -21472,17 +21488,20 @@ editor = {
 
     },
 
-    icon: function ( type, color, w ){
+    icon: function ( type, color, w, ww ){
 
         w = w || 40;
-        var ww = 40;
+        ww = ww || 40;
         color = color || '#DEDEDE';
-        var viewBox = '0 0 40 40';
+        var viewBox = '0 0 '+ww+' '+ww;
 
         var t = ["<svg xmlns='http://www.w3.org/2000/svg' version='1.1' xmlns:xlink='http://www.w3.org/1999/xlink' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+w+"px' viewBox='"+viewBox+"'><g>"];
         switch(type){
             case 'save':
             t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/><path stroke='"+color+"' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 32.6 23 L 32.6 25.5 Q 32.6 28.5 29.6 28.5 L 10.6 28.5 Q 7.6 28.5 7.6 25.5 L 7.6 23'/>";
+            break;
+            case 'scr':
+            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 3 20 L 1 20 1 30 11 30 11 28 3 28 3 20 M 11 3 L 11 1 1 1 1 11 3 11 3 3 11 3 M 30 11 L 30 1 20 1 20 3 28 3 28 11 30 11 M 30 20 L 28 20 28 28 20 28 20 30 30 30 30 20 M 24 22 L 24 9 7 9 7 22 24 22 M 22 11 L 22 20 9 20 9 11 22 11 Z'/><path fill='"+color+"' stroke='none' d='M 23 21 L 23 8 6 8 6 21 23 21 M 21 10 L 21 19 8 19 8 10 21 10 M 2 19 L 0 19 0 29 10 29 10 27 2 27 2 19 M 10 2 L 10 0 0 0 0 10 2 10 2 2 10 2 M 29 19 L 27 19 27 27 19 27 19 29 29 29 29 19 M 27 10 L 29 10 29 0 19 0 19 2 27 2 27 10 Z'/>";
             break;
         }
         t[2] = "</g></svg>";
@@ -22250,6 +22269,38 @@ editor = {
         joystickLeft.clear()
         joystickLeft = null;
 
+    },
+
+    screenChange: function () {
+
+        isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement ? true : false;
+        console.log(isFullScreen)
+
+    },
+
+    toggleFullScreen: function () {
+
+        if(!isFullScreen){
+
+            if ( "fullscreenEnabled" in document || "webkitFullscreenEnabled" in document || "mozFullScreenEnabled" in document || "msFullscreenEnabled" in document ){
+                if(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled){
+
+                    var element = document.body;
+                    if("requestFullscreen" in element) element.requestFullscreen();
+                    else if ("webkitRequestFullscreen" in element) element.webkitRequestFullscreen();
+                    else if ("mozRequestFullScreen" in element) element.mozRequestFullScreen();
+                    else if ("msRequestFullscreen" in element) element.msRequestFullscreen();
+                        
+                }
+            }
+
+        } else {
+            if ("exitFullscreen" in document) document.exitFullscreen();
+            else if ("webkitExitFullscreen" in document) document.webkitExitFullscreen();
+            else if ("mozCancelFullScreen" in document) document.mozCancelFullScreen();
+            else if ("msExitFullscreen" in document) document.msExitFullscreen();
+        }
+      
     },
 
 
