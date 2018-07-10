@@ -353,10 +353,7 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             this.heightData[ id ] = result;
 
-
             this.vertices[ n + 1 ] = c * this.size[ 1 ];
-
-
 
             if( this.isWater ){
 
