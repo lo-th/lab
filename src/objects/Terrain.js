@@ -165,6 +165,7 @@ function Terrain ( o ) {
         //'    vec3 normal = normalize( vNormal );',
         //'#endif',
         '#ifdef USE_NORMALMAP',
+        
             'vec4 extraNormal = vec4(1.0);',
             'vec4 sandN =  texture2D( normalMap, vUv );',
             'vec4 grassN = texture2D( normalMap1, vUv );',

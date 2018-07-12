@@ -532,18 +532,30 @@ View.prototype = {
 
     initEnvMap: function ( url ){
 
+        this.check = this.loader.load( './assets/textures/check.jpg' );
+        this.check.repeat = new THREE.Vector2( 2, 2 );
+        this.check.wrapS = this.check.wrapT = THREE.RepeatWrapping;
+
         this.envmap = this.loader.load( url || './assets/textures/spherical/metal.jpg' );
         this.envmap.mapping = THREE.SphericalReflectionMapping;
 
     },
 
-    makeMaterial: function ( option ){
+    makeMaterial: function ( option, type ){
 
-        if( this.matType !== 'Standard' ){
-            option.reflectivity = option.metalness || 0.5;
-            delete( option.metalness ); delete( option.roughness );
+        type = type || this.matType;
+
+        if( type !== 'Phong' ){
+            delete( option.shininess ); 
+            delete( option.specular );
         }
-        return new THREE['Mesh'+this.matType+'Material']( option );
+
+        if( type !== 'Standard' ){
+            option.reflectivity = option.metalness || 0.5;
+            delete( option.metalness ); 
+            delete( option.roughness );
+        }
+        return new THREE['Mesh'+type+'Material']( option );
 
     },
 
@@ -559,25 +571,28 @@ View.prototype = {
 
     initMaterial: function (){
 
+        //http://www.color-hex.com/popular-colors.php
+
         this.mat = {
 
             contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
             contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
 
-            basic: this.makeMaterial({ color:0x999999, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
-            sleep: this.makeMaterial({ color:0x6666DD, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            move: this.makeMaterial({ color:0x999999, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
-            movehigh: this.makeMaterial({ color:0xff9999, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            check: this.makeMaterial({ map:this.check, name:'check', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
+            sleep: this.makeMaterial({ color:0x3399FF, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            move: this.makeMaterial({ color:0xCBBEB5, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
 
             statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.2, depthTest:true, depthWrite:false }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
-            kinematic: this.makeMaterial({ name:'kinematic', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),//, transparent:true, opacity:0.6
+            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37, envMap:this.envmap,  metalness:0.7, roughness:0.4, shininess:40, specular:0xFAF7F0 }, 'Phong' ),//0xD4AF37
             donut: this.makeMaterial({ name:'donut', color:0xAA9933, envMap:this.envmap,  metalness:0.6, roughness:0.4 }),
 
-            hide: new THREE.MeshBasicMaterial({ color:0x111111, name:'hide', wireframe:true, visible:false }),
-            debug: new THREE.MeshBasicMaterial({ color:0x11ff11, name:'debug', wireframe:true}),//, opacity:0.1, transparent:true }),
-            skyUp: new THREE.MeshBasicMaterial({ color:0xFFFFFF }),
+            hide: this.makeMaterial({ color:0x000000, name:'hide', wireframe:true, visible:false }, 'Basic'),
+            debug: this.makeMaterial({ color:0x11ff11, name:'debug', wireframe:true}, 'Basic'),
+            skyUp: this.makeMaterial({ color:0xFFFFFF }, 'Basic'),
 
             hero: this.makeMaterial({ color:0xffffff, name:'hero', envMap:this.envmap, metalness:0.4, roughness:0.6, skinning:true }), 
             soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
