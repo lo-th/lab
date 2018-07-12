@@ -50196,12 +50196,13 @@ var o3dgc = (function () {
 })();
 
 
+//var THREE, TextDecoder, performance;
 /**
  * 	SEA3D SDK
  * 	@author Sunag / http://www.sunag.com.br/
  */
 
-'use strict';
+//'use strict';
 
 var SEA3D = { VERSION: 18110 };
 
@@ -66629,7 +66630,7 @@ View.prototype = {
         var isWebGL2 = false, gl;
 
         var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
-        canvas.style.cssText = 'position: absolute; top:0; left:0; pointer-events:auto;'
+        canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto; image-rendering: pixelated;'
         canvas.oncontextmenu = function(e){ e.preventDefault(); };
         canvas.ondrop = function(e) { e.preventDefault(); };
         document.body.appendChild( canvas );

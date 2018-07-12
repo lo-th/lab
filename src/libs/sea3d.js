@@ -1,9 +1,10 @@
+//var THREE, TextDecoder, performance;
 /**
  * 	SEA3D SDK
  * 	@author Sunag / http://www.sunag.com.br/
  */
 
-'use strict';
+//'use strict';
 
 var SEA3D = { VERSION: 18110 };
 
