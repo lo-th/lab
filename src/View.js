@@ -104,6 +104,9 @@ function View () {
 
     this.loader = new THREE.TextureLoader();
 
+    this.listener = new THREE.AudioListener();
+    this.camera.add( this.listener );
+
     // 6 RESIZE
 
     this.resize();
@@ -342,9 +345,9 @@ View.prototype = {
 
     },
 
-    load: function ( Urls, Callback, auto ){
+    load: function ( Urls, Callback, autoPath, autoTexture ){
 
-        pool.load( Urls, Callback, auto );
+        pool.load( Urls, Callback, autoPath, autoTexture );
 
     },
 
@@ -403,10 +406,17 @@ View.prototype = {
 
     getTexture: function ( name ) {
 
-        var t = new THREE.Texture( pool.getResult()[name] );
-        t.needsUpdate = true;
-        t.flipY = false;
-        return t;
+        var t = pool.getResult()[name];
+
+        if(t.isTexture){
+            t.flipY = false;
+            return t;
+        }else{ // is img
+            t = new THREE.Texture( t );
+            t.needsUpdate = true;
+            t.flipY = false;
+            return t;
+        }
 
     },
 
@@ -1024,6 +1034,71 @@ View.prototype = {
         return Math.sqrt( p.x * p.x + p.z * p.z );
 
 
+    },
+
+
+    //--------------------------------------
+    //
+    //   AUDIO
+    //
+    //--------------------------------------
+
+
+    addSound: function ( name ){
+
+        if(!pool.buffer[name]) return null;
+
+        var audio = new THREE.PositionalAudio( this.listener );
+        audio.volume = 1;
+        audio.setBuffer( pool.buffer[name] );
+        return audio;
+
     }
 
 }
+
+
+THREE.Audio.prototype.stop = function () {
+
+    if ( this.hasPlaybackControl === false ) return;
+    if ( !this.isPlaying ) return;
+
+    //this.volume = this.gain.gain.value;
+  //  this.gain.gain.exponentialRampToValueAtTime( 0.0001, this.context.currentTime + 0.03 );
+  // this.source.stop( this.context.currentTime + 0.03 );
+
+    this.source.stop();
+    this.offset = 0;
+    this.isPlaying = false;
+    return this;
+
+};
+
+THREE.Audio.prototype.play = function () {
+
+    if ( this.isPlaying === true ) return;
+    if ( this.hasPlaybackControl === false ) return;
+
+    //this.setVolume( this.volume || 1 );
+
+    var source = this.context.createBufferSource();
+
+    source.buffer = this.buffer;
+    source.loop = this.loop;
+    source.onended = this.onEnded.bind( this );
+    source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
+    this.startTime = this.context.currentTime;
+    source.start( this.startTime, this.offset );
+    this.isPlaying = true;
+    this.source = source;
+    return this.connect();
+
+};
+
+/*THREE.Audio.prototype.setVolume = function ( value ) {
+
+    this.volume = value;
+    this.gain.gain.setTargetAtTime( value, this.context.currentTime, 0.01 );
+    return this;
+
+};*/

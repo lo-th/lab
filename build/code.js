@@ -21403,8 +21403,6 @@ var currentCode = '';
 var fileName = '';
 var link = '';
 
-var isFullScreen = false;
-
 var octo, octoArm;
 
 var unselectable = '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select: none;';
@@ -21415,6 +21413,8 @@ var mode = 'javascript'; // x-glsl
 var saveButton;
 
 editor = {
+
+    isFullScreen: false,
 
     init: function ( Callback, withCode, color, Link ) {
 
@@ -21455,7 +21455,7 @@ editor = {
         // title
 
         title = document.createElement( 'div' );
-        title.style.cssText = unselectable + 'position:absolute; font-size: 12px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space+40)+'px';
+        title.style.cssText = unselectable + 'position:absolute; font-size: 14px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space+40)+'px';
         document.body.appendChild( title );
 
         // subtitle
@@ -21470,12 +21470,14 @@ editor = {
 
         fullSc = document.createElement( 'div' );
         fullSc.style.cssText = 'position:absolute; width:30px; height:30px; right:10px; bottom:10px; pointer-events:auto; cursor:pointer; '
-        fullSc.innerHTML = editor.icon('scr', '#787978', 30, 30);
+        fullSc.innerHTML = editor.icon('scrIn', '#787978', 30, 30);
         document.body.appendChild( fullSc );
 
         fullSc.addEventListener('click', editor.toggleFullScreen, false );
-        fullSc.addEventListener('mouseover', function(){ this.innerHTML = editor.icon('scr', selectColor, 30, 30); }, false );
-        fullSc.addEventListener('mouseout', function(){ this.innerHTML = editor.icon('scr', '#787978', 30, 30); }, false );
+        fullSc.addEventListener('mouseover', function(){ this.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', selectColor, 30, 30); }, false );
+        fullSc.addEventListener('mouseout', function(){ this.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', '#787978', 30, 30); }, false );
+
+
 
         document.addEventListener("fullscreenchange", editor.screenChange, false );
         document.addEventListener("webkitfullscreenchange", editor.screenChange, false );
@@ -21498,10 +21500,16 @@ editor = {
         var t = ["<svg xmlns='http://www.w3.org/2000/svg' version='1.1' xmlns:xlink='http://www.w3.org/1999/xlink' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+w+"px' viewBox='"+viewBox+"'><g>"];
         switch(type){
             case 'save':
-            t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/><path stroke='"+color+"' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 32.6 23 L 32.6 25.5 Q 32.6 28.5 29.6 28.5 L 10.6 28.5 Q 7.6 28.5 7.6 25.5 L 7.6 23'/>";
+            t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/>";
+            t[1]+="<path stroke='"+color+"' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 32.6 23 L 32.6 25.5 Q 32.6 28.5 29.6 28.5 L 10.6 28.5 Q 7.6 28.5 7.6 25.5 L 7.6 23'/>";
             break;
-            case 'scr':
-            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 3 20 L 1 20 1 30 11 30 11 28 3 28 3 20 M 11 3 L 11 1 1 1 1 11 3 11 3 3 11 3 M 30 11 L 30 1 20 1 20 3 28 3 28 11 30 11 M 30 20 L 28 20 28 28 20 28 20 30 30 30 30 20 M 24 22 L 24 9 7 9 7 22 24 22 M 22 11 L 22 20 9 20 9 11 22 11 Z'/><path fill='"+color+"' stroke='none' d='M 23 21 L 23 8 6 8 6 21 23 21 M 21 10 L 21 19 8 19 8 10 21 10 M 2 19 L 0 19 0 29 10 29 10 27 2 27 2 19 M 10 2 L 10 0 0 0 0 10 2 10 2 2 10 2 M 29 19 L 27 19 27 27 19 27 19 29 29 29 29 19 M 27 10 L 29 10 29 0 19 0 19 2 27 2 27 10 Z'/>";
+            case 'scrIn':
+            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 3 20 L 1 20 1 30 11 30 11 28 3 28 3 20 M 11 3 L 11 1 1 1 1 11 3 11 3 3 11 3 M 30 11 L 30 1 20 1 20 3 28 3 28 11 30 11 M 30 20 L 28 20 28 28 20 28 20 30 30 30 30 20 M 24 22 L 24 9 7 9 7 22 24 22 M 22 11 L 22 20 9 20 9 11 22 11 Z'/>";
+            t[1]+="<path fill='"+color+"' stroke='none' d='M 23 21 L 23 8 6 8 6 21 23 21 M 21 10 L 21 19 8 19 8 10 21 10 M 2 19 L 0 19 0 29 10 29 10 27 2 27 2 19 M 10 2 L 10 0 0 0 0 10 2 10 2 2 10 2 M 29 19 L 27 19 27 27 19 27 19 29 29 29 29 19 M 27 10 L 29 10 29 0 19 0 19 2 27 2 27 10 Z'/>";
+            break;
+            case 'scrOut':
+            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 30 1 L 1 1 1 30 30 30 30 1 M 3 3 L 28 3 28 28 3 28 3 3 M 9 17 L 7 17 7 22 12 22 12 20 9 20 9 17 M 12 11 L 12 9 7 9 7 14 9 14 9 11 12 11 M 22 14 L 24 14 24 9 19 9 19 11 22 11 22 14 M 24 17 L 22 17 22 20 19 20 19 22 24 22 24 17 Z'/>";
+            t[1]+="<path fill='"+color+"' stroke='none' d='M 29 0 L 0 0 0 29 29 29 29 0 M 27 27 L 2 27 2 2 27 2 27 27 M 8 16 L 6 16 6 21 11 21 11 19 8 19 8 16 M 11 10 L 11 8 6 8 6 13 8 13 8 10 11 10 M 21 16 L 21 19 18 19 18 21 23 21 23 16 21 16 M 21 10 L 21 13 23 13 23 8 18 8 18 10 21 10 Z'/>";
             break;
         }
         t[2] = "</g></svg>";
@@ -22273,14 +22281,15 @@ editor = {
 
     screenChange: function () {
 
-        isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement ? true : false;
-        console.log(isFullScreen)
+        editor.isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement ? true : false;
+        fullSc.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', '#787978', 30, 30);
+        //console.log(isFullScreen)
 
     },
 
     toggleFullScreen: function () {
 
-        if(!isFullScreen){
+        if(!editor.isFullScreen){
 
             if ( "fullscreenEnabled" in document || "webkitFullscreenEnabled" in document || "mozFullScreenEnabled" in document || "msFullscreenEnabled" in document ){
                 if(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled){

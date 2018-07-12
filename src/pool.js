@@ -2,14 +2,18 @@ var pool = ( function () {
 
     'use strict';
 
-    var results = {};
-    var urls = null;
-    var callback = null;
+    var tmp = [];
+
+    //var pool.data = {};
     
     var inLoading = false;
     var seaLoader = null;
     var readers = null;
     var URL = (window.URL || window.webkitURL);
+
+    var textureLoader = null;
+
+    var imgType = ['jpg', 'png'];
 
     var paths = {
 
@@ -17,34 +21,99 @@ var pool = ( function () {
         'bvh' : './assets/bvh/',
         'jpg' : './assets/textures/',
         'png' : './assets/textures/',
+        'mp3' : './assets/sounds/',
+        'wav' : './assets/sounds/',
 
     }
 
-    var autoPath = false;
 
-    var start = 0;
-    var end = 0;
+    //var autoPath = false;
+    //var autoTexture = false;
+
+    //var start = 0;
+    //var end = 0;
 
     pool = {
 
-        load: function( Urls, Callback, auto ){
+        data:{},
+        buffer:{},// for sound
 
-            urls = [];
+        setDirectTexture: function () {
 
-            start = ( typeof performance === 'undefined' ? Date : performance ).now();
+            if( textureLoader === null ) textureLoader = new THREE.TextureLoader();
 
-            if ( typeof Urls == 'string' || Urls instanceof String ) urls.push( Urls );
+        },
+
+        load: function( Urls, Callback, AutoPath, AutoTexture ){
+
+            var urls = [];
+
+            var start = ( typeof performance === 'undefined' ? Date : performance ).now();
+
+            if ( typeof Urls === 'string' || Urls instanceof String ) urls.push( Urls );
             else urls = urls.concat( Urls );
 
 
-            callback = Callback || function(){};
-            autoPath = auto || false;
+            var callback = Callback || function(){};
+            var autoPath = AutoPath || false;
+            var autoTexture = AutoTexture || false;
 
-            //results = {};
+            if( autoTexture ) pool.setDirectTexture();
+
+            tmp.push( { urls:urls, callback:callback, autoPath:autoPath, autoTexture:autoTexture, start:start } );
+
+            if( !inLoading ) this.loadOne();
+
+        },
+
+        testTmp: function () {
+
+            tmp.shift();
+
+            if( tmp.length === 0 ) return; 
+
+            tmp[0].start = ( typeof performance === 'undefined' ? Date : performance ).now();
+            this.loadOne();
+
+        },
+
+        loadOne: function(){
 
             inLoading = true;
 
-            this.loadOne();
+            var link = tmp[0].urls[0];
+            var name = link.substring( link.lastIndexOf('/')+1, link.lastIndexOf('.') );
+            var type = link.substring( link.lastIndexOf('.')+1 );
+
+            if( tmp[0].autoTexture && imgType.indexOf( type ) !== -1 && pool.data[name] === undefined ) pool.data[name] = textureLoader.load( tmp[0].autoPath ? paths[type] + link : link );
+
+            if( pool.data[name] !== undefined ) this.next();
+            else this.loading( link, name, type );
+
+        },
+
+        next: function () {
+
+            tmp[0].urls.shift();
+
+            if( tmp[0].urls.length === 0 ){
+
+                inLoading = false;
+
+                var end = ( typeof performance === 'undefined' ? Date : performance ).now() - tmp[0].start;
+                console.log( 'pool loading time: ', Math.floor(end), 'ms' );
+
+                tmp[0].callback( pool.data );
+
+                //
+
+                this.testTmp();
+
+            } else {
+
+                this.loadOne();
+
+            }
 
         },
 
@@ -56,26 +125,26 @@ var pool = ( function () {
 
         reset: function (){
 
-            results = null;
-            callback = null;
+            pool.data = null;
+            //callback = null;
 
         },
 
         get: function ( name ){
 
-            return results[name];
+            return pool.data[name];
 
         },
 
         getResult : function(){
 
-            return results;
+            return pool.data;
 
         },
 
         meshByName : function ( name ){
 
-            var ar = results[ name ];
+            var ar = pool.data[ name ];
             var meshs = {}
             var i = ar.length;
 
@@ -89,7 +158,7 @@ var pool = ( function () {
 
         getMesh : function ( name, meshName ){
 
-            var ar = results[name];
+            var ar = pool.data[name];
             var i = ar.length;
             while(i--){
                 if( ar[i].name === meshName ) return ar[i];
@@ -97,32 +166,9 @@ var pool = ( function () {
 
         },
 
-        next: function () {
+        
 
-            urls.shift();
-            if( urls.length === 0 ){ 
-
-                inLoading = false;
-
-                end = ( typeof performance === 'undefined' ? Date : performance ).now() - start;
-                console.log( 'loading time v2:', Math.floor(end), 'ms' );
-
-                callback( results );
-
-            }
-            else this.loadOne();
-
-        },
-
-        loadOne: function(){
-
-            var link = urls[0];
-            var name = link.substring( link.lastIndexOf('/')+1, link.lastIndexOf('.') );
-            var type = link.substring( link.lastIndexOf('.')+1 );
-            if( results[name] !== undefined ) this.next();
-            else this.loading( link, name, type );
-
-        },
+        
 
         progress: function ( loaded, total ) {
 
@@ -132,14 +178,14 @@ var pool = ( function () {
 
             var self = this;
 
-            if( autoPath ) link = paths[type] + link;
+            if( tmp[0].autoPath ) link = paths[type] + link;
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );
 
             switch( type ){
 
-                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': xhr.responseType = "arraybuffer"; break;
+                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
                 case 'jpg': case 'png': xhr.responseType = 'blob'; break;
 
             }
@@ -182,7 +228,7 @@ var pool = ( function () {
                     var lll = new THREE.SEA3D();
 
                     lll.onComplete = function( e ) { 
-                        results[name] = lll.meshes;
+                        pool.data[name] = lll.meshes;
                         self.next();
                     }
 
@@ -195,7 +241,7 @@ var pool = ( function () {
                     var img = new Image();
                     img.onload = function(e) {
                         URL.revokeObjectURL( img.src ); // Clean up after yourself.
-                        results[name] = img;
+                        pool.data[name] = img;
                         self.next();
                     };
 
@@ -203,36 +249,46 @@ var pool = ( function () {
                     
 
                 break;
+                case 'mp3': case 'wav':
+
+                    var bufferCopy = response.slice( 0 );
+                    THREE.AudioContext.getContext().decodeAudioData( 
+                        bufferCopy, 
+                        function( buffer ){ self.buffer[name] = buffer;/*audio.add( name, buffer );*/ self.next(); }, 
+                        function( error ){ console.error('decodeAudioData error', error); }
+                    );
+
+                break;
                 case 'z':
 
-                    results[name] = SEA3D.File.LZMAUncompress( response );
+                    pool.data[name] = SEA3D.File.LZMAUncompress( response );
                     self.next();
 
                 break;
                 case 'bvh': case 'BVH':
 
-                    results[name] = response;
+                    pool.data[name] = response;
                     self.next();
 
                 break;
 
                 case 'glsl':
 
-                    results[name] = response;
+                    pool.data[name] = response;
                     self.next();
 
                 break;
 
                 case 'json':
 
-                    results[name] = JSON.parse( response );
+                    pool.data[name] = JSON.parse( response );
                     self.next();
 
                 break;
 
                 case 'wasm':
 
-                    results[name] = new Uint8Array( response );
+                    pool.data[name] = new Uint8Array( response );
                     self.next();
 
                 break;
@@ -261,7 +317,7 @@ var pool = ( function () {
                         var lll = new THREE.SEA3D();
 
                         lll.onComplete = function( e ) { 
-                            results[name] = lll.meshes;
+                            pool.data[name] = lll.meshes;
                             self.next(); 
                         }
 
@@ -271,34 +327,34 @@ var pool = ( function () {
                     break;
                     case 'jpg': case 'png':
 
-                        results[name] = new Image();
-                        results[name].src = e.target.result;
+                        pool.data[name] = new Image();
+                        pool.data[name].src = e.target.result;
                         self.next();
 
                     break;
                     case 'z':
 
-                        results[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
                         self.next();
 
                     break;
                     case 'bvh': case 'BVH':
 
-                        results[name] = e.target.result;
+                        pool.data[name] = e.target.result;
                         self.next();
 
                     break;
 
                     case 'glsl':
 
-                        results[name] = e.target.result;
+                        pool.data[name] = e.target.result;
                         self.next();
 
                     break;
 
                     case 'json':
 
-                        results[name] = JSON.parse( e.target.result );
+                        pool.data[name] = JSON.parse( e.target.result );
                         self.next();
 
                     break;

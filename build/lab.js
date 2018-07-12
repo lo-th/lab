@@ -62813,25 +62813,38 @@ function Terrain ( o ) {
     if(this.isWater){
         this.wn = view.loadTexture('terrain/water_n.jpg')
         this.wn.repeat = new THREE.Vector2( 3, 3 );
-        this.wn.wrapS = THREE.RepeatWrapping;
-        this.wn.wrapT = THREE.RepeatWrapping;
+        this.wn.wrapS = this.wn.wrapT = THREE.RepeatWrapping;
+        this.wn.anisotropy = 1;
     }
 
-    this.material = new THREE.MeshStandardMaterial({ 
+    //this.material = new THREE.MeshStandardMaterial({ 
+    this.material = new THREE.MeshPhongMaterial({ 
 
         vertexColors: THREE.VertexColors, 
         name:'terrain', 
-        metalness: this.isWater ? 0.8 : 0.4, 
-        roughness: this.isWater ? 0.5 : 0.6, 
+
+        shininess:30,
+        reflectivity:0.6,
+        specular : 0x161716,
+
+        //metalness: this.isWater ? 0.8 : 0.4, 
+        //roughness: this.isWater ? 0.5 : 0.6, 
         wireframe:false, 
         envMap: view.getEnvMap(),
         normalMap:this.wn,
-        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(1,1),
+        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
         shadowSide:false,
         
     });
 
-    
+
+    var map_pars = [
+        '#ifdef USE_MAP',
+        '    uniform sampler2D map;',
+        '    uniform sampler2D map1;',
+        '    uniform sampler2D map2;',
+        '#endif',
+    ];
 
     var map = [
         '#ifdef USE_MAP',
@@ -62840,8 +62853,8 @@ function Terrain ( o ) {
             'vec4 baseColor = vec4(1.0);',
 
             'vec4 sand = mapTexelToLinear( texture2D( map, vUv ) );',
-            'vec4 grass = mapTexelToLinear( texture2D( emissiveMap, vUv ) );',
-            'vec4 rock = mapTexelToLinear( texture2D( alphaMap, vUv ) );',
+            'vec4 grass = mapTexelToLinear( texture2D( map1, vUv ) );',
+            'vec4 rock = mapTexelToLinear( texture2D( map2, vUv ) );',
 
             'if (slope < .5) baseColor = grass;',
             'if (slope > .8) baseColor = rock;',
@@ -62851,34 +62864,15 @@ function Terrain ( o ) {
         '#endif',
     ];
 
-    var normal = [
-        //'#ifdef FLAT_SHADED',
-        //'vec3 fdx = vec3( dFdx( vViewPosition.x ), dFdx( vViewPosition.y ), dFdx( vViewPosition.z ) );',
-        //'vec3 fdy = vec3( dFdy( vViewPosition.x ), dFdy( vViewPosition.y ), dFdy( vViewPosition.z ) );',
-        //'vec3 normal = normalize( cross( fdx, fdy ) );',
-        //'#else',
-        //'    vec3 normal = normalize( vNormal );',
-        //'#endif',
-        '#ifdef USE_NORMALMAP',
-            'vec4 extraNormal = vec4(1.0);',
-            'vec4 sandN =  texture2D( normalMap, vUv );',
-            'vec4 grassN = texture2D( roughnessMap, vUv );',
-            'vec4 rockN = texture2D( metalnessMap, vUv );',
-            'float slopeN = vColor.r;',
-
-            'if (slopeN < .5) extraNormal = grassN;',
-            'if (slopeN > .8) extraNormal = rockN;',
-            'if ((slopeN<.8) && (slopeN >= .5)) extraNormal = mix( grassN , rockN, (slopeN - .5) * (1. / (.8 - .5)));',
-            'if (slopeN < .2) extraNormal = mix( sandN, grassN, slopeN * (1.0/0.2) );',
-            'normal = perturbNormal2Arb( -vViewPosition.xyz, normal.xyz, extraNormal.xyz );',
     
-        '#endif',
-    ];
 
-    var normal_part = [
+    var normal_pars = [
         '#ifdef USE_NORMALMAP',
 
         'uniform sampler2D normalMap;',
+        'uniform sampler2D normalMap1;',
+        'uniform sampler2D normalMap2;',
+
         'uniform vec2 normalScale;',
 
         // Per-Pixel Tangent Space Normal Mapping
@@ -62907,52 +62901,96 @@ function Terrain ( o ) {
         '#endif',
     ];
 
+    var normal = [
+        //'#ifdef FLAT_SHADED',
+        //'vec3 fdx = vec3( dFdx( vViewPosition.x ), dFdx( vViewPosition.y ), dFdx( vViewPosition.z ) );',
+        //'vec3 fdy = vec3( dFdy( vViewPosition.x ), dFdy( vViewPosition.y ), dFdy( vViewPosition.z ) );',
+        //'vec3 normal = normalize( cross( fdx, fdy ) );',
+        //'#else',
+        //'    vec3 normal = normalize( vNormal );',
+        //'#endif',
+        '#ifdef USE_NORMALMAP',
+            'vec4 extraNormal = vec4(1.0);',
+            'vec4 sandN =  texture2D( normalMap, vUv );',
+            'vec4 grassN = texture2D( normalMap1, vUv );',
+            'vec4 rockN = texture2D( normalMap2, vUv );',
+            'float slopeN = vColor.r;',
+
+            'if (slopeN < .5) extraNormal = grassN;',
+            'if (slopeN > .8) extraNormal = rockN;',
+            'if ((slopeN<.8) && (slopeN >= .5)) extraNormal = mix( grassN , rockN, (slopeN - .5) * (1. / (.8 - .5)));',
+            'if (slopeN < .2) extraNormal = mix( sandN, grassN, slopeN * (1.0/0.2) );',
+            'normal = perturbNormal2Arb( -vViewPosition.xyz, normal.xyz, extraNormal.xyz );',
+    
+        '#endif',
+    ];
+
     if(!this.isWater){
 
-        //this.sand = view.loadTexture('terrain/sand.jpg');
 
-        this.material.map = view.loadTexture('terrain/sand.jpg');
+        this.mapsLink = [];
+        this.maps = [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
+        for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
 
-        this.material.map.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
-        this.material.map.wrapS = THREE.RepeatWrapping;
-        this.material.map.wrapT = THREE.RepeatWrapping;
-        this.material.emissiveMap = view.loadTexture('terrain/grass.jpg');
-        this.material.emissiveMap.wrapS = THREE.RepeatWrapping;
-        this.material.emissiveMap.wrapT = THREE.RepeatWrapping;
-        this.material.alphaMap = view.loadTexture('terrain/rock.jpg');
-        this.material.alphaMap.wrapS = THREE.RepeatWrapping;
-        this.material.alphaMap.wrapT = THREE.RepeatWrapping;
+        pool.load ( this.mapsLink, null, true, true );
 
-        this.material.normalMap = view.loadTexture('terrain/sand_n.jpg');
-        this.material.normalMap.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
-        this.material.normalMap.wrapS = THREE.RepeatWrapping;
-        this.material.normalMap.wrapT = THREE.RepeatWrapping;
-        this.material.roughnessMap = view.loadTexture('terrain/grass_n.jpg');
-        this.material.roughnessMap.wrapS = THREE.RepeatWrapping;
-        this.material.roughnessMap.wrapT = THREE.RepeatWrapping;
-        this.material.metalnessMap = view.loadTexture('terrain/rock_n.jpg');
-        this.material.metalnessMap.wrapS = THREE.RepeatWrapping;
-        this.material.metalnessMap.wrapT = THREE.RepeatWrapping;
+        var textures = {}
+        var name, txt;
+        for( var i in this.maps ){
+
+            name = this.maps[i];
+            txt = pool.getResult()[name];
+            txt.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
+            txt.wrapS = txt.wrapT = THREE.RepeatWrapping;
+            txt.anisotropy = 8;
+            textures[name] = txt;
+
+        }
+
+        this.material.map = textures.sand;
+        this.material.normalMap = textures.sand_n;
 
         this.material.onBeforeCompile = function ( shader ) {
+
+            var uniforms = shader.uniforms;
+
+            //uniforms['map'] = { value: textures.sand };
+            uniforms['map1'] = { value: textures.grass };
+            uniforms['map2'] = { value: textures.rock };
+
+            //uniforms['normalMap'] = { value: textures.sand_n };
+            uniforms['normalMap1'] = { value: textures.grass_n };
+            uniforms['normalMap2'] = { value: textures.rock_n };
+
+
             var vertex = shader.vertexShader;
             var fragment = shader.fragmentShader;
 
-            fragment = fragment.replace( '#include <normalmap_pars_fragment>', normal_part.join("\n") );
+            fragment = fragment.replace( '#include <map_pars_fragment>', map_pars.join("\n") );
+            fragment = fragment.replace( '#include <normalmap_pars_fragment>', normal_pars.join("\n") );
 
             fragment = fragment.replace( '#include <map_fragment>', map.join("\n") );
             fragment = fragment.replace( '#include <normal_fragment_maps>', normal.join("\n") );
-            fragment = fragment.replace( '#include <alphamap_fragment>', '' );
-            fragment = fragment.replace( '#include <color_fragment>', '' );
-            fragment = fragment.replace( '#include <emissivemap_fragment>', '' );
 
+            fragment = fragment.replace( '#include <color_fragment>', '' );
+
+            /*fragment = fragment.replace( '#include <alphamap_fragment>', '' );
+            fragment = fragment.replace( '#include <emissivemap_fragment>', '' );
             fragment = fragment.replace( '#include <aomap_fragment>', '' );
             fragment = fragment.replace( '#include <roughnessmap_fragment>', 'float roughnessFactor = roughness;' );
-            fragment = fragment.replace( '#include <metalnessmap_fragment>', 'float metalnessFactor = metalness;' );
+            fragment = fragment.replace( '#include <metalnessmap_fragment>', 'float metalnessFactor = metalness;' );*/
+
+            shader.uniforms = uniforms;
             shader.fragmentShader = fragment;
+
             return shader;
         }
+
+
+
     }
+
+    //this.uniforms = uniforms;
 
     this.update();
 
@@ -63068,8 +63106,6 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         var v = this.pp;
         var cc = [1,1,1];
         var i = this.lng, n, x, z,  c, l=0, id, result;
-
-
 
         while( i-- ){
 
@@ -65509,14 +65545,18 @@ var pool = ( function () {
 
     'use strict';
 
-    var results = {};
-    var urls = null;
-    var callback = null;
+    var tmp = [];
+
+    //var pool.data = {};
     
     var inLoading = false;
     var seaLoader = null;
     var readers = null;
     var URL = (window.URL || window.webkitURL);
+
+    var textureLoader = null;
+
+    var imgType = ['jpg', 'png'];
 
     var paths = {
 
@@ -65524,34 +65564,99 @@ var pool = ( function () {
         'bvh' : './assets/bvh/',
         'jpg' : './assets/textures/',
         'png' : './assets/textures/',
+        'mp3' : './assets/sounds/',
+        'wav' : './assets/sounds/',
 
     }
 
-    var autoPath = false;
 
-    var start = 0;
-    var end = 0;
+    //var autoPath = false;
+    //var autoTexture = false;
+
+    //var start = 0;
+    //var end = 0;
 
     pool = {
 
-        load: function( Urls, Callback, auto ){
+        data:{},
+        buffer:{},// for sound
 
-            urls = [];
+        setDirectTexture: function () {
 
-            start = ( typeof performance === 'undefined' ? Date : performance ).now();
+            if( textureLoader === null ) textureLoader = new THREE.TextureLoader();
 
-            if ( typeof Urls == 'string' || Urls instanceof String ) urls.push( Urls );
+        },
+
+        load: function( Urls, Callback, AutoPath, AutoTexture ){
+
+            var urls = [];
+
+            var start = ( typeof performance === 'undefined' ? Date : performance ).now();
+
+            if ( typeof Urls === 'string' || Urls instanceof String ) urls.push( Urls );
             else urls = urls.concat( Urls );
 
 
-            callback = Callback || function(){};
-            autoPath = auto || false;
+            var callback = Callback || function(){};
+            var autoPath = AutoPath || false;
+            var autoTexture = AutoTexture || false;
 
-            //results = {};
+            if( autoTexture ) pool.setDirectTexture();
+
+            tmp.push( { urls:urls, callback:callback, autoPath:autoPath, autoTexture:autoTexture, start:start } );
+
+            if( !inLoading ) this.loadOne();
+
+        },
+
+        testTmp: function () {
+
+            tmp.shift();
+
+            if( tmp.length === 0 ) return; 
+
+            tmp[0].start = ( typeof performance === 'undefined' ? Date : performance ).now();
+            this.loadOne();
+
+        },
+
+        loadOne: function(){
 
             inLoading = true;
 
-            this.loadOne();
+            var link = tmp[0].urls[0];
+            var name = link.substring( link.lastIndexOf('/')+1, link.lastIndexOf('.') );
+            var type = link.substring( link.lastIndexOf('.')+1 );
+
+            if( tmp[0].autoTexture && imgType.indexOf( type ) !== -1 && pool.data[name] === undefined ) pool.data[name] = textureLoader.load( tmp[0].autoPath ? paths[type] + link : link );
+
+            if( pool.data[name] !== undefined ) this.next();
+            else this.loading( link, name, type );
+
+        },
+
+        next: function () {
+
+            tmp[0].urls.shift();
+
+            if( tmp[0].urls.length === 0 ){
+
+                inLoading = false;
+
+                var end = ( typeof performance === 'undefined' ? Date : performance ).now() - tmp[0].start;
+                console.log( 'pool loading time: ', Math.floor(end), 'ms' );
+
+                tmp[0].callback( pool.data );
+
+                //
+
+                this.testTmp();
+
+            } else {
+
+                this.loadOne();
+
+            }
 
         },
 
@@ -65563,26 +65668,26 @@ var pool = ( function () {
 
         reset: function (){
 
-            results = null;
-            callback = null;
+            pool.data = null;
+            //callback = null;
 
         },
 
         get: function ( name ){
 
-            return results[name];
+            return pool.data[name];
 
         },
 
         getResult : function(){
 
-            return results;
+            return pool.data;
 
         },
 
         meshByName : function ( name ){
 
-            var ar = results[ name ];
+            var ar = pool.data[ name ];
             var meshs = {}
             var i = ar.length;
 
@@ -65596,7 +65701,7 @@ var pool = ( function () {
 
         getMesh : function ( name, meshName ){
 
-            var ar = results[name];
+            var ar = pool.data[name];
             var i = ar.length;
             while(i--){
                 if( ar[i].name === meshName ) return ar[i];
@@ -65604,32 +65709,9 @@ var pool = ( function () {
 
         },
 
-        next: function () {
+        
 
-            urls.shift();
-            if( urls.length === 0 ){ 
-
-                inLoading = false;
-
-                end = ( typeof performance === 'undefined' ? Date : performance ).now() - start;
-                console.log( 'loading time v2:', Math.floor(end), 'ms' );
-
-                callback( results );
-
-            }
-            else this.loadOne();
-
-        },
-
-        loadOne: function(){
-
-            var link = urls[0];
-            var name = link.substring( link.lastIndexOf('/')+1, link.lastIndexOf('.') );
-            var type = link.substring( link.lastIndexOf('.')+1 );
-            if( results[name] !== undefined ) this.next();
-            else this.loading( link, name, type );
-
-        },
+        
 
         progress: function ( loaded, total ) {
 
@@ -65639,14 +65721,14 @@ var pool = ( function () {
 
             var self = this;
 
-            if( autoPath ) link = paths[type] + link;
+            if( tmp[0].autoPath ) link = paths[type] + link;
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );
 
             switch( type ){
 
-                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': xhr.responseType = "arraybuffer"; break;
+                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
                 case 'jpg': case 'png': xhr.responseType = 'blob'; break;
 
             }
@@ -65689,7 +65771,7 @@ var pool = ( function () {
                     var lll = new THREE.SEA3D();
 
                     lll.onComplete = function( e ) { 
-                        results[name] = lll.meshes;
+                        pool.data[name] = lll.meshes;
                         self.next();
                     }
 
@@ -65702,7 +65784,7 @@ var pool = ( function () {
                     var img = new Image();
                     img.onload = function(e) {
                         URL.revokeObjectURL( img.src ); // Clean up after yourself.
-                        results[name] = img;
+                        pool.data[name] = img;
                         self.next();
                     };
 
@@ -65710,36 +65792,46 @@ var pool = ( function () {
                     
 
                 break;
+                case 'mp3': case 'wav':
+
+                    var bufferCopy = response.slice( 0 );
+                    THREE.AudioContext.getContext().decodeAudioData( 
+                        bufferCopy, 
+                        function( buffer ){ self.buffer[name] = buffer;/*audio.add( name, buffer );*/ self.next(); }, 
+                        function( error ){ console.error('decodeAudioData error', error); }
+                    );
+
+                break;
                 case 'z':
 
-                    results[name] = SEA3D.File.LZMAUncompress( response );
+                    pool.data[name] = SEA3D.File.LZMAUncompress( response );
                     self.next();
 
                 break;
                 case 'bvh': case 'BVH':
 
-                    results[name] = response;
+                    pool.data[name] = response;
                     self.next();
 
                 break;
 
                 case 'glsl':
 
-                    results[name] = response;
+                    pool.data[name] = response;
                     self.next();
 
                 break;
 
                 case 'json':
 
-                    results[name] = JSON.parse( response );
+                    pool.data[name] = JSON.parse( response );
                     self.next();
 
                 break;
 
                 case 'wasm':
 
-                    results[name] = new Uint8Array( response );
+                    pool.data[name] = new Uint8Array( response );
                     self.next();
 
                 break;
@@ -65768,7 +65860,7 @@ var pool = ( function () {
                         var lll = new THREE.SEA3D();
 
                         lll.onComplete = function( e ) { 
-                            results[name] = lll.meshes;
+                            pool.data[name] = lll.meshes;
                             self.next(); 
                         }
 
@@ -65778,34 +65870,34 @@ var pool = ( function () {
                     break;
                     case 'jpg': case 'png':
 
-                        results[name] = new Image();
-                        results[name].src = e.target.result;
+                        pool.data[name] = new Image();
+                        pool.data[name].src = e.target.result;
                         self.next();
 
                     break;
                     case 'z':
 
-                        results[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
                         self.next();
 
                     break;
                     case 'bvh': case 'BVH':
 
-                        results[name] = e.target.result;
+                        pool.data[name] = e.target.result;
                         self.next();
 
                     break;
 
                     case 'glsl':
 
-                        results[name] = e.target.result;
+                        pool.data[name] = e.target.result;
                         self.next();
 
                     break;
 
                     case 'json':
 
-                        results[name] = JSON.parse( e.target.result );
+                        pool.data[name] = JSON.parse( e.target.result );
                         self.next();
 
                     break;
@@ -65926,6 +66018,9 @@ function View () {
     // 5 TEXTURE LOADER
 
     this.loader = new THREE.TextureLoader();
+
+    this.listener = new THREE.AudioListener();
+    this.camera.add( this.listener );
 
     // 6 RESIZE
 
@@ -66165,9 +66260,9 @@ View.prototype = {
 
     },
 
-    load: function ( Urls, Callback, auto ){
+    load: function ( Urls, Callback, autoPath, autoTexture ){
 
-        pool.load( Urls, Callback, auto );
+        pool.load( Urls, Callback, autoPath, autoTexture );
 
     },
 
@@ -66226,10 +66321,17 @@ View.prototype = {
 
     getTexture: function ( name ) {
 
-        var t = new THREE.Texture( pool.getResult()[name] );
-        t.needsUpdate = true;
-        t.flipY = false;
-        return t;
+        var t = pool.getResult()[name];
+
+        if(t.isTexture){
+            t.flipY = false;
+            return t;
+        }else{ // is img
+            t = new THREE.Texture( t );
+            t.needsUpdate = true;
+            t.flipY = false;
+            return t;
+        }
 
     },
 
@@ -66847,6 +66949,71 @@ View.prototype = {
         return Math.sqrt( p.x * p.x + p.z * p.z );
 
 
+    },
+
+
+    //--------------------------------------
+    //
+    //   AUDIO
+    //
+    //--------------------------------------
+
+
+    addSound: function ( name ){
+
+        if(!pool.buffer[name]) return null;
+
+        var audio = new THREE.PositionalAudio( this.listener );
+        audio.volume = 1;
+        audio.setBuffer( pool.buffer[name] );
+        return audio;
+
     }
 
 }
+
+
+THREE.Audio.prototype.stop = function () {
+
+    if ( this.hasPlaybackControl === false ) return;
+    if ( !this.isPlaying ) return;
+
+    //this.volume = this.gain.gain.value;
+  //  this.gain.gain.exponentialRampToValueAtTime( 0.0001, this.context.currentTime + 0.03 );
+  // this.source.stop( this.context.currentTime + 0.03 );
+
+    this.source.stop();
+    this.offset = 0;
+    this.isPlaying = false;
+    return this;
+
+};
+
+THREE.Audio.prototype.play = function () {
+
+    if ( this.isPlaying === true ) return;
+    if ( this.hasPlaybackControl === false ) return;
+
+    //this.setVolume( this.volume || 1 );
+
+    var source = this.context.createBufferSource();
+
+    source.buffer = this.buffer;
+    source.loop = this.loop;
+    source.onended = this.onEnded.bind( this );
+    source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
+    this.startTime = this.context.currentTime;
+    source.start( this.startTime, this.offset );
+    this.isPlaying = true;
+    this.source = source;
+    return this.connect();
+
+};
+
+/*THREE.Audio.prototype.setVolume = function ( value ) {
+
+    this.volume = value;
+    this.gain.gain.setTargetAtTime( value, this.context.currentTime, 0.01 );
+    return this;
+
+};*/
