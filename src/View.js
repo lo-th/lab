@@ -206,6 +206,7 @@ View.prototype = {
         TWEEN.update(); // tweener
 
         this.updateExtra();
+        this.update();
 
 		if( this.isNeedUpdate ){
 
@@ -213,7 +214,7 @@ View.prototype = {
 
             this.updateIntern();
             this.controler.follow();
-            this.update();
+            
             
 			this.isNeedUpdate = false;
 
@@ -580,7 +581,7 @@ View.prototype = {
 
             check: this.makeMaterial({ map:this.check, name:'check', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
             basic: this.makeMaterial({ color:0xDDDEDD, name:'basic', envMap:this.envmap, metalness:0.8, roughness:0.5 }),
-            sleep: this.makeMaterial({ color:0x3399FF, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
+            sleep: this.makeMaterial({ color:0x433F3C, name:'sleep', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
             move: this.makeMaterial({ color:0xCBBEB5, name:'move', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
             movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', envMap:this.envmap, metalness:0.6, roughness:0.4 }),
 
@@ -1064,7 +1065,7 @@ View.prototype = {
         if(!pool.buffer[name]) return null;
 
         var audio = new THREE.PositionalAudio( this.listener );
-        audio.volume = 1;
+        //audio.volume = 1;
         audio.setBuffer( pool.buffer[name] );
         return audio;
 
@@ -1072,7 +1073,7 @@ View.prototype = {
 
 }
 
-
+/*
 THREE.Audio.prototype.stop = function () {
 
     if ( this.hasPlaybackControl === false ) return;
@@ -1101,14 +1102,38 @@ THREE.Audio.prototype.play = function () {
     source.buffer = this.buffer;
     source.loop = this.loop;
     source.onended = this.onEnded.bind( this );
-    source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
+    //source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
+    source.playbackRate.value = this.playbackRate;
     this.startTime = this.context.currentTime;
-    source.start( this.startTime, this.offset );
+    source.start( 0 );//this.startTime, this.offset );
     this.isPlaying = true;
     this.source = source;
     return this.connect();
 
 };
+
+THREE.Audio.prototype.setPlaybackRate = function ( value ) {
+
+if ( this.hasPlaybackControl === false ) {
+
+        console.warn( 'THREE.Audio: this Audio has no playback control.' );
+        return;
+
+    }
+
+    this.playbackRate = value;
+
+    if ( this.isPlaying === true ) {
+
+        this.source.playbackRate.value = this.playbackRate;
+
+        //this.source.playbackRate.setValueAtTime( this.playbackRate, this.context.currentTime );
+
+    }
+
+    return this;
+
+}
 
 /*THREE.Audio.prototype.setVolume = function ( value ) {
 
