@@ -1,6 +1,6 @@
-function View () {
+//var view, demos, editor, unPause, user;
 
-    
+function View () {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
@@ -36,6 +36,7 @@ function View () {
 	this.isWithRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
+    this.delta = 0;
     this.fps = 0;
 	this.bg = 0x222322;//151515;
 	this.vs = { w:1, h:1, l:0, x:0, y:0 };
@@ -115,7 +116,7 @@ function View () {
 
     // 7 KEYBOARD & JOSTICK 
 
-    if(!this.isMobile) user.init();
+    if( !this.isMobile && user ) user.init();
 
 
     // 8 START RENDER
@@ -134,8 +135,10 @@ View.prototype = {
 
         var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
         canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto; image-rendering: pixelated;'
-        canvas.oncontextmenu = function(e){ e.preventDefault(); };
-        canvas.ondrop = function(e) { e.preventDefault(); };
+        if( !this.isMobile ){
+            document.oncontextmenu = function(e){ e.preventDefault(); };
+            canvas.ondrop = function(e) { e.preventDefault(); };
+        }
         document.body.appendChild( canvas );
 
         var options = { 
@@ -190,6 +193,10 @@ View.prototype = {
 
 	render: function ( stamp ) {
 
+        this.t[0] = stamp === undefined ? now() : stamp;
+        this.delta = ( this.t[0] - this.t[3] ) * 0.001;
+        this.t[3] = this.t[0];
+
         var _this = this;
 
         requestAnimationFrame(  function(s){ _this.render(s); } );
@@ -199,9 +206,9 @@ View.prototype = {
 
         if( this.needResize ) this.upResize();
 
-        THREE.SEA3D.AnimationHandler.update( 0.017 ); // sea3d model
+        THREE.SEA3D.AnimationHandler.update( this.delta ); // sea3d model
 
-        user.update(); // gamepad
+        if( user ) user.update(); // gamepad
 
         TWEEN.update(); // tweener
 
@@ -224,7 +231,7 @@ View.prototype = {
 
         // fps
 
-        this.t[0] = stamp === undefined ? now() : stamp;
+        
         if ( (this.t[0] - 1000) > this.t[1] ){ this.t[1] = this.t[0]; this.fps = this.t[2]; this.t[2] = 0; }; this.t[2]++;
 
 	},
@@ -472,12 +479,14 @@ View.prototype = {
 
 	needFocus: function () {
 
+        if( !editor ) return;
         this.canvas.addEventListener('mouseover', editor.unFocus, false );
 
     },
 
     haveFocus: function () {
 
+        if( !editor ) return;
         this.canvas.removeEventListener('mouseover', editor.unFocus, false );
 
     },
@@ -645,6 +654,7 @@ View.prototype = {
 
         this.grid = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
         this.grid.position.y = -0.001;
+        //this.grid.rotation.x = -Math.Pi*0.5;
         this.scene.add( this.grid );
 
     },
@@ -1028,6 +1038,7 @@ View.prototype = {
 
     addJoystick: function () {
 
+        if( !editor ) return;
         if( this.isWithJoystick ) return;
 
         editor.addJoystick();
@@ -1037,6 +1048,7 @@ View.prototype = {
 
     removeJoystick: function () {
 
+        if( !editor ) return;
         if( !this.isWithJoystick ) return;
 
         editor.removeJoystick();
@@ -1072,73 +1084,3 @@ View.prototype = {
     }
 
 }
-
-/*
-THREE.Audio.prototype.stop = function () {
-
-    if ( this.hasPlaybackControl === false ) return;
-    if ( !this.isPlaying ) return;
-
-    //this.volume = this.gain.gain.value;
-  //  this.gain.gain.exponentialRampToValueAtTime( 0.0001, this.context.currentTime + 0.03 );
-  // this.source.stop( this.context.currentTime + 0.03 );
-
-    this.source.stop();
-    this.offset = 0;
-    this.isPlaying = false;
-    return this;
-
-};
-
-THREE.Audio.prototype.play = function () {
-
-    if ( this.isPlaying === true ) return;
-    if ( this.hasPlaybackControl === false ) return;
-
-    //this.setVolume( this.volume || 1 );
-
-    var source = this.context.createBufferSource();
-
-    source.buffer = this.buffer;
-    source.loop = this.loop;
-    source.onended = this.onEnded.bind( this );
-    //source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
-    source.playbackRate.value = this.playbackRate;
-    this.startTime = this.context.currentTime;
-    source.start( 0 );//this.startTime, this.offset );
-    this.isPlaying = true;
-    this.source = source;
-    return this.connect();
-
-};
-
-THREE.Audio.prototype.setPlaybackRate = function ( value ) {
-
-if ( this.hasPlaybackControl === false ) {
-
-        console.warn( 'THREE.Audio: this Audio has no playback control.' );
-        return;
-
-    }
-
-    this.playbackRate = value;
-
-    if ( this.isPlaying === true ) {
-
-        this.source.playbackRate.value = this.playbackRate;
-
-        //this.source.playbackRate.setValueAtTime( this.playbackRate, this.context.currentTime );
-
-    }
-
-    return this;
-
-}
-
-/*THREE.Audio.prototype.setVolume = function ( value ) {
-
-    this.volume = value;
-    this.gain.gain.setTargetAtTime( value, this.context.currentTime, 0.01 );
-    return this;
-
-};*/

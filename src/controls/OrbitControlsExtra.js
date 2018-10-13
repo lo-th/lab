@@ -226,9 +226,9 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         } else if( !o ) o = {};
 
-        o.x = o.x !== undefined ? o.x : 0;
-    	o.y = o.y !== undefined ? o.y : 0;
-    	o.z = o.z !== undefined ? o.z : 0;
+        o.x = o.x !== undefined ? o.x : this.target.x;
+    	o.y = o.y !== undefined ? o.y : this.target.y;
+    	o.z = o.z !== undefined ? o.z : this.target.z;
 
     	o.phi = o.phi !== undefined ? o.phi : 0;
     	o.theta = o.theta !== undefined ? o.theta : 0;

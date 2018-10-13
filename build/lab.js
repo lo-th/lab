@@ -1,5 +1,5 @@
 var view, demos, editor, unPause;
-var process, exports, define, module; 
+var process, exports, define, module, atob; 
 var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, ImageBitmap, createImageBitmap, fetch, WeakMap, OffscreenCanvas, XRDevice;
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -188,7 +188,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	} );
 
-	var REVISION = '95dev';
+	var REVISION = '98dev';
 	var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2 };
 	var CullFaceNone = 0;
 	var CullFaceBack = 1;
@@ -282,6 +282,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	var RGBEFormat = RGBAFormat;
 	var DepthFormat = 1026;
 	var DepthStencilFormat = 1027;
+	var RedFormat = 1028;
 	var RGB_S3TC_DXT1_Format = 33776;
 	var RGBA_S3TC_DXT1_Format = 33777;
 	var RGBA_S3TC_DXT3_Format = 33778;
@@ -833,6 +834,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		dot: function ( v ) {
 
 			return this.x * v.x + this.y * v.y;
+
+		},
+
+		cross: function ( v ) {
+
+			return this.x * v.y - this.y * v.x;
 
 		},
 
@@ -2068,6 +2075,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	Object.assign( Quaternion.prototype, {
 
+		isQuaternion: true,
+
 		set: function ( x, y, z, w ) {
 
 			this._x = x;
@@ -2302,6 +2311,20 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		angleTo: function ( q ) {
 
 			return 2 * Math.acos( Math.abs( _Math.clamp( this.dot( q ), - 1, 1 ) ) );
+
+		},
+
+		rotateTowards: function ( q, step ) {
+
+			var angle = this.angleTo( q );
+
+			if ( angle === 0 ) return this;
+
+			var t = Math.min( 1, step / angle );
+
+			this.slerp( q, t );
+
+			return this;
 
 		},
 
@@ -2832,18 +2855,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		project: function () {
+		project: function ( camera ) {
 
-			var matrix = new Matrix4();
+			return this.applyMatrix4( camera.matrixWorldInverse ).applyMatrix4( camera.projectionMatrix );
 
-			return function project( camera ) {
-
-				matrix.multiplyMatrices( camera.projectionMatrix, matrix.getInverse( camera.matrixWorld ) );
-				return this.applyMatrix4( matrix );
-
-			};
-
-		}(),
+		},
 
 		unproject: function () {
 
@@ -2851,8 +2867,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			return function unproject( camera ) {
 
-				matrix.multiplyMatrices( camera.matrixWorld, matrix.getInverse( camera.projectionMatrix ) );
-				return this.applyMatrix4( matrix );
+				return this.applyMatrix4( matrix.getInverse( camera.projectionMatrix ) ).applyMatrix4( camera.matrixWorld );
 
 			};
 
@@ -3145,11 +3160,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		setFromSpherical: function ( s ) {
 
-			var sinPhiRadius = Math.sin( s.phi ) * s.radius;
+			return this.setFromSphericalCoords( s.radius, s.phi, s.theta );
 
-			this.x = sinPhiRadius * Math.sin( s.theta );
-			this.y = Math.cos( s.phi ) * s.radius;
-			this.z = sinPhiRadius * Math.cos( s.theta );
+		},
+
+		setFromSphericalCoords: function ( radius, phi, theta ) {
+
+			var sinPhiRadius = Math.sin( phi ) * radius;
+
+			this.x = sinPhiRadius * Math.sin( theta );
+			this.y = Math.cos( phi ) * radius;
+			this.z = sinPhiRadius * Math.cos( theta );
 
 			return this;
 
@@ -3157,9 +3178,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		setFromCylindrical: function ( c ) {
 
-			this.x = c.radius * Math.sin( c.theta );
-			this.y = c.y;
-			this.z = c.radius * Math.cos( c.theta );
+			return this.setFromCylindricalCoords( c.radius, c.theta, c.y );
+
+		},
+
+		setFromCylindricalCoords: function ( radius, theta, y ) {
+
+			this.x = radius * Math.sin( theta );
+			this.y = y;
+			this.z = radius * Math.cos( theta );
 
 			return this;
 
@@ -3642,23 +3669,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var canvas;
 
-			if ( image instanceof HTMLCanvasElement ) {
+			if ( typeof HTMLCanvasElement == 'undefined' ) {
+
+				return image.src;
+
+			} else if ( image instanceof HTMLCanvasElement ) {
 
 				canvas = image;
 
 			} else {
 
-				if ( typeof OffscreenCanvas !== 'undefined' ) {
-
-					canvas = new OffscreenCanvas( image.width, image.height );
-
-				} else {
-
-					canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
-					canvas.width = image.width;
-					canvas.height = image.height;
-
-				}
+				canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
+				canvas.width = image.width;
+				canvas.height = image.height;
 
 				var context = canvas.getContext( '2d' );
 
@@ -3907,7 +3930,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		transformUv: function ( uv ) {
 
-			if ( this.mapping !== UVMapping ) return;
+			if ( this.mapping !== UVMapping ) return uv;
 
 			uv.applyMatrix3( this.matrix );
 
@@ -3978,6 +4001,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				uv.y = 1 - uv.y;
 
 			}
+
+			return uv;
 
 		}
 
@@ -5133,7 +5158,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			return ( min <= plane.constant && max >= plane.constant );
+			return ( min <= - plane.constant && max >= - plane.constant );
 
 		},
 
@@ -5308,30 +5333,41 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		applyMatrix4: function ( matrix ) {
+		applyMatrix4: function () {
 
-			// transform of empty box is an empty box.
-			if ( this.isEmpty( ) ) return this;
+			var points = [
+				new Vector3(),
+				new Vector3(),
+				new Vector3(),
+				new Vector3(),
+				new Vector3(),
+				new Vector3(),
+				new Vector3(),
+				new Vector3()
+			];
 
-			var m = matrix.elements;
+			return function applyMatrix4( matrix ) {
 
-			var xax = m[ 0 ] * this.min.x, xay = m[ 1 ] * this.min.x, xaz = m[ 2 ] * this.min.x;
-			var xbx = m[ 0 ] * this.max.x, xby = m[ 1 ] * this.max.x, xbz = m[ 2 ] * this.max.x;
-			var yax = m[ 4 ] * this.min.y, yay = m[ 5 ] * this.min.y, yaz = m[ 6 ] * this.min.y;
-			var ybx = m[ 4 ] * this.max.y, yby = m[ 5 ] * this.max.y, ybz = m[ 6 ] * this.max.y;
-			var zax = m[ 8 ] * this.min.z, zay = m[ 9 ] * this.min.z, zaz = m[ 10 ] * this.min.z;
-			var zbx = m[ 8 ] * this.max.z, zby = m[ 9 ] * this.max.z, zbz = m[ 10 ] * this.max.z;
+				// transform of empty box is an empty box.
+				if ( this.isEmpty() ) return this;
 
-			this.min.x = Math.min( xax, xbx ) + Math.min( yax, ybx ) + Math.min( zax, zbx ) + m[ 12 ];
-			this.min.y = Math.min( xay, xby ) + Math.min( yay, yby ) + Math.min( zay, zby ) + m[ 13 ];
-			this.min.z = Math.min( xaz, xbz ) + Math.min( yaz, ybz ) + Math.min( zaz, zbz ) + m[ 14 ];
-			this.max.x = Math.max( xax, xbx ) + Math.max( yax, ybx ) + Math.max( zax, zbx ) + m[ 12 ];
-			this.max.y = Math.max( xay, xby ) + Math.max( yay, yby ) + Math.max( zay, zby ) + m[ 13 ];
-			this.max.z = Math.max( xaz, xbz ) + Math.max( yaz, ybz ) + Math.max( zaz, zbz ) + m[ 14 ];
+				// NOTE: I am using a binary pattern to specify all 2^3 combinations below
+				points[ 0 ].set( this.min.x, this.min.y, this.min.z ).applyMatrix4( matrix ); // 000
+				points[ 1 ].set( this.min.x, this.min.y, this.max.z ).applyMatrix4( matrix ); // 001
+				points[ 2 ].set( this.min.x, this.max.y, this.min.z ).applyMatrix4( matrix ); // 010
+				points[ 3 ].set( this.min.x, this.max.y, this.max.z ).applyMatrix4( matrix ); // 011
+				points[ 4 ].set( this.max.x, this.min.y, this.min.z ).applyMatrix4( matrix ); // 100
+				points[ 5 ].set( this.max.x, this.min.y, this.max.z ).applyMatrix4( matrix ); // 101
+				points[ 6 ].set( this.max.x, this.max.y, this.min.z ).applyMatrix4( matrix ); // 110
+				points[ 7 ].set( this.max.x, this.max.y, this.max.z ).applyMatrix4( matrix ); // 111
 
-			return this;
+				this.setFromPoints( points );
 
-		},
+				return this;
+
+			};
+
+		}(),
 
 		translate: function ( offset ) {
 
@@ -5967,17 +6003,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var beginnormal_vertex = "\nvec3 objectNormal = vec3( normal );\n";
 
-	var bsdfs = "float punctualLightIntensityToIrradianceFactor( const in float lightDistance, const in float cutoffDistance, const in float decayExponent ) {\n\tif( decayExponent > 0.0 ) {\n#if defined ( PHYSICALLY_CORRECT_LIGHTS )\n\t\tfloat distanceFalloff = 1.0 / max( pow( lightDistance, decayExponent ), 0.01 );\n\t\tfloat maxDistanceCutoffFactor = pow2( saturate( 1.0 - pow4( lightDistance / cutoffDistance ) ) );\n\t\treturn distanceFalloff * maxDistanceCutoffFactor;\n#else\n\t\treturn pow( saturate( -lightDistance / cutoffDistance + 1.0 ), decayExponent );\n#endif\n\t}\n\treturn 1.0;\n}\nvec3 BRDF_Diffuse_Lambert( const in vec3 diffuseColor ) {\n\treturn RECIPROCAL_PI * diffuseColor;\n}\nvec3 F_Schlick( const in vec3 specularColor, const in float dotLH ) {\n\tfloat fresnel = exp2( ( -5.55473 * dotLH - 6.98316 ) * dotLH );\n\treturn ( 1.0 - specularColor ) * fresnel + specularColor;\n}\nfloat G_GGX_Smith( const in float alpha, const in float dotNL, const in float dotNV ) {\n\tfloat a2 = pow2( alpha );\n\tfloat gl = dotNL + sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNL ) );\n\tfloat gv = dotNV + sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNV ) );\n\treturn 1.0 / ( gl * gv );\n}\nfloat G_GGX_SmithCorrelated( const in float alpha, const in float dotNL, const in float dotNV ) {\n\tfloat a2 = pow2( alpha );\n\tfloat gv = dotNL * sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNV ) );\n\tfloat gl = dotNV * sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNL ) );\n\treturn 0.5 / max( gv + gl, EPSILON );\n}\nfloat D_GGX( const in float alpha, const in float dotNH ) {\n\tfloat a2 = pow2( alpha );\n\tfloat denom = pow2( dotNH ) * ( a2 - 1.0 ) + 1.0;\n\treturn RECIPROCAL_PI * a2 / pow2( denom );\n}\nvec3 BRDF_Specular_GGX( const in IncidentLight incidentLight, const in GeometricContext geometry, const in vec3 specularColor, const in float roughness ) {\n\tfloat alpha = pow2( roughness );\n\tvec3 halfDir = normalize( incidentLight.direction + geometry.viewDir );\n\tfloat dotNL = saturate( dot( geometry.normal, incidentLight.direction ) );\n\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\n\tfloat dotNH = saturate( dot( geometry.normal, halfDir ) );\n\tfloat dotLH = saturate( dot( incidentLight.direction, halfDir ) );\n\tvec3 F = F_Schlick( specularColor, dotLH );\n\tfloat G = G_GGX_SmithCorrelated( alpha, dotNL, dotNV );\n\tfloat D = D_GGX( alpha, dotNH );\n\treturn F * ( G * D );\n}\nvec2 LTC_Uv( const in vec3 N, const in vec3 V, const in float roughness ) {\n\tconst float LUT_SIZE  = 64.0;\n\tconst float LUT_SCALE = ( LUT_SIZE - 1.0 ) / LUT_SIZE;\n\tconst float LUT_BIAS  = 0.5 / LUT_SIZE;\n\tfloat dotNV = saturate( dot( N, V ) );\n\tvec2 uv = vec2( roughness, sqrt( 1.0 - dotNV ) );\n\tuv = uv * LUT_SCALE + LUT_BIAS;\n\treturn uv;\n}\nfloat LTC_ClippedSphereFormFactor( const in vec3 f ) {\n\tfloat l = length( f );\n\treturn max( ( l * l + f.z ) / ( l + 1.0 ), 0.0 );\n}\nvec3 LTC_EdgeVectorFormFactor( const in vec3 v1, const in vec3 v2 ) {\n\tfloat x = dot( v1, v2 );\n\tfloat y = abs( x );\n\tfloat a = 0.8543985 + ( 0.4965155 + 0.0145206 * y ) * y;\n\tfloat b = 3.4175940 + ( 4.1616724 + y ) * y;\n\tfloat v = a / b;\n\tfloat theta_sintheta = ( x > 0.0 ) ? v : 0.5 * inversesqrt( max( 1.0 - x * x, 1e-7 ) ) - v;\n\treturn cross( v1, v2 ) * theta_sintheta;\n}\nvec3 LTC_Evaluate( const in vec3 N, const in vec3 V, const in vec3 P, const in mat3 mInv, const in vec3 rectCoords[ 4 ] ) {\n\tvec3 v1 = rectCoords[ 1 ] - rectCoords[ 0 ];\n\tvec3 v2 = rectCoords[ 3 ] - rectCoords[ 0 ];\n\tvec3 lightNormal = cross( v1, v2 );\n\tif( dot( lightNormal, P - rectCoords[ 0 ] ) < 0.0 ) return vec3( 0.0 );\n\tvec3 T1, T2;\n\tT1 = normalize( V - N * dot( V, N ) );\n\tT2 = - cross( N, T1 );\n\tmat3 mat = mInv * transposeMat3( mat3( T1, T2, N ) );\n\tvec3 coords[ 4 ];\n\tcoords[ 0 ] = mat * ( rectCoords[ 0 ] - P );\n\tcoords[ 1 ] = mat * ( rectCoords[ 1 ] - P );\n\tcoords[ 2 ] = mat * ( rectCoords[ 2 ] - P );\n\tcoords[ 3 ] = mat * ( rectCoords[ 3 ] - P );\n\tcoords[ 0 ] = normalize( coords[ 0 ] );\n\tcoords[ 1 ] = normalize( coords[ 1 ] );\n\tcoords[ 2 ] = normalize( coords[ 2 ] );\n\tcoords[ 3 ] = normalize( coords[ 3 ] );\n\tvec3 vectorFormFactor = vec3( 0.0 );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 0 ], coords[ 1 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 1 ], coords[ 2 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 2 ], coords[ 3 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 3 ], coords[ 0 ] );\n\tfloat result = LTC_ClippedSphereFormFactor( vectorFormFactor );\n\treturn vec3( result );\n}\nvec3 BRDF_Specular_GGX_Environment( const in GeometricContext geometry, const in vec3 specularColor, const in float roughness ) {\n\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\n\tconst vec4 c0 = vec4( - 1, - 0.0275, - 0.572, 0.022 );\n\tconst vec4 c1 = vec4( 1, 0.0425, 1.04, - 0.04 );\n\tvec4 r = roughness * c0 + c1;\n\tfloat a004 = min( r.x * r.x, exp2( - 9.28 * dotNV ) ) * r.x + r.y;\n\tvec2 AB = vec2( -1.04, 1.04 ) * a004 + r.zw;\n\treturn specularColor * AB.x + AB.y;\n}\nfloat G_BlinnPhong_Implicit( ) {\n\treturn 0.25;\n}\nfloat D_BlinnPhong( const in float shininess, const in float dotNH ) {\n\treturn RECIPROCAL_PI * ( shininess * 0.5 + 1.0 ) * pow( dotNH, shininess );\n}\nvec3 BRDF_Specular_BlinnPhong( const in IncidentLight incidentLight, const in GeometricContext geometry, const in vec3 specularColor, const in float shininess ) {\n\tvec3 halfDir = normalize( incidentLight.direction + geometry.viewDir );\n\tfloat dotNH = saturate( dot( geometry.normal, halfDir ) );\n\tfloat dotLH = saturate( dot( incidentLight.direction, halfDir ) );\n\tvec3 F = F_Schlick( specularColor, dotLH );\n\tfloat G = G_BlinnPhong_Implicit( );\n\tfloat D = D_BlinnPhong( shininess, dotNH );\n\treturn F * ( G * D );\n}\nfloat GGXRoughnessToBlinnExponent( const in float ggxRoughness ) {\n\treturn ( 2.0 / pow2( ggxRoughness + 0.0001 ) - 2.0 );\n}\nfloat BlinnExponentToGGXRoughness( const in float blinnExponent ) {\n\treturn sqrt( 2.0 / ( blinnExponent + 2.0 ) );\n}\n";
+	var bsdfs = "float punctualLightIntensityToIrradianceFactor( const in float lightDistance, const in float cutoffDistance, const in float decayExponent ) {\n#if defined ( PHYSICALLY_CORRECT_LIGHTS )\n\tfloat distanceFalloff = 1.0 / max( pow( lightDistance, decayExponent ), 0.01 );\n\tif( cutoffDistance > 0.0 ) {\n\t\tdistanceFalloff *= pow2( saturate( 1.0 - pow4( lightDistance / cutoffDistance ) ) );\n\t}\n\treturn distanceFalloff;\n#else\n\tif( cutoffDistance > 0.0 ) {\n\t\treturn pow( saturate( -lightDistance / cutoffDistance + 1.0 ), decayExponent );\n\t}\n\treturn 1.0;\n#endif\n}\nvec3 BRDF_Diffuse_Lambert( const in vec3 diffuseColor ) {\n\treturn RECIPROCAL_PI * diffuseColor;\n}\nvec3 F_Schlick( const in vec3 specularColor, const in float dotLH ) {\n\tfloat fresnel = exp2( ( -5.55473 * dotLH - 6.98316 ) * dotLH );\n\treturn ( 1.0 - specularColor ) * fresnel + specularColor;\n}\nfloat G_GGX_Smith( const in float alpha, const in float dotNL, const in float dotNV ) {\n\tfloat a2 = pow2( alpha );\n\tfloat gl = dotNL + sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNL ) );\n\tfloat gv = dotNV + sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNV ) );\n\treturn 1.0 / ( gl * gv );\n}\nfloat G_GGX_SmithCorrelated( const in float alpha, const in float dotNL, const in float dotNV ) {\n\tfloat a2 = pow2( alpha );\n\tfloat gv = dotNL * sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNV ) );\n\tfloat gl = dotNV * sqrt( a2 + ( 1.0 - a2 ) * pow2( dotNL ) );\n\treturn 0.5 / max( gv + gl, EPSILON );\n}\nfloat D_GGX( const in float alpha, const in float dotNH ) {\n\tfloat a2 = pow2( alpha );\n\tfloat denom = pow2( dotNH ) * ( a2 - 1.0 ) + 1.0;\n\treturn RECIPROCAL_PI * a2 / pow2( denom );\n}\nvec3 BRDF_Specular_GGX( const in IncidentLight incidentLight, const in GeometricContext geometry, const in vec3 specularColor, const in float roughness ) {\n\tfloat alpha = pow2( roughness );\n\tvec3 halfDir = normalize( incidentLight.direction + geometry.viewDir );\n\tfloat dotNL = saturate( dot( geometry.normal, incidentLight.direction ) );\n\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\n\tfloat dotNH = saturate( dot( geometry.normal, halfDir ) );\n\tfloat dotLH = saturate( dot( incidentLight.direction, halfDir ) );\n\tvec3 F = F_Schlick( specularColor, dotLH );\n\tfloat G = G_GGX_SmithCorrelated( alpha, dotNL, dotNV );\n\tfloat D = D_GGX( alpha, dotNH );\n\treturn F * ( G * D );\n}\nvec2 LTC_Uv( const in vec3 N, const in vec3 V, const in float roughness ) {\n\tconst float LUT_SIZE  = 64.0;\n\tconst float LUT_SCALE = ( LUT_SIZE - 1.0 ) / LUT_SIZE;\n\tconst float LUT_BIAS  = 0.5 / LUT_SIZE;\n\tfloat dotNV = saturate( dot( N, V ) );\n\tvec2 uv = vec2( roughness, sqrt( 1.0 - dotNV ) );\n\tuv = uv * LUT_SCALE + LUT_BIAS;\n\treturn uv;\n}\nfloat LTC_ClippedSphereFormFactor( const in vec3 f ) {\n\tfloat l = length( f );\n\treturn max( ( l * l + f.z ) / ( l + 1.0 ), 0.0 );\n}\nvec3 LTC_EdgeVectorFormFactor( const in vec3 v1, const in vec3 v2 ) {\n\tfloat x = dot( v1, v2 );\n\tfloat y = abs( x );\n\tfloat a = 0.8543985 + ( 0.4965155 + 0.0145206 * y ) * y;\n\tfloat b = 3.4175940 + ( 4.1616724 + y ) * y;\n\tfloat v = a / b;\n\tfloat theta_sintheta = ( x > 0.0 ) ? v : 0.5 * inversesqrt( max( 1.0 - x * x, 1e-7 ) ) - v;\n\treturn cross( v1, v2 ) * theta_sintheta;\n}\nvec3 LTC_Evaluate( const in vec3 N, const in vec3 V, const in vec3 P, const in mat3 mInv, const in vec3 rectCoords[ 4 ] ) {\n\tvec3 v1 = rectCoords[ 1 ] - rectCoords[ 0 ];\n\tvec3 v2 = rectCoords[ 3 ] - rectCoords[ 0 ];\n\tvec3 lightNormal = cross( v1, v2 );\n\tif( dot( lightNormal, P - rectCoords[ 0 ] ) < 0.0 ) return vec3( 0.0 );\n\tvec3 T1, T2;\n\tT1 = normalize( V - N * dot( V, N ) );\n\tT2 = - cross( N, T1 );\n\tmat3 mat = mInv * transposeMat3( mat3( T1, T2, N ) );\n\tvec3 coords[ 4 ];\n\tcoords[ 0 ] = mat * ( rectCoords[ 0 ] - P );\n\tcoords[ 1 ] = mat * ( rectCoords[ 1 ] - P );\n\tcoords[ 2 ] = mat * ( rectCoords[ 2 ] - P );\n\tcoords[ 3 ] = mat * ( rectCoords[ 3 ] - P );\n\tcoords[ 0 ] = normalize( coords[ 0 ] );\n\tcoords[ 1 ] = normalize( coords[ 1 ] );\n\tcoords[ 2 ] = normalize( coords[ 2 ] );\n\tcoords[ 3 ] = normalize( coords[ 3 ] );\n\tvec3 vectorFormFactor = vec3( 0.0 );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 0 ], coords[ 1 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 1 ], coords[ 2 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 2 ], coords[ 3 ] );\n\tvectorFormFactor += LTC_EdgeVectorFormFactor( coords[ 3 ], coords[ 0 ] );\n\tfloat result = LTC_ClippedSphereFormFactor( vectorFormFactor );\n\treturn vec3( result );\n}\nvec3 BRDF_Specular_GGX_Environment( const in GeometricContext geometry, const in vec3 specularColor, const in float roughness ) {\n\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\n\tconst vec4 c0 = vec4( - 1, - 0.0275, - 0.572, 0.022 );\n\tconst vec4 c1 = vec4( 1, 0.0425, 1.04, - 0.04 );\n\tvec4 r = roughness * c0 + c1;\n\tfloat a004 = min( r.x * r.x, exp2( - 9.28 * dotNV ) ) * r.x + r.y;\n\tvec2 AB = vec2( -1.04, 1.04 ) * a004 + r.zw;\n\treturn specularColor * AB.x + AB.y;\n}\nfloat G_BlinnPhong_Implicit( ) {\n\treturn 0.25;\n}\nfloat D_BlinnPhong( const in float shininess, const in float dotNH ) {\n\treturn RECIPROCAL_PI * ( shininess * 0.5 + 1.0 ) * pow( dotNH, shininess );\n}\nvec3 BRDF_Specular_BlinnPhong( const in IncidentLight incidentLight, const in GeometricContext geometry, const in vec3 specularColor, const in float shininess ) {\n\tvec3 halfDir = normalize( incidentLight.direction + geometry.viewDir );\n\tfloat dotNH = saturate( dot( geometry.normal, halfDir ) );\n\tfloat dotLH = saturate( dot( incidentLight.direction, halfDir ) );\n\tvec3 F = F_Schlick( specularColor, dotLH );\n\tfloat G = G_BlinnPhong_Implicit( );\n\tfloat D = D_BlinnPhong( shininess, dotNH );\n\treturn F * ( G * D );\n}\nfloat GGXRoughnessToBlinnExponent( const in float ggxRoughness ) {\n\treturn ( 2.0 / pow2( ggxRoughness + 0.0001 ) - 2.0 );\n}\nfloat BlinnExponentToGGXRoughness( const in float blinnExponent ) {\n\treturn sqrt( 2.0 / ( blinnExponent + 2.0 ) );\n}\n";
 
 	var bumpmap_pars_fragment = "#ifdef USE_BUMPMAP\n\tuniform sampler2D bumpMap;\n\tuniform float bumpScale;\n\tvec2 dHdxy_fwd() {\n\t\tvec2 dSTdx = dFdx( vUv );\n\t\tvec2 dSTdy = dFdy( vUv );\n\t\tfloat Hll = bumpScale * texture2D( bumpMap, vUv ).x;\n\t\tfloat dBx = bumpScale * texture2D( bumpMap, vUv + dSTdx ).x - Hll;\n\t\tfloat dBy = bumpScale * texture2D( bumpMap, vUv + dSTdy ).x - Hll;\n\t\treturn vec2( dBx, dBy );\n\t}\n\tvec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {\n\t\tvec3 vSigmaX = vec3( dFdx( surf_pos.x ), dFdx( surf_pos.y ), dFdx( surf_pos.z ) );\n\t\tvec3 vSigmaY = vec3( dFdy( surf_pos.x ), dFdy( surf_pos.y ), dFdy( surf_pos.z ) );\n\t\tvec3 vN = surf_norm;\n\t\tvec3 R1 = cross( vSigmaY, vN );\n\t\tvec3 R2 = cross( vN, vSigmaX );\n\t\tfloat fDet = dot( vSigmaX, R1 );\n\t\tfDet *= ( float( gl_FrontFacing ) * 2.0 - 1.0 );\n\t\tvec3 vGrad = sign( fDet ) * ( dHdxy.x * R1 + dHdxy.y * R2 );\n\t\treturn normalize( abs( fDet ) * surf_norm - vGrad );\n\t}\n#endif\n";
 
 	var clipping_planes_fragment = "#if NUM_CLIPPING_PLANES > 0\n\tvec4 plane;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < UNION_CLIPPING_PLANES; i ++ ) {\n\t\tplane = clippingPlanes[ i ];\n\t\tif ( dot( vViewPosition, plane.xyz ) > plane.w ) discard;\n\t}\n\t#if UNION_CLIPPING_PLANES < NUM_CLIPPING_PLANES\n\t\tbool clipped = true;\n\t\t#pragma unroll_loop\n\t\tfor ( int i = UNION_CLIPPING_PLANES; i < NUM_CLIPPING_PLANES; i ++ ) {\n\t\t\tplane = clippingPlanes[ i ];\n\t\t\tclipped = ( dot( vViewPosition, plane.xyz ) > plane.w ) && clipped;\n\t\t}\n\t\tif ( clipped ) discard;\n\t#endif\n#endif\n";
 
-	var clipping_planes_pars_fragment = "#if NUM_CLIPPING_PLANES > 0\n\t#if ! defined( PHYSICAL ) && ! defined( PHONG )\n\t\tvarying vec3 vViewPosition;\n\t#endif\n\tuniform vec4 clippingPlanes[ NUM_CLIPPING_PLANES ];\n#endif\n";
+	var clipping_planes_pars_fragment = "#if NUM_CLIPPING_PLANES > 0\n\t#if ! defined( PHYSICAL ) && ! defined( PHONG ) && ! defined( MATCAP )\n\t\tvarying vec3 vViewPosition;\n\t#endif\n\tuniform vec4 clippingPlanes[ NUM_CLIPPING_PLANES ];\n#endif\n";
 
-	var clipping_planes_pars_vertex = "#if NUM_CLIPPING_PLANES > 0 && ! defined( PHYSICAL ) && ! defined( PHONG )\n\tvarying vec3 vViewPosition;\n#endif\n";
+	var clipping_planes_pars_vertex = "#if NUM_CLIPPING_PLANES > 0 && ! defined( PHYSICAL ) && ! defined( PHONG ) && ! defined( MATCAP )\n\tvarying vec3 vViewPosition;\n#endif\n";
 
-	var clipping_planes_vertex = "#if NUM_CLIPPING_PLANES > 0 && ! defined( PHYSICAL ) && ! defined( PHONG )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n";
+	var clipping_planes_vertex = "#if NUM_CLIPPING_PLANES > 0 && ! defined( PHYSICAL ) && ! defined( PHONG ) && ! defined( MATCAP )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n";
 
 	var color_fragment = "#ifdef USE_COLOR\n\tdiffuseColor.rgb *= vColor;\n#endif";
 
@@ -6003,7 +6039,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var encodings_fragment = "  gl_FragColor = linearToOutputTexel( gl_FragColor );\n";
 
-	var encodings_pars_fragment = "\nvec4 LinearToLinear( in vec4 value ) {\n\treturn value;\n}\nvec4 GammaToLinear( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.xyz, vec3( gammaFactor ) ), value.w );\n}\nvec4 LinearToGamma( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.xyz, vec3( 1.0 / gammaFactor ) ), value.w );\n}\nvec4 sRGBToLinear( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), value.rgb * 0.0773993808, vec3( lessThanEqual( value.rgb, vec3( 0.04045 ) ) ) ), value.w );\n}\nvec4 LinearTosRGB( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.w );\n}\nvec4 RGBEToLinear( in vec4 value ) {\n\treturn vec4( value.rgb * exp2( value.a * 255.0 - 128.0 ), 1.0 );\n}\nvec4 LinearToRGBE( in vec4 value ) {\n\tfloat maxComponent = max( max( value.r, value.g ), value.b );\n\tfloat fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );\n\treturn vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );\n}\nvec4 RGBMToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.xyz * value.w * maxRange, 1.0 );\n}\nvec4 LinearToRGBM( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.x, max( value.g, value.b ) );\n\tfloat M      = clamp( maxRGB / maxRange, 0.0, 1.0 );\n\tM            = ceil( M * 255.0 ) / 255.0;\n\treturn vec4( value.rgb / ( M * maxRange ), M );\n}\nvec4 RGBDToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.rgb * ( ( maxRange / 255.0 ) / value.a ), 1.0 );\n}\nvec4 LinearToRGBD( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.x, max( value.g, value.b ) );\n\tfloat D      = max( maxRange / maxRGB, 1.0 );\n\tD            = min( floor( D ) / 255.0, 1.0 );\n\treturn vec4( value.rgb * ( D * ( 255.0 / maxRange ) ), D );\n}\nconst mat3 cLogLuvM = mat3( 0.2209, 0.3390, 0.4184, 0.1138, 0.6780, 0.7319, 0.0102, 0.1130, 0.2969 );\nvec4 LinearToLogLuv( in vec4 value )  {\n\tvec3 Xp_Y_XYZp = value.rgb * cLogLuvM;\n\tXp_Y_XYZp = max(Xp_Y_XYZp, vec3(1e-6, 1e-6, 1e-6));\n\tvec4 vResult;\n\tvResult.xy = Xp_Y_XYZp.xy / Xp_Y_XYZp.z;\n\tfloat Le = 2.0 * log2(Xp_Y_XYZp.y) + 127.0;\n\tvResult.w = fract(Le);\n\tvResult.z = (Le - (floor(vResult.w*255.0))/255.0)/255.0;\n\treturn vResult;\n}\nconst mat3 cLogLuvInverseM = mat3( 6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268 );\nvec4 LogLuvToLinear( in vec4 value ) {\n\tfloat Le = value.z * 255.0 + value.w;\n\tvec3 Xp_Y_XYZp;\n\tXp_Y_XYZp.y = exp2((Le - 127.0) / 2.0);\n\tXp_Y_XYZp.z = Xp_Y_XYZp.y / value.y;\n\tXp_Y_XYZp.x = value.x * Xp_Y_XYZp.z;\n\tvec3 vRGB = Xp_Y_XYZp.rgb * cLogLuvInverseM;\n\treturn vec4( max(vRGB, 0.0), 1.0 );\n}\n";
+	var encodings_pars_fragment = "\nvec4 LinearToLinear( in vec4 value ) {\n\treturn value;\n}\nvec4 GammaToLinear( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.rgb, vec3( gammaFactor ) ), value.a );\n}\nvec4 LinearToGamma( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.rgb, vec3( 1.0 / gammaFactor ) ), value.a );\n}\nvec4 sRGBToLinear( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), value.rgb * 0.0773993808, vec3( lessThanEqual( value.rgb, vec3( 0.04045 ) ) ) ), value.a );\n}\nvec4 LinearTosRGB( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );\n}\nvec4 RGBEToLinear( in vec4 value ) {\n\treturn vec4( value.rgb * exp2( value.a * 255.0 - 128.0 ), 1.0 );\n}\nvec4 LinearToRGBE( in vec4 value ) {\n\tfloat maxComponent = max( max( value.r, value.g ), value.b );\n\tfloat fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );\n\treturn vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );\n}\nvec4 RGBMToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.rgb * value.a * maxRange, 1.0 );\n}\nvec4 LinearToRGBM( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.r, max( value.g, value.b ) );\n\tfloat M = clamp( maxRGB / maxRange, 0.0, 1.0 );\n\tM = ceil( M * 255.0 ) / 255.0;\n\treturn vec4( value.rgb / ( M * maxRange ), M );\n}\nvec4 RGBDToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.rgb * ( ( maxRange / 255.0 ) / value.a ), 1.0 );\n}\nvec4 LinearToRGBD( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.r, max( value.g, value.b ) );\n\tfloat D = max( maxRange / maxRGB, 1.0 );\n\tD = min( floor( D ) / 255.0, 1.0 );\n\treturn vec4( value.rgb * ( D * ( 255.0 / maxRange ) ), D );\n}\nconst mat3 cLogLuvM = mat3( 0.2209, 0.3390, 0.4184, 0.1138, 0.6780, 0.7319, 0.0102, 0.1130, 0.2969 );\nvec4 LinearToLogLuv( in vec4 value )  {\n\tvec3 Xp_Y_XYZp = value.rgb * cLogLuvM;\n\tXp_Y_XYZp = max( Xp_Y_XYZp, vec3( 1e-6, 1e-6, 1e-6 ) );\n\tvec4 vResult;\n\tvResult.xy = Xp_Y_XYZp.xy / Xp_Y_XYZp.z;\n\tfloat Le = 2.0 * log2(Xp_Y_XYZp.y) + 127.0;\n\tvResult.w = fract( Le );\n\tvResult.z = ( Le - ( floor( vResult.w * 255.0 ) ) / 255.0 ) / 255.0;\n\treturn vResult;\n}\nconst mat3 cLogLuvInverseM = mat3( 6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268 );\nvec4 LogLuvToLinear( in vec4 value ) {\n\tfloat Le = value.z * 255.0 + value.w;\n\tvec3 Xp_Y_XYZp;\n\tXp_Y_XYZp.y = exp2( ( Le - 127.0 ) / 2.0 );\n\tXp_Y_XYZp.z = Xp_Y_XYZp.y / value.y;\n\tXp_Y_XYZp.x = value.x * Xp_Y_XYZp.z;\n\tvec3 vRGB = Xp_Y_XYZp.rgb * cLogLuvInverseM;\n\treturn vec4( max( vRGB, 0.0 ), 1.0 );\n}\n";
 
 	var envmap_fragment = "#ifdef USE_ENVMAP\n\t#if defined( USE_BUMPMAP ) || defined( USE_NORMALMAP ) || defined( PHONG )\n\t\tvec3 cameraToVertex = normalize( vWorldPosition - cameraPosition );\n\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvec3 reflectVec = reflect( cameraToVertex, worldNormal );\n\t\t#else\n\t\t\tvec3 reflectVec = refract( cameraToVertex, worldNormal, refractionRatio );\n\t\t#endif\n\t#else\n\t\tvec3 reflectVec = vReflect;\n\t#endif\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 envColor = textureCube( envMap, vec3( flipEnvMap * reflectVec.x, reflectVec.yz ) );\n\t#elif defined( ENVMAP_TYPE_EQUIREC )\n\t\tvec2 sampleUV;\n\t\treflectVec = normalize( reflectVec );\n\t\tsampleUV.y = asin( clamp( reflectVec.y, - 1.0, 1.0 ) ) * RECIPROCAL_PI + 0.5;\n\t\tsampleUV.x = atan( reflectVec.z, reflectVec.x ) * RECIPROCAL_PI2 + 0.5;\n\t\tvec4 envColor = texture2D( envMap, sampleUV );\n\t#elif defined( ENVMAP_TYPE_SPHERE )\n\t\treflectVec = normalize( reflectVec );\n\t\tvec3 reflectView = normalize( ( viewMatrix * vec4( reflectVec, 0.0 ) ).xyz + vec3( 0.0, 0.0, 1.0 ) );\n\t\tvec4 envColor = texture2D( envMap, reflectView.xy * 0.5 + 0.5 );\n\t#else\n\t\tvec4 envColor = vec4( 0.0 );\n\t#endif\n\tenvColor = envMapTexelToLinear( envColor );\n\t#ifdef ENVMAP_BLENDING_MULTIPLY\n\t\toutgoingLight = mix( outgoingLight, outgoingLight * envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_MIX )\n\t\toutgoingLight = mix( outgoingLight, envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_ADD )\n\t\toutgoingLight += envColor.xyz * specularStrength * reflectivity;\n\t#endif\n#endif\n";
 
@@ -6013,9 +6049,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var envmap_vertex = "#ifdef USE_ENVMAP\n\t#if defined( USE_BUMPMAP ) || defined( USE_NORMALMAP ) || defined( PHONG )\n\t\tvWorldPosition = worldPosition.xyz;\n\t#else\n\t\tvec3 cameraToVertex = normalize( worldPosition.xyz - cameraPosition );\n\t\tvec3 worldNormal = inverseTransformDirection( transformedNormal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvReflect = reflect( cameraToVertex, worldNormal );\n\t\t#else\n\t\t\tvReflect = refract( cameraToVertex, worldNormal, refractionRatio );\n\t\t#endif\n\t#endif\n#endif\n";
 
-	var fog_vertex = "\n#ifdef USE_FOG\nfogDepth = -mvPosition.z;\n#endif";
+	var fog_vertex = "#ifdef USE_FOG\n\tfogDepth = -mvPosition.z;\n#endif\n";
 
-	var fog_pars_vertex = "#ifdef USE_FOG\n  varying float fogDepth;\n#endif\n";
+	var fog_pars_vertex = "#ifdef USE_FOG\n\tvarying float fogDepth;\n#endif\n";
 
 	var fog_fragment = "#ifdef USE_FOG\n\t#ifdef FOG_EXP2\n\t\tfloat fogFactor = whiteCompliment( exp2( - fogDensity * fogDensity * fogDepth * fogDepth * LOG2 ) );\n\t#else\n\t\tfloat fogFactor = smoothstep( fogNear, fogFar, fogDepth );\n\t#endif\n\tgl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n#endif\n";
 
@@ -6049,9 +6085,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var logdepthbuf_fragment = "#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )\n\tgl_FragDepthEXT = log2( vFragDepth ) * logDepthBufFC * 0.5;\n#endif";
 
-	var logdepthbuf_pars_fragment = "#ifdef USE_LOGDEPTHBUF\n\tuniform float logDepthBufFC;\n\t#ifdef USE_LOGDEPTHBUF_EXT\n\t\tvarying float vFragDepth;\n\t#endif\n#endif\n";
+	var logdepthbuf_pars_fragment = "#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )\n\tuniform float logDepthBufFC;\n\tvarying float vFragDepth;\n#endif\n";
 
-	var logdepthbuf_pars_vertex = "#ifdef USE_LOGDEPTHBUF\n\t#ifdef USE_LOGDEPTHBUF_EXT\n\t\tvarying float vFragDepth;\n\t#endif\n\tuniform float logDepthBufFC;\n#endif";
+	var logdepthbuf_pars_vertex = "#ifdef USE_LOGDEPTHBUF\n\t#ifdef USE_LOGDEPTHBUF_EXT\n\t\tvarying float vFragDepth;\n\t#else\n\t\tuniform float logDepthBufFC;\n\t#endif\n#endif\n";
 
 	var logdepthbuf_vertex = "#ifdef USE_LOGDEPTHBUF\n\t#ifdef USE_LOGDEPTHBUF_EXT\n\t\tvFragDepth = 1.0 + gl_Position.w;\n\t#else\n\t\tgl_Position.z = log2( max( EPSILON, gl_Position.w + 1.0 ) ) * logDepthBufFC - 1.0;\n\t\tgl_Position.z *= gl_Position.w;\n\t#endif\n#endif\n";
 
@@ -6131,6 +6167,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var worldpos_vertex = "#if defined( USE_ENVMAP ) || defined( DISTANCE ) || defined ( USE_SHADOWMAP )\n\tvec4 worldPosition = modelMatrix * vec4( transformed, 1.0 );\n#endif\n";
 
+	var background_frag = "uniform sampler2D t2D;\nvarying vec2 vUv;\nvoid main() {\n\tgl_FragColor = texture2D( t2D, vUv );\n}\n";
+
+	var background_vert = "varying vec2 vUv;\nvoid main() {\n\tvUv = uv;\n\tgl_Position = vec4( position, 1.0 );\n\tgl_Position.z = 1.0;\n}\n";
+
 	var cube_frag = "uniform samplerCube tCube;\nuniform float tFlip;\nuniform float opacity;\nvarying vec3 vWorldPosition;\nvoid main() {\n\tgl_FragColor = textureCube( tCube, vec3( tFlip * vWorldPosition.x, vWorldPosition.yz ) );\n\tgl_FragColor.a *= opacity;\n}\n";
 
 	var cube_vert = "varying vec3 vWorldPosition;\n#include <common>\nvoid main() {\n\tvWorldPosition = transformDirection( position, modelMatrix );\n\t#include <begin_vertex>\n\t#include <project_vertex>\n\tgl_Position.z = gl_Position.w;\n}\n";
@@ -6159,6 +6199,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var meshlambert_vert = "#define LAMBERT\nvarying vec3 vLightFront;\n#ifdef DOUBLE_SIDED\n\tvarying vec3 vLightBack;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <envmap_pars_vertex>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <lights_lambert_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}\n";
 
+	var meshmatcap_frag = "#define MATCAP\nuniform vec3 diffuse;\nuniform float opacity;\nuniform sampler2D matcap;\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tvec3 viewDir = normalize( vViewPosition );\n\tvec3 x = normalize( vec3( viewDir.z, 0.0, - viewDir.x ) );\n\tvec3 y = cross( viewDir, x );\n\tvec2 uv = vec2( dot( x, normal ), dot( y, normal ) ) * 0.495 + 0.5;\n\tvec4 matcapColor = texture2D( matcap, uv );\n\tmatcapColor = matcapTexelToLinear( matcapColor );\n\tvec3 outgoingLight = diffuseColor.rgb * matcapColor.rgb;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <premultiplied_alpha_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}\n";
+
+	var meshmatcap_vert = "#define MATCAP\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#ifndef FLAT_SHADED\n\t\tvNormal = normalize( transformedNormal );\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n\tvViewPosition = - mvPosition.xyz;\n}\n";
+
 	var meshphong_frag = "#define PHONG\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform vec3 specular;\nuniform float shininess;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <envmap_pars_fragment>\n#include <gradientmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <lights_phong_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_phong_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance;\n\t#include <envmap_fragment>\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}\n";
 
 	var meshphong_vert = "#define PHONG\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <envmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n#ifndef FLAT_SHADED\n\tvNormal = normalize( transformedNormal );\n#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <envmap_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}\n";
@@ -6173,7 +6217,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var points_frag = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <color_pars_fragment>\n#include <map_particle_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_particle_fragment>\n\t#include <color_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <premultiplied_alpha_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}\n";
 
-	var points_vert = "uniform float size;\nuniform float scale;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <color_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\t#ifdef USE_SIZEATTENUATION\n\t\tgl_PointSize = size * ( scale / - mvPosition.z );\n\t#else\n\t\tgl_PointSize = size;\n\t#endif\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <fog_vertex>\n}\n";
+	var points_vert = "uniform float size;\nuniform float scale;\n#include <common>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <color_vertex>\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <project_vertex>\n\tgl_PointSize = size;\n\t#ifdef USE_SIZEATTENUATION\n\t\tbool isPerspective = ( projectionMatrix[ 2 ][ 3 ] == - 1.0 );\n\t\tif ( isPerspective ) gl_PointSize *= ( scale / - mvPosition.z );\n\t#endif\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <worldpos_vertex>\n\t#include <fog_vertex>\n}\n";
 
 	var shadow_frag = "uniform vec3 color;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>\nvoid main() {\n\tgl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask() ) );\n\t#include <fog_fragment>\n}\n";
 
@@ -6181,7 +6225,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	var sprite_frag = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <uv_pars_fragment>\n#include <map_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}\n";
 
-	var sprite_vert = "uniform float rotation;\nuniform vec2 center;\n#include <common>\n#include <uv_pars_vertex>\n#include <fog_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\tvec2 scale;\n\tscale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );\n\tscale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );\n\tvec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale;\n\tvec2 rotatedPosition;\n\trotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;\n\trotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;\n\tvec4 mvPosition;\n\tmvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );\n\tmvPosition.xy += rotatedPosition;\n\tgl_Position = projectionMatrix * mvPosition;\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}\n";
+	var sprite_vert = "uniform float rotation;\nuniform vec2 center;\n#include <common>\n#include <uv_pars_vertex>\n#include <fog_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\tvec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );\n\tvec2 scale;\n\tscale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );\n\tscale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );\n\t#ifndef USE_SIZEATTENUATION\n\t\tbool isPerspective = ( projectionMatrix[ 2 ][ 3 ] == - 1.0 );\n\t\tif ( isPerspective ) scale *= - mvPosition.z;\n\t#endif\n\tvec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale;\n\tvec2 rotatedPosition;\n\trotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;\n\trotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;\n\tmvPosition.xy += rotatedPosition;\n\tgl_Position = projectionMatrix * mvPosition;\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n}\n";
 
 	var ShaderChunk = {
 		alphamap_fragment: alphamap_fragment,
@@ -6274,6 +6318,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		uv2_vertex: uv2_vertex,
 		worldpos_vertex: worldpos_vertex,
 
+		background_frag: background_frag,
+		background_vert: background_vert,
 		cube_frag: cube_frag,
 		cube_vert: cube_vert,
 		depth_frag: depth_frag,
@@ -6288,6 +6334,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		meshbasic_vert: meshbasic_vert,
 		meshlambert_frag: meshlambert_frag,
 		meshlambert_vert: meshlambert_vert,
+		meshmatcap_frag: meshmatcap_frag,
+		meshmatcap_vert: meshmatcap_vert,
 		meshphong_frag: meshphong_frag,
 		meshphong_vert: meshphong_vert,
 		meshphysical_frag: meshphysical_frag,
@@ -6908,6 +6956,28 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
+		lerpHSL: function () {
+
+			var hslA = { h: 0, s: 0, l: 0 };
+			var hslB = { h: 0, s: 0, l: 0 };
+
+			return function lerpHSL( color, alpha ) {
+
+				this.getHSL( hslA );
+				color.getHSL( hslB );
+
+				var h = _Math.lerp( hslA.h, hslB.h, alpha );
+				var s = _Math.lerp( hslA.s, hslB.s, alpha );
+				var l = _Math.lerp( hslA.l, hslB.l, alpha );
+
+				this.setHSL( h, s, l );
+
+				return this;
+
+			};
+
+		}(),
+
 		equals: function ( c ) {
 
 			return ( c.r === this.r ) && ( c.g === this.g ) && ( c.b === this.b );
@@ -7242,6 +7312,24 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
+		matcap: {
+
+			uniforms: UniformsUtils.merge( [
+				UniformsLib.common,
+				UniformsLib.bumpmap,
+				UniformsLib.normalmap,
+				UniformsLib.displacementmap,
+				UniformsLib.fog,
+				{
+					matcap: { value: null }
+				}
+			] ),
+
+			vertexShader: ShaderChunk.meshmatcap_vert,
+			fragmentShader: ShaderChunk.meshmatcap_frag
+
+		},
+
 		points: {
 
 			uniforms: UniformsUtils.merge( [
@@ -7312,6 +7400,16 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
+		background: {
+
+			uniforms: {
+				t2D: { value: null },
+			},
+
+			vertexShader: ShaderChunk.background_vert,
+			fragmentShader: ShaderChunk.background_frag
+
+		},
 		/* -------------------------------------------------------------------------
 		//	Cube map shader
 		 ------------------------------------------------------------------------- */
@@ -7597,6 +7695,64 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		};
 
 	}
+
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 * @author alteredq / http://alteredqualia.com/
+	 */
+
+	function Face3( a, b, c, normal, color, materialIndex ) {
+
+		this.a = a;
+		this.b = b;
+		this.c = c;
+
+		this.normal = ( normal && normal.isVector3 ) ? normal : new Vector3();
+		this.vertexNormals = Array.isArray( normal ) ? normal : [];
+
+		this.color = ( color && color.isColor ) ? color : new Color();
+		this.vertexColors = Array.isArray( color ) ? color : [];
+
+		this.materialIndex = materialIndex !== undefined ? materialIndex : 0;
+
+	}
+
+	Object.assign( Face3.prototype, {
+
+		clone: function () {
+
+			return new this.constructor().copy( this );
+
+		},
+
+		copy: function ( source ) {
+
+			this.a = source.a;
+			this.b = source.b;
+			this.c = source.c;
+
+			this.normal.copy( source.normal );
+			this.color.copy( source.color );
+
+			this.materialIndex = source.materialIndex;
+
+			for ( var i = 0, il = source.vertexNormals.length; i < il; i ++ ) {
+
+				this.vertexNormals[ i ] = source.vertexNormals[ i ].clone();
+
+			}
+
+			for ( var i = 0, il = source.vertexColors.length; i < il; i ++ ) {
+
+				this.vertexColors[ i ] = source.vertexColors[ i ].clone();
+
+			}
+
+			return this;
+
+		}
+
+	} );
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
@@ -8283,34 +8439,50 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		lookAt: function () {
 
-			// This method does not support objects with rotated and/or translated parent(s)
+			// This method does not support objects having non-uniformly-scaled parent(s)
 
+			var q1 = new Quaternion();
 			var m1 = new Matrix4();
-			var vector = new Vector3();
+			var target = new Vector3();
+			var position = new Vector3();
 
 			return function lookAt( x, y, z ) {
 
 				if ( x.isVector3 ) {
 
-					vector.copy( x );
+					target.copy( x );
 
 				} else {
 
-					vector.set( x, y, z );
+					target.set( x, y, z );
 
 				}
 
+				var parent = this.parent;
+
+				this.updateWorldMatrix( true, false );
+
+				position.setFromMatrixPosition( this.matrixWorld );
+
 				if ( this.isCamera ) {
 
-					m1.lookAt( this.position, vector, this.up );
+					m1.lookAt( position, target, this.up );
 
 				} else {
 
-					m1.lookAt( vector, this.position, this.up );
+					m1.lookAt( target, position, this.up );
 
 				}
 
 				this.quaternion.setFromRotationMatrix( m1 );
+
+				if ( parent ) {
+
+					m1.extractRotation( parent.matrixWorld );
+					q1.setFromRotationMatrix( m1 );
+					this.quaternion.premultiply( q1.inverse() );
+
+				}
 
 			};
 
@@ -8486,26 +8658,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}(),
 
-		getWorldDirection: function () {
+		getWorldDirection: function ( target ) {
 
-			var quaternion = new Quaternion();
+			if ( target === undefined ) {
 
-			return function getWorldDirection( target ) {
+				console.warn( 'THREE.Object3D: .getWorldDirection() target is now required' );
+				target = new Vector3();
 
-				if ( target === undefined ) {
+			}
 
-					console.warn( 'THREE.Object3D: .getWorldDirection() target is now required' );
-					target = new Vector3();
+			this.updateMatrixWorld( true );
 
-				}
+			var e = this.matrixWorld.elements;
 
-				this.getWorldQuaternion( quaternion );
+			return target.set( e[ 8 ], e[ 9 ], e[ 10 ] ).normalize();
 
-				return target.set( 0, 0, 1 ).applyQuaternion( quaternion );
-
-			};
-
-		}(),
+		},
 
 		raycast: function () {},
 
@@ -8590,6 +8758,44 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			for ( var i = 0, l = children.length; i < l; i ++ ) {
 
 				children[ i ].updateMatrixWorld( force );
+
+			}
+
+		},
+
+		updateWorldMatrix: function ( updateParents, updateChildren ) {
+
+			var parent = this.parent;
+
+			if ( updateParents === true && parent !== null ) {
+
+				parent.updateWorldMatrix( true, false );
+
+			}
+
+			if ( this.matrixAutoUpdate ) this.updateMatrix();
+
+			if ( this.parent === null ) {
+
+				this.matrixWorld.copy( this.matrix );
+
+			} else {
+
+				this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+
+			}
+
+			// update children
+
+			if ( updateChildren === true ) {
+
+				var children = this.children;
+
+				for ( var i = 0, l = children.length; i < l; i ++ ) {
+
+					children[ i ].updateWorldMatrix( false, true );
+
+				}
 
 			}
 
@@ -8806,275 +9012,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 					this.add( child.clone() );
 
 				}
-
-			}
-
-			return this;
-
-		}
-
-	} );
-
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 * @author mikael emtinger / http://gomo.se/
-	 * @author WestLangley / http://github.com/WestLangley
-	*/
-
-	function Camera() {
-
-		Object3D.call( this );
-
-		this.type = 'Camera';
-
-		this.matrixWorldInverse = new Matrix4();
-		this.projectionMatrix = new Matrix4();
-
-	}
-
-	Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
-
-		constructor: Camera,
-
-		isCamera: true,
-
-		copy: function ( source, recursive ) {
-
-			Object3D.prototype.copy.call( this, source, recursive );
-
-			this.matrixWorldInverse.copy( source.matrixWorldInverse );
-			this.projectionMatrix.copy( source.projectionMatrix );
-
-			return this;
-
-		},
-
-		getWorldDirection: function () {
-
-			var quaternion = new Quaternion();
-
-			return function getWorldDirection( target ) {
-
-				if ( target === undefined ) {
-
-					console.warn( 'THREE.Camera: .getWorldDirection() target is now required' );
-					target = new Vector3();
-
-				}
-
-				this.getWorldQuaternion( quaternion );
-
-				return target.set( 0, 0, - 1 ).applyQuaternion( quaternion );
-
-			};
-
-		}(),
-
-		updateMatrixWorld: function ( force ) {
-
-			Object3D.prototype.updateMatrixWorld.call( this, force );
-
-			this.matrixWorldInverse.getInverse( this.matrixWorld );
-
-		},
-
-		clone: function () {
-
-			return new this.constructor().copy( this );
-
-		}
-
-	} );
-
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 * @author arose / http://github.com/arose
-	 */
-
-	function OrthographicCamera( left, right, top, bottom, near, far ) {
-
-		Camera.call( this );
-
-		this.type = 'OrthographicCamera';
-
-		this.zoom = 1;
-		this.view = null;
-
-		this.left = left;
-		this.right = right;
-		this.top = top;
-		this.bottom = bottom;
-
-		this.near = ( near !== undefined ) ? near : 0.1;
-		this.far = ( far !== undefined ) ? far : 2000;
-
-		this.updateProjectionMatrix();
-
-	}
-
-	OrthographicCamera.prototype = Object.assign( Object.create( Camera.prototype ), {
-
-		constructor: OrthographicCamera,
-
-		isOrthographicCamera: true,
-
-		copy: function ( source, recursive ) {
-
-			Camera.prototype.copy.call( this, source, recursive );
-
-			this.left = source.left;
-			this.right = source.right;
-			this.top = source.top;
-			this.bottom = source.bottom;
-			this.near = source.near;
-			this.far = source.far;
-
-			this.zoom = source.zoom;
-			this.view = source.view === null ? null : Object.assign( {}, source.view );
-
-			return this;
-
-		},
-
-		setViewOffset: function ( fullWidth, fullHeight, x, y, width, height ) {
-
-			if ( this.view === null ) {
-
-				this.view = {
-					enabled: true,
-					fullWidth: 1,
-					fullHeight: 1,
-					offsetX: 0,
-					offsetY: 0,
-					width: 1,
-					height: 1
-				};
-
-			}
-
-			this.view.enabled = true;
-			this.view.fullWidth = fullWidth;
-			this.view.fullHeight = fullHeight;
-			this.view.offsetX = x;
-			this.view.offsetY = y;
-			this.view.width = width;
-			this.view.height = height;
-
-			this.updateProjectionMatrix();
-
-		},
-
-		clearViewOffset: function () {
-
-			if ( this.view !== null ) {
-
-				this.view.enabled = false;
-
-			}
-
-			this.updateProjectionMatrix();
-
-		},
-
-		updateProjectionMatrix: function () {
-
-			var dx = ( this.right - this.left ) / ( 2 * this.zoom );
-			var dy = ( this.top - this.bottom ) / ( 2 * this.zoom );
-			var cx = ( this.right + this.left ) / 2;
-			var cy = ( this.top + this.bottom ) / 2;
-
-			var left = cx - dx;
-			var right = cx + dx;
-			var top = cy + dy;
-			var bottom = cy - dy;
-
-			if ( this.view !== null && this.view.enabled ) {
-
-				var zoomW = this.zoom / ( this.view.width / this.view.fullWidth );
-				var zoomH = this.zoom / ( this.view.height / this.view.fullHeight );
-				var scaleW = ( this.right - this.left ) / this.view.width;
-				var scaleH = ( this.top - this.bottom ) / this.view.height;
-
-				left += scaleW * ( this.view.offsetX / zoomW );
-				right = left + scaleW * ( this.view.width / zoomW );
-				top -= scaleH * ( this.view.offsetY / zoomH );
-				bottom = top - scaleH * ( this.view.height / zoomH );
-
-			}
-
-			this.projectionMatrix.makeOrthographic( left, right, top, bottom, this.near, this.far );
-
-		},
-
-		toJSON: function ( meta ) {
-
-			var data = Object3D.prototype.toJSON.call( this, meta );
-
-			data.object.zoom = this.zoom;
-			data.object.left = this.left;
-			data.object.right = this.right;
-			data.object.top = this.top;
-			data.object.bottom = this.bottom;
-			data.object.near = this.near;
-			data.object.far = this.far;
-
-			if ( this.view !== null ) data.object.view = Object.assign( {}, this.view );
-
-			return data;
-
-		}
-
-	} );
-
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 * @author alteredq / http://alteredqualia.com/
-	 */
-
-	function Face3( a, b, c, normal, color, materialIndex ) {
-
-		this.a = a;
-		this.b = b;
-		this.c = c;
-
-		this.normal = ( normal && normal.isVector3 ) ? normal : new Vector3();
-		this.vertexNormals = Array.isArray( normal ) ? normal : [];
-
-		this.color = ( color && color.isColor ) ? color : new Color();
-		this.vertexColors = Array.isArray( color ) ? color : [];
-
-		this.materialIndex = materialIndex !== undefined ? materialIndex : 0;
-
-	}
-
-	Object.assign( Face3.prototype, {
-
-		clone: function () {
-
-			return new this.constructor().copy( this );
-
-		},
-
-		copy: function ( source ) {
-
-			this.a = source.a;
-			this.b = source.b;
-			this.c = source.c;
-
-			this.normal.copy( source.normal );
-			this.color.copy( source.color );
-
-			this.materialIndex = source.materialIndex;
-
-			for ( var i = 0, il = source.vertexNormals.length; i < il; i ++ ) {
-
-				this.vertexNormals[ i ] = source.vertexNormals[ i ].clone();
-
-			}
-
-			for ( var i = 0, il = source.vertexColors.length; i < il; i ++ ) {
-
-				this.vertexColors[ i ] = source.vertexColors[ i ].clone();
 
 			}
 
@@ -11025,7 +10962,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				for ( var i = 0; i < morphTargetsLength; i ++ ) {
 
-					morphTargetsPosition[ i ] = [];
+					morphTargetsPosition[ i ] = {
+						name: morphTargets[ i ].name,
+					 	data: []
+					};
 
 				}
 
@@ -11044,7 +10984,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				for ( var i = 0; i < morphNormalsLength; i ++ ) {
 
-					morphTargetsNormal[ i ] = [];
+					morphTargetsNormal[ i ] = {
+						name: morphNormals[ i ].name,
+					 	data: []
+					};
 
 				}
 
@@ -11144,7 +11087,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					var morphTarget = morphTargets[ j ].vertices;
 
-					morphTargetsPosition[ j ].push( morphTarget[ face.a ], morphTarget[ face.b ], morphTarget[ face.c ] );
+					morphTargetsPosition[ j ].data.push( morphTarget[ face.a ], morphTarget[ face.b ], morphTarget[ face.c ] );
 
 				}
 
@@ -11152,7 +11095,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					var morphNormal = morphNormals[ j ].vertexNormals[ i ];
 
-					morphTargetsNormal[ j ].push( morphNormal.a, morphNormal.b, morphNormal.c );
+					morphTargetsNormal[ j ].data.push( morphNormal.a, morphNormal.b, morphNormal.c );
 
 				}
 
@@ -11738,9 +11681,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					var morphTarget = morphTargets[ i ];
 
-					var attribute = new Float32BufferAttribute( morphTarget.length * 3, 3 );
+					var attribute = new Float32BufferAttribute( morphTarget.data.length * 3, 3 );
+					attribute.name = morphTarget.name;
 
-					array.push( attribute.copyVector3sArray( morphTarget ) );
+					array.push( attribute.copyVector3sArray( morphTarget.data ) );
 
 				}
 
@@ -11870,7 +11814,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var index = this.index;
 			var attributes = this.attributes;
-			var groups = this.groups;
 
 			if ( attributes.position ) {
 
@@ -11906,46 +11849,31 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					var indices = index.array;
 
-					if ( groups.length === 0 ) {
+					for ( var i = 0, il = index.count; i < il; i += 3 ) {
 
-						this.addGroup( 0, indices.length );
+						vA = indices[ i + 0 ] * 3;
+						vB = indices[ i + 1 ] * 3;
+						vC = indices[ i + 2 ] * 3;
 
-					}
+						pA.fromArray( positions, vA );
+						pB.fromArray( positions, vB );
+						pC.fromArray( positions, vC );
 
-					for ( var j = 0, jl = groups.length; j < jl; ++ j ) {
+						cb.subVectors( pC, pB );
+						ab.subVectors( pA, pB );
+						cb.cross( ab );
 
-						var group = groups[ j ];
+						normals[ vA ] += cb.x;
+						normals[ vA + 1 ] += cb.y;
+						normals[ vA + 2 ] += cb.z;
 
-						var start = group.start;
-						var count = group.count;
+						normals[ vB ] += cb.x;
+						normals[ vB + 1 ] += cb.y;
+						normals[ vB + 2 ] += cb.z;
 
-						for ( var i = start, il = start + count; i < il; i += 3 ) {
-
-							vA = indices[ i + 0 ] * 3;
-							vB = indices[ i + 1 ] * 3;
-							vC = indices[ i + 2 ] * 3;
-
-							pA.fromArray( positions, vA );
-							pB.fromArray( positions, vB );
-							pC.fromArray( positions, vC );
-
-							cb.subVectors( pC, pB );
-							ab.subVectors( pA, pB );
-							cb.cross( ab );
-
-							normals[ vA ] += cb.x;
-							normals[ vA + 1 ] += cb.y;
-							normals[ vA + 2 ] += cb.z;
-
-							normals[ vB ] += cb.x;
-							normals[ vB + 1 ] += cb.y;
-							normals[ vB + 2 ] += cb.z;
-
-							normals[ vC ] += cb.x;
-							normals[ vC + 1 ] += cb.y;
-							normals[ vC + 2 ] += cb.z;
-
-						}
+						normals[ vC ] += cb.x;
+						normals[ vC + 1 ] += cb.y;
+						normals[ vC + 2 ] += cb.z;
 
 					}
 
@@ -12868,6 +12796,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				data.envMap = this.envMap.toJSON( meta ).uuid;
 				data.reflectivity = this.reflectivity; // Scale behind envMap
 
+				if ( this.combine !== undefined ) data.combine = this.combine;
+				if ( this.envMapIntensity !== undefined ) data.envMapIntensity = this.envMapIntensity;
+
 			}
 
 			if ( this.gradientMap && this.gradientMap.isTexture ) {
@@ -12893,6 +12824,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			// rotation (SpriteMaterial)
 			if ( this.rotation !== 0 ) data.rotation = this.rotation;
+
+			if ( this.polygonOffset === true ) data.polygonOffset = true;
+			if ( this.polygonOffsetFactor !== 0 ) data.polygonOffsetFactor = this.polygonOffsetFactor;
+			if ( this.polygonOffsetUnits !== 0 ) data.polygonOffsetUnits = this.polygonOffsetUnits;
 
 			if ( this.linewidth !== 1 ) data.linewidth = this.linewidth;
 			if ( this.dashSize !== undefined ) data.dashSize = this.dashSize;
@@ -13030,120 +12965,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	} );
 
 	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * parameters = {
-	 *  color: <hex>,
-	 *  opacity: <float>,
-	 *  map: new THREE.Texture( <Image> ),
-	 *
-	 *  lightMap: new THREE.Texture( <Image> ),
-	 *  lightMapIntensity: <float>
-	 *
-	 *  aoMap: new THREE.Texture( <Image> ),
-	 *  aoMapIntensity: <float>
-	 *
-	 *  specularMap: new THREE.Texture( <Image> ),
-	 *
-	 *  alphaMap: new THREE.Texture( <Image> ),
-	 *
-	 *  envMap: new THREE.CubeTexture( [posx, negx, posy, negy, posz, negz] ),
-	 *  combine: THREE.Multiply,
-	 *  reflectivity: <float>,
-	 *  refractionRatio: <float>,
-	 *
-	 *  depthTest: <bool>,
-	 *  depthWrite: <bool>,
-	 *
-	 *  wireframe: <boolean>,
-	 *  wireframeLinewidth: <float>,
-	 *
-	 *  skinning: <bool>,
-	 *  morphTargets: <bool>
-	 * }
-	 */
-
-	function MeshBasicMaterial( parameters ) {
-
-		Material.call( this );
-
-		this.type = 'MeshBasicMaterial';
-
-		this.color = new Color( 0xffffff ); // emissive
-
-		this.map = null;
-
-		this.lightMap = null;
-		this.lightMapIntensity = 1.0;
-
-		this.aoMap = null;
-		this.aoMapIntensity = 1.0;
-
-		this.specularMap = null;
-
-		this.alphaMap = null;
-
-		this.envMap = null;
-		this.combine = MultiplyOperation;
-		this.reflectivity = 1;
-		this.refractionRatio = 0.98;
-
-		this.wireframe = false;
-		this.wireframeLinewidth = 1;
-		this.wireframeLinecap = 'round';
-		this.wireframeLinejoin = 'round';
-
-		this.skinning = false;
-		this.morphTargets = false;
-
-		this.lights = false;
-
-		this.setValues( parameters );
-
-	}
-
-	MeshBasicMaterial.prototype = Object.create( Material.prototype );
-	MeshBasicMaterial.prototype.constructor = MeshBasicMaterial;
-
-	MeshBasicMaterial.prototype.isMeshBasicMaterial = true;
-
-	MeshBasicMaterial.prototype.copy = function ( source ) {
-
-		Material.prototype.copy.call( this, source );
-
-		this.color.copy( source.color );
-
-		this.map = source.map;
-
-		this.lightMap = source.lightMap;
-		this.lightMapIntensity = source.lightMapIntensity;
-
-		this.aoMap = source.aoMap;
-		this.aoMapIntensity = source.aoMapIntensity;
-
-		this.specularMap = source.specularMap;
-
-		this.alphaMap = source.alphaMap;
-
-		this.envMap = source.envMap;
-		this.combine = source.combine;
-		this.reflectivity = source.reflectivity;
-		this.refractionRatio = source.refractionRatio;
-
-		this.wireframe = source.wireframe;
-		this.wireframeLinewidth = source.wireframeLinewidth;
-		this.wireframeLinecap = source.wireframeLinecap;
-		this.wireframeLinejoin = source.wireframeLinejoin;
-
-		this.skinning = source.skinning;
-		this.morphTargets = source.morphTargets;
-
-		return this;
-
-	};
-
-	/**
 	 * @author alteredq / http://alteredqualia.com/
 	 *
 	 * parameters = {
@@ -13258,7 +13079,69 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		var data = Material.prototype.toJSON.call( this, meta );
 
-		data.uniforms = this.uniforms;
+		data.uniforms = {};
+
+		for ( var name in this.uniforms ) {
+
+			var uniform = this.uniforms[ name ];
+			var value = uniform.value;
+
+			if ( value.isTexture ) {
+
+				data.uniforms[ name ] = {
+					type: 't',
+					value: value.toJSON( meta ).uuid
+				};
+
+			} else if ( value.isColor ) {
+
+				data.uniforms[ name ] = {
+					type: 'c',
+					value: value.getHex()
+				};
+
+			} else if ( value.isVector2 ) {
+
+				data.uniforms[ name ] = {
+					type: 'v2',
+					value: value.toArray()
+				};
+
+			} else if ( value.isVector3 ) {
+
+				data.uniforms[ name ] = {
+					type: 'v3',
+					value: value.toArray()
+				};
+
+			} else if ( value.isVector4 ) {
+
+				data.uniforms[ name ] = {
+					type: 'v4',
+					value: value.toArray()
+				};
+
+			} else if ( value.isMatrix4 ) {
+
+				data.uniforms[ name ] = {
+					type: 'm4',
+					value: value.toArray()
+				};
+
+			} else {
+
+				data.uniforms[ name ] = {
+					value: value
+				};
+
+				// note: the array variants v2v, v3v, v4v, m4v and tv are not supported so far
+
+			}
+
+		}
+
+		if ( Object.keys( this.defines ).length > 0 ) data.defines = this.defines;
+
 		data.vertexShader = this.vertexShader;
 		data.fragmentShader = this.fragmentShader;
 
@@ -13556,7 +13439,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		intersectsSphere: function ( sphere ) {
 
-			return this.distanceToPoint( sphere.center ) <= sphere.radius;
+			return this.distanceSqToPoint( sphere.center ) <= ( sphere.radius * sphere.radius );
 
 		},
 
@@ -13914,6 +13797,25 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			};
 
+		}(),
+
+		getUV: function () {
+
+			var barycoord = new Vector3();
+
+			return function getUV( point, p1, p2, p3, uv1, uv2, uv3, target ) {
+
+				this.getBarycoord( point, p1, p2, p3, barycoord );
+
+				target.set( 0, 0 );
+				target.addScaledVector( uv1, barycoord.x );
+				target.addScaledVector( uv2, barycoord.y );
+				target.addScaledVector( uv3, barycoord.z );
+
+				return target;
+
+			};
+
 		}()
 
 	} );
@@ -14013,6 +13915,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		containsPoint: function ( point ) {
 
 			return Triangle.containsPoint( point, this.a, this.b, this.c );
+
+		},
+
+		getUV: function ( point, uv1, uv2, uv3, result ) {
+
+			return Triangle.getUV( point, this.a, this.b, this.c, uv1, uv2, uv3, result );
 
 		},
 
@@ -14127,6 +14035,120 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		}
 
 	} );
+
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 * @author alteredq / http://alteredqualia.com/
+	 *
+	 * parameters = {
+	 *  color: <hex>,
+	 *  opacity: <float>,
+	 *  map: new THREE.Texture( <Image> ),
+	 *
+	 *  lightMap: new THREE.Texture( <Image> ),
+	 *  lightMapIntensity: <float>
+	 *
+	 *  aoMap: new THREE.Texture( <Image> ),
+	 *  aoMapIntensity: <float>
+	 *
+	 *  specularMap: new THREE.Texture( <Image> ),
+	 *
+	 *  alphaMap: new THREE.Texture( <Image> ),
+	 *
+	 *  envMap: new THREE.CubeTexture( [posx, negx, posy, negy, posz, negz] ),
+	 *  combine: THREE.Multiply,
+	 *  reflectivity: <float>,
+	 *  refractionRatio: <float>,
+	 *
+	 *  depthTest: <bool>,
+	 *  depthWrite: <bool>,
+	 *
+	 *  wireframe: <boolean>,
+	 *  wireframeLinewidth: <float>,
+	 *
+	 *  skinning: <bool>,
+	 *  morphTargets: <bool>
+	 * }
+	 */
+
+	function MeshBasicMaterial( parameters ) {
+
+		Material.call( this );
+
+		this.type = 'MeshBasicMaterial';
+
+		this.color = new Color( 0xffffff ); // emissive
+
+		this.map = null;
+
+		this.lightMap = null;
+		this.lightMapIntensity = 1.0;
+
+		this.aoMap = null;
+		this.aoMapIntensity = 1.0;
+
+		this.specularMap = null;
+
+		this.alphaMap = null;
+
+		this.envMap = null;
+		this.combine = MultiplyOperation;
+		this.reflectivity = 1;
+		this.refractionRatio = 0.98;
+
+		this.wireframe = false;
+		this.wireframeLinewidth = 1;
+		this.wireframeLinecap = 'round';
+		this.wireframeLinejoin = 'round';
+
+		this.skinning = false;
+		this.morphTargets = false;
+
+		this.lights = false;
+
+		this.setValues( parameters );
+
+	}
+
+	MeshBasicMaterial.prototype = Object.create( Material.prototype );
+	MeshBasicMaterial.prototype.constructor = MeshBasicMaterial;
+
+	MeshBasicMaterial.prototype.isMeshBasicMaterial = true;
+
+	MeshBasicMaterial.prototype.copy = function ( source ) {
+
+		Material.prototype.copy.call( this, source );
+
+		this.color.copy( source.color );
+
+		this.map = source.map;
+
+		this.lightMap = source.lightMap;
+		this.lightMapIntensity = source.lightMapIntensity;
+
+		this.aoMap = source.aoMap;
+		this.aoMapIntensity = source.aoMapIntensity;
+
+		this.specularMap = source.specularMap;
+
+		this.alphaMap = source.alphaMap;
+
+		this.envMap = source.envMap;
+		this.combine = source.combine;
+		this.reflectivity = source.reflectivity;
+		this.refractionRatio = source.refractionRatio;
+
+		this.wireframe = source.wireframe;
+		this.wireframeLinewidth = source.wireframeLinewidth;
+		this.wireframeLinecap = source.wireframeLinecap;
+		this.wireframeLinejoin = source.wireframeLinejoin;
+
+		this.skinning = source.skinning;
+		this.morphTargets = source.morphTargets;
+
+		return this;
+
+	};
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
@@ -14258,24 +14280,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var uvB = new Vector2();
 			var uvC = new Vector2();
 
-			var barycoord = new Vector3();
-
 			var intersectionPoint = new Vector3();
 			var intersectionPointWorld = new Vector3();
-
-			function uvIntersection( point, p1, p2, p3, uv1, uv2, uv3 ) {
-
-				Triangle.getBarycoord( point, p1, p2, p3, barycoord );
-
-				uv1.multiplyScalar( barycoord.x );
-				uv2.multiplyScalar( barycoord.y );
-				uv3.multiplyScalar( barycoord.z );
-
-				uv1.add( uv2 ).add( uv3 );
-
-				return uv1.clone();
-
-			}
 
 			function checkIntersection( object, material, raycaster, ray, pA, pB, pC, point ) {
 
@@ -14324,7 +14330,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 						uvB.fromBufferAttribute( uv, b );
 						uvC.fromBufferAttribute( uv, c );
 
-						intersection.uv = uvIntersection( intersectionPoint, vA, vB, vC, uvA, uvB, uvC );
+						intersection.uv = Triangle.getUV( intersectionPoint, vA, vB, vC, uvA, uvB, uvC, new Vector2() );
 
 					}
 
@@ -14566,7 +14572,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 								uvB.copy( uvs_f[ 1 ] );
 								uvC.copy( uvs_f[ 2 ] );
 
-								intersection.uv = uvIntersection( intersectionPoint, fvA, fvB, fvC, uvA, uvB, uvC );
+								intersection.uv = Triangle.getUV( intersectionPoint, fvA, fvB, fvC, uvA, uvB, uvC, new Vector2() );
 
 							}
 
@@ -14601,7 +14607,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var clearColor = new Color( 0x000000 );
 		var clearAlpha = 0;
 
-		var planeCamera, planeMesh;
+		var planeMesh;
 		var boxMesh;
 
 		function render( renderList, scene, camera, forceClear ) {
@@ -14632,7 +14638,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 					boxMesh = new Mesh(
 						new BoxBufferGeometry( 1, 1, 1 ),
 						new ShaderMaterial( {
-							uniforms: ShaderLib.cube.uniforms,
+							uniforms: UniformsUtils.clone( ShaderLib.cube.uniforms ),
 							vertexShader: ShaderLib.cube.vertexShader,
 							fragmentShader: ShaderLib.cube.fragmentShader,
 							side: BackSide,
@@ -14661,24 +14667,30 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			} else if ( background && background.isTexture ) {
 
-				if ( planeCamera === undefined ) {
-
-					planeCamera = new OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
+				if ( planeMesh === undefined ) {
 
 					planeMesh = new Mesh(
 						new PlaneBufferGeometry( 2, 2 ),
-						new MeshBasicMaterial( { depthTest: false, depthWrite: false, fog: false } )
+						new ShaderMaterial( {
+							uniforms: UniformsUtils.clone( ShaderLib.background.uniforms ),
+							vertexShader: ShaderLib.background.vertexShader,
+							fragmentShader: ShaderLib.background.fragmentShader,
+							side: FrontSide,
+							depthTest: true,
+							depthWrite: false,
+							fog: false
+						} )
 					);
+
+					planeMesh.geometry.removeAttribute( 'normal' );
 
 					objects.update( planeMesh );
 
 				}
 
-				planeMesh.material.map = background;
+				planeMesh.material.uniforms.t2D.value = background;
 
-				// TODO Push this to renderList
-
-				renderer.renderBufferDirect( planeCamera, null, planeMesh.geometry, planeMesh.material, planeMesh, null );
+				renderList.push( planeMesh, planeMesh.geometry, planeMesh.material, 0, null );
 
 			}
 
@@ -14725,7 +14737,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLBufferRenderer( gl, extensions, info ) {
+	function WebGLBufferRenderer( gl, extensions, info, capabilities ) {
 
 		var mode;
 
@@ -14747,7 +14759,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var extension;
 
-			if ( gl.isWebGL2 ) {
+			if ( capabilities.isWebGL2 ) {
 
 				extension = gl;
 
@@ -14764,7 +14776,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			extension[ gl.isWebGL2 ? 'drawArraysInstanced' : 'drawArraysInstancedANGLE' ]( mode, start, count, geometry.maxInstancedCount );
+			extension[ capabilities.isWebGL2 ? 'drawArraysInstanced' : 'drawArraysInstancedANGLE' ]( mode, start, count, geometry.maxInstancedCount );
 
 			info.update( count, mode, geometry.maxInstancedCount );
 
@@ -14836,6 +14848,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
+		var isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
+
 		var precision = parameters.precision !== undefined ? parameters.precision : 'highp';
 		var maxPrecision = getMaxPrecision( precision );
 
@@ -14859,10 +14873,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var maxFragmentUniforms = gl.getParameter( gl.MAX_FRAGMENT_UNIFORM_VECTORS );
 
 		var vertexTextures = maxVertexTextures > 0;
-		var floatFragmentTextures = gl.isWebGL2 || !! extensions.get( 'OES_texture_float' );
+		var floatFragmentTextures = isWebGL2 || !! extensions.get( 'OES_texture_float' );
 		var floatVertexTextures = vertexTextures && floatFragmentTextures;
 
 		return {
+
+			isWebGL2: isWebGL2,
 
 			getMaxAnisotropy: getMaxAnisotropy,
 			getMaxPrecision: getMaxPrecision,
@@ -15136,18 +15152,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			delete geometries[ geometry.id ];
 
-			// TODO Remove duplicate code
-
-			var attribute = wireframeAttributes[ geometry.id ];
-
-			if ( attribute ) {
-
-				attributes.remove( attribute );
-				delete wireframeAttributes[ geometry.id ];
-
-			}
-
-			attribute = wireframeAttributes[ buffergeometry.id ];
+			var attribute = wireframeAttributes[ buffergeometry.id ];
 
 			if ( attribute ) {
 
@@ -15299,7 +15304,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLIndexedBufferRenderer( gl, extensions, info ) {
+	function WebGLIndexedBufferRenderer( gl, extensions, info, capabilities ) {
 
 		var mode;
 
@@ -15330,7 +15335,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var extension;
 
-			if ( gl.isWebGL2 ) {
+			if ( capabilities.isWebGL2 ) {
 
 				extension = gl;
 
@@ -15347,7 +15352,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			extension[ gl.isWebGL2 ? 'drawElementsInstanced' : 'drawElementsInstancedANGLE' ]( mode, count, type, start * bytesPerElement, geometry.maxInstancedCount );
+			extension[ capabilities.isWebGL2 ? 'drawElementsInstanced' : 'drawElementsInstancedANGLE' ]( mode, count, type, start * bytesPerElement, geometry.maxInstancedCount );
 
 			info.update( count, mode, geometry.maxInstancedCount );
 
@@ -15639,6 +15644,36 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	} );
 
 	/**
+	 * @author Artur Trzesiok
+	 */
+
+	function DataTexture3D( data, width, height, depth ) {
+
+		// We're going to add .setXXX() methods for setting properties later.
+		// Users can still set in DataTexture3D directly.
+		//
+		//	var texture = new THREE.DataTexture3D( data, width, height, depth );
+		// 	texture.anisotropy = 16;
+		//
+		// See #14839
+
+		Texture.call( this, null );
+
+		this.image = { data: data, width: width, height: height, depth: depth };
+
+		this.magFilter = NearestFilter;
+		this.minFilter = NearestFilter;
+
+		this.generateMipmaps = false;
+		this.flipY = false;
+
+	}
+
+	DataTexture3D.prototype = Object.create( Texture.prototype );
+	DataTexture3D.prototype.constructor = DataTexture3D;
+	DataTexture3D.prototype.isDataTexture3D = true;
+
+	/**
 	 * @author tschw
 	 * @author Mugen87 / https://github.com/Mugen87
 	 * @author mrdoob / http://mrdoob.com/
@@ -15690,6 +15725,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 */
 
 	var emptyTexture = new Texture();
+	var emptyTexture3d = new DataTexture3D();
 	var emptyCubeTexture = new CubeTexture();
 
 	// --- Base for inner nodes (including the root) ---
@@ -16025,6 +16061,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
+	function setValueT3D1( gl, v, renderer ) {
+
+		var cache = this.cache;
+		var unit = renderer.allocTextureUnit();
+
+		if ( cache[ 0 ] !== unit ) {
+
+			gl.uniform1i( this.addr, unit );
+			cache[ 0 ] = unit;
+
+		}
+
+		renderer.setTexture3D( v || emptyTexture3d, unit );
+
+	}
+
 	function setValueT6( gl, v, renderer ) {
 
 		var cache = this.cache;
@@ -16095,6 +16147,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			case 0x8b5c: return setValue4fm; // _MAT4
 
 			case 0x8b5e: case 0x8d66: return setValueT1; // SAMPLER_2D, SAMPLER_EXTERNAL_OES
+			case 0x8B5F: return setValueT3D1; // SAMPLER_3D
 			case 0x8b60: return setValueT6; // SAMPLER_CUBE
 
 			case 0x1404: case 0x8b56: return setValue1i; // INT, BOOL
@@ -16333,17 +16386,14 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
-	StructuredUniform.prototype.setValue = function ( gl, value ) {
-
-		// Note: Don't need an extra 'renderer' parameter, since samplers
-		// are not allowed in structured uniforms.
+	StructuredUniform.prototype.setValue = function ( gl, value, renderer ) {
 
 		var seq = this.seq;
 
 		for ( var i = 0, n = seq.length; i !== n; ++ i ) {
 
 			var u = seq[ i ];
-			u.setValue( gl, value[ u.id ] );
+			u.setValue( gl, value[ u.id ], renderer );
 
 		}
 
@@ -16737,7 +16787,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
-	function WebGLProgram( renderer, extensions, code, material, shader, parameters ) {
+	function WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities ) {
 
 		var gl = renderer.context;
 
@@ -16820,7 +16870,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		//
 
-		var customExtensions = gl.isWebGL2 ? '' : generateExtensions( material.extensions, parameters, extensions );
+		var customExtensions = capabilities.isWebGL2 ? '' : generateExtensions( material.extensions, parameters, extensions );
 
 		var customDefines = generateDefines( defines );
 
@@ -16908,7 +16958,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				parameters.sizeAttenuation ? '#define USE_SIZEATTENUATION' : '',
 
 				parameters.logarithmicDepthBuffer ? '#define USE_LOGDEPTHBUF' : '',
-				parameters.logarithmicDepthBuffer && ( gl.isWebGL2 || extensions.get( 'EXT_frag_depth' ) ) ? '#define USE_LOGDEPTHBUF_EXT' : '',
+				parameters.logarithmicDepthBuffer && ( capabilities.isWebGL2 || extensions.get( 'EXT_frag_depth' ) ) ? '#define USE_LOGDEPTHBUF_EXT' : '',
 
 				'uniform mat4 modelMatrix;',
 				'uniform mat4 modelViewMatrix;',
@@ -17013,9 +17063,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				parameters.physicallyCorrectLights ? '#define PHYSICALLY_CORRECT_LIGHTS' : '',
 
 				parameters.logarithmicDepthBuffer ? '#define USE_LOGDEPTHBUF' : '',
-				parameters.logarithmicDepthBuffer && ( gl.isWebGL2 || extensions.get( 'EXT_frag_depth' ) ) ? '#define USE_LOGDEPTHBUF_EXT' : '',
+				parameters.logarithmicDepthBuffer && ( capabilities.isWebGL2 || extensions.get( 'EXT_frag_depth' ) ) ? '#define USE_LOGDEPTHBUF_EXT' : '',
 
-				parameters.envMap && ( gl.isWebGL2 || extensions.get( 'EXT_shader_texture_lod' ) ) ? '#define TEXTURE_LOD_EXT' : '',
+				parameters.envMap && ( capabilities.isWebGL2 || extensions.get( 'EXT_shader_texture_lod' ) ) ? '#define TEXTURE_LOD_EXT' : '',
 
 				'uniform mat4 viewMatrix;',
 				'uniform vec3 cameraPosition;',
@@ -17026,8 +17076,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				parameters.dithering ? '#define DITHERING' : '',
 
-				( parameters.outputEncoding || parameters.mapEncoding || parameters.envMapEncoding || parameters.emissiveMapEncoding ) ? ShaderChunk[ 'encodings_pars_fragment' ] : '', // this code is required here because it is used by the various encoding/decoding function defined below
+				( parameters.outputEncoding || parameters.mapEncoding || parameters.matcapEncoding || parameters.envMapEncoding || parameters.emissiveMapEncoding ) ?
+					ShaderChunk[ 'encodings_pars_fragment' ] : '', // this code is required here because it is used by the various encoding/decoding function defined below
 				parameters.mapEncoding ? getTexelDecodingFunction( 'mapTexelToLinear', parameters.mapEncoding ) : '',
+				parameters.matcapEncoding ? getTexelDecodingFunction( 'matcapTexelToLinear', parameters.matcapEncoding ) : '',
 				parameters.envMapEncoding ? getTexelDecodingFunction( 'envMapTexelToLinear', parameters.envMapEncoding ) : '',
 				parameters.emissiveMapEncoding ? getTexelDecodingFunction( 'emissiveMapTexelToLinear', parameters.emissiveMapEncoding ) : '',
 				parameters.outputEncoding ? getTexelEncodingFunction( 'linearToOutputTexel', parameters.outputEncoding ) : '',
@@ -17051,7 +17103,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		vertexShader = unrollLoops( vertexShader );
 		fragmentShader = unrollLoops( fragmentShader );
 
-		if ( gl.isWebGL2 && ! material.isRawShaderMaterial ) {
+		if ( capabilities.isWebGL2 && ! material.isRawShaderMaterial ) {
 
 			var isGLSL3ShaderMaterial = false;
 
@@ -17278,6 +17330,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			MeshToonMaterial: 'phong',
 			MeshStandardMaterial: 'physical',
 			MeshPhysicalMaterial: 'physical',
+			MeshMatcapMaterial: 'matcap',
 			LineBasicMaterial: 'basic',
 			LineDashedMaterial: 'dashed',
 			PointsMaterial: 'points',
@@ -17286,7 +17339,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		};
 
 		var parameterNames = [
-			"precision", "supportsVertexTextures", "map", "mapEncoding", "envMap", "envMapMode", "envMapEncoding",
+			"precision", "supportsVertexTextures", "map", "mapEncoding", "matcapEncoding", "envMap", "envMapMode", "envMapEncoding",
 			"lightMap", "aoMap", "emissiveMap", "emissiveMapEncoding", "bumpMap", "normalMap", "objectSpaceNormalMap", "displacementMap", "specularMap",
 			"roughnessMap", "metalnessMap", "gradientMap",
 			"alphaMap", "combine", "vertexColors", "fog", "useFog", "fogExp",
@@ -17398,6 +17451,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				outputEncoding: getTextureEncodingFromMap( ( ! currentRenderTarget ) ? null : currentRenderTarget.texture, renderer.gammaOutput ),
 				map: !! material.map,
 				mapEncoding: getTextureEncodingFromMap( material.map, renderer.gammaInput ),
+				matcap: !! material.matcap,
+				matcapEncoding: getTextureEncodingFromMap( material.matcap, renderer.gammaInput ),
 				envMap: !! material.envMap,
 				envMapMode: material.envMap && material.envMap.mapping,
 				envMapEncoding: getTextureEncodingFromMap( material.envMap, renderer.gammaInput ),
@@ -17532,7 +17587,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( program === undefined ) {
 
-				program = new WebGLProgram( renderer, extensions, code, material, shader, parameters );
+				program = new WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities );
 				programs.push( program );
 
 			}
@@ -17661,24 +17716,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	}
 
 
-	function painterSortStableSprites( a, b ) {
-
-		if ( a.renderOrder !== b.renderOrder ) {
-
-		 return a.renderOrder - b.renderOrder;
-
-		} else if ( a.z !== b.z ) {
-
-		 return b.z - a.z;
-
-		} else {
-
-		 return b.id - a.id;
-
-		}
-
-	}
-
 	function WebGLRenderList() {
 
 		var renderItems = [];
@@ -17686,7 +17723,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		var opaque = [];
 		var transparent = [];
-		var sprites = [];
 
 		function init() {
 
@@ -17694,7 +17730,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			opaque.length = 0;
 			transparent.length = 0;
-			sprites.length = 0;
 
 		}
 
@@ -17730,15 +17765,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			if ( object.isSprite ) {
 
-				sprites.push( renderItem );
-
-			} else {
-
-				( material.transparent === true ? transparent : opaque ).push( renderItem );
-
-			}
+			( material.transparent === true ? transparent : opaque ).push( renderItem );
 
 			renderItemsIndex ++;
 
@@ -17748,14 +17776,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( opaque.length > 1 ) opaque.sort( painterSortStable );
 			if ( transparent.length > 1 ) transparent.sort( reversePainterSortStable );
-			if ( sprites.length > 1 ) sprites.sort( painterSortStableSprites );
 
 		}
 
 		return {
 			opaque: opaque,
 			transparent: transparent,
-			sprites: sprites,
 
 			init: init,
 			push: push,
@@ -17907,7 +17933,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			id: count ++,
 
-			hash: '',
+			hash: {
+				stateID: - 1,
+				directionalLength: - 1,
+				pointLength: - 1,
+				spotLength: - 1,
+				rectAreaLength: - 1,
+				hemiLength: - 1,
+				shadowsLength: - 1
+			},
 
 			ambient: [ 0, 0, 0 ],
 			directional: [],
@@ -18001,7 +18035,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					uniforms.coneCos = Math.cos( light.angle );
 					uniforms.penumbraCos = Math.cos( light.angle * ( 1 - light.penumbra ) );
-					uniforms.decay = ( light.distance === 0 ) ? 0.0 : light.decay;
+					uniforms.decay = light.decay;
 
 					uniforms.shadow = light.castShadow;
 
@@ -18062,7 +18096,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					uniforms.color.copy( light.color ).multiplyScalar( light.intensity );
 					uniforms.distance = light.distance;
-					uniforms.decay = ( light.distance === 0 ) ? 0.0 : light.decay;
+					uniforms.decay = light.decay;
 
 					uniforms.shadow = light.castShadow;
 
@@ -18113,7 +18147,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			state.point.length = pointLength;
 			state.hemi.length = hemiLength;
 
-			state.hash = state.id + ',' + directionalLength + ',' + pointLength + ',' + spotLength + ',' + rectAreaLength + ',' + hemiLength + ',' + shadows.length;
+			state.hash.stateID = state.id;
+			state.hash.directionalLength = directionalLength;
+			state.hash.pointLength = pointLength;
+			state.hash.spotLength = spotLength;
+			state.hash.rectAreaLength = rectAreaLength;
+			state.hash.hemiLength = hemiLength;
+			state.hash.shadowsLength = shadows.length;
 
 		}
 
@@ -18184,14 +18224,26 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function get( scene, camera ) {
 
-			var hash = scene.id + ',' + camera.id;
+			var renderState;
 
-			var renderState = renderStates[ hash ];
-
-			if ( renderState === undefined ) {
+			if ( renderStates[ scene.id ] === undefined ) {
 
 				renderState = new WebGLRenderState();
-				renderStates[ hash ] = renderState;
+				renderStates[ scene.id ] = {};
+				renderStates[ scene.id ][ camera.id ] = renderState;
+
+			} else {
+
+				if ( renderStates[ scene.id ][ camera.id ] === undefined ) {
+
+					renderState = new WebGLRenderState();
+					renderStates[ scene.id ][ camera.id ] = renderState;
+
+				} else {
+
+					renderState = renderStates[ scene.id ][ camera.id ];
+
+				}
 
 			}
 
@@ -18794,7 +18846,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLState( gl, extensions, utils ) {
+	function WebGLState( gl, extensions, utils, capabilities ) {
 
 		function ColorBuffer() {
 
@@ -19106,12 +19158,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var enabledAttributes = new Uint8Array( maxVertexAttributes );
 		var attributeDivisors = new Uint8Array( maxVertexAttributes );
 
-		var capabilities = {};
+		var enabledCapabilities = {};
 
 		var compressedTextureFormats = null;
 
 		var currentProgram = null;
 
+		var currentBlendingEnabled = null;
 		var currentBlending = null;
 		var currentBlendEquation = null;
 		var currentBlendSrc = null;
@@ -19189,8 +19242,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		setCullFace( CullFaceBack );
 		enable( gl.CULL_FACE );
 
-		enable( gl.BLEND );
-		setBlending( NormalBlending );
+		setBlending( NoBlending );
 
 		//
 
@@ -19223,9 +19275,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( attributeDivisors[ attribute ] !== meshPerAttribute ) {
 
-				var extension = gl.isWebGL2 ? gl : extensions.get( 'ANGLE_instanced_arrays' );
+				var extension = capabilities.isWebGL2 ? gl : extensions.get( 'ANGLE_instanced_arrays' );
 
-				extension[ gl.isWebGL2 ? 'vertexAttribDivisor' : 'vertexAttribDivisorANGLE' ]( attribute, meshPerAttribute );
+				extension[ capabilities.isWebGL2 ? 'vertexAttribDivisor' : 'vertexAttribDivisorANGLE' ]( attribute, meshPerAttribute );
 				attributeDivisors[ attribute ] = meshPerAttribute;
 
 			}
@@ -19249,10 +19301,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function enable( id ) {
 
-			if ( capabilities[ id ] !== true ) {
+			if ( enabledCapabilities[ id ] !== true ) {
 
 				gl.enable( id );
-				capabilities[ id ] = true;
+				enabledCapabilities[ id ] = true;
 
 			}
 
@@ -19260,10 +19312,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function disable( id ) {
 
-			if ( capabilities[ id ] !== false ) {
+			if ( enabledCapabilities[ id ] !== false ) {
 
 				gl.disable( id );
-				capabilities[ id ] = false;
+				enabledCapabilities[ id ] = false;
 
 			}
 
@@ -19314,13 +19366,23 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function setBlending( blending, blendEquation, blendSrc, blendDst, blendEquationAlpha, blendSrcAlpha, blendDstAlpha, premultipliedAlpha ) {
 
-			if ( blending !== NoBlending ) {
+			if ( blending === NoBlending ) {
+
+				if ( currentBlendingEnabled ) {
+
+					disable( gl.BLEND );
+					currentBlendingEnabled = false;
+
+				}
+
+				return;
+
+			}
+
+			if ( ! currentBlendingEnabled ) {
 
 				enable( gl.BLEND );
-
-			} else {
-
-				disable( gl.BLEND );
+				currentBlendingEnabled = true;
 
 			}
 
@@ -19328,108 +19390,111 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( blending !== currentBlending || premultipliedAlpha !== currentPremultipledAlpha ) {
 
-					switch ( blending ) {
+					if ( currentBlendEquation !== AddEquation || currentBlendEquationAlpha !== AddEquation ) {
 
-						case AdditiveBlending:
+						gl.blendEquation( gl.FUNC_ADD );
 
-							if ( premultipliedAlpha ) {
-
-								gl.blendEquationSeparate( gl.FUNC_ADD, gl.FUNC_ADD );
-								gl.blendFuncSeparate( gl.ONE, gl.ONE, gl.ONE, gl.ONE );
-
-							} else {
-
-								gl.blendEquation( gl.FUNC_ADD );
-								gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
-
-							}
-							break;
-
-						case SubtractiveBlending:
-
-							if ( premultipliedAlpha ) {
-
-								gl.blendEquationSeparate( gl.FUNC_ADD, gl.FUNC_ADD );
-								gl.blendFuncSeparate( gl.ZERO, gl.ZERO, gl.ONE_MINUS_SRC_COLOR, gl.ONE_MINUS_SRC_ALPHA );
-
-							} else {
-
-								gl.blendEquation( gl.FUNC_ADD );
-								gl.blendFunc( gl.ZERO, gl.ONE_MINUS_SRC_COLOR );
-
-							}
-							break;
-
-						case MultiplyBlending:
-
-							if ( premultipliedAlpha ) {
-
-								gl.blendEquationSeparate( gl.FUNC_ADD, gl.FUNC_ADD );
-								gl.blendFuncSeparate( gl.ZERO, gl.SRC_COLOR, gl.ZERO, gl.SRC_ALPHA );
-
-							} else {
-
-								gl.blendEquation( gl.FUNC_ADD );
-								gl.blendFunc( gl.ZERO, gl.SRC_COLOR );
-
-							}
-							break;
-
-						default:
-
-							if ( premultipliedAlpha ) {
-
-								gl.blendEquationSeparate( gl.FUNC_ADD, gl.FUNC_ADD );
-								gl.blendFuncSeparate( gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA );
-
-							} else {
-
-								gl.blendEquationSeparate( gl.FUNC_ADD, gl.FUNC_ADD );
-								gl.blendFuncSeparate( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA );
-
-							}
+						currentBlendEquation = AddEquation;
+						currentBlendEquationAlpha = AddEquation;
 
 					}
 
+					if ( premultipliedAlpha ) {
+
+						switch ( blending ) {
+
+							case NormalBlending:
+								gl.blendFuncSeparate( gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA );
+								break;
+
+							case AdditiveBlending:
+								gl.blendFunc( gl.ONE, gl.ONE );
+								break;
+
+							case SubtractiveBlending:
+								gl.blendFuncSeparate( gl.ZERO, gl.ZERO, gl.ONE_MINUS_SRC_COLOR, gl.ONE_MINUS_SRC_ALPHA );
+								break;
+
+							case MultiplyBlending:
+								gl.blendFuncSeparate( gl.ZERO, gl.SRC_COLOR, gl.ZERO, gl.SRC_ALPHA );
+								break;
+
+							default:
+								console.error( 'THREE.WebGLState: Invalid blending: ', blending );
+								break;
+
+						}
+
+					} else {
+
+						switch ( blending ) {
+
+							case NormalBlending:
+								gl.blendFuncSeparate( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA );
+								break;
+
+							case AdditiveBlending:
+								gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
+								break;
+
+							case SubtractiveBlending:
+								gl.blendFunc( gl.ZERO, gl.ONE_MINUS_SRC_COLOR );
+								break;
+
+							case MultiplyBlending:
+								gl.blendFunc( gl.ZERO, gl.SRC_COLOR );
+								break;
+
+							default:
+								console.error( 'THREE.WebGLState: Invalid blending: ', blending );
+								break;
+
+						}
+
+					}
+
+					currentBlendSrc = null;
+					currentBlendDst = null;
+					currentBlendSrcAlpha = null;
+					currentBlendDstAlpha = null;
+
+					currentBlending = blending;
+					currentPremultipledAlpha = premultipliedAlpha;
+
 				}
 
-				currentBlendEquation = null;
-				currentBlendSrc = null;
-				currentBlendDst = null;
-				currentBlendEquationAlpha = null;
-				currentBlendSrcAlpha = null;
-				currentBlendDstAlpha = null;
+				return;
 
-			} else {
+			}
 
-				blendEquationAlpha = blendEquationAlpha || blendEquation;
-				blendSrcAlpha = blendSrcAlpha || blendSrc;
-				blendDstAlpha = blendDstAlpha || blendDst;
+			// custom blending
 
-				if ( blendEquation !== currentBlendEquation || blendEquationAlpha !== currentBlendEquationAlpha ) {
+			blendEquationAlpha = blendEquationAlpha || blendEquation;
+			blendSrcAlpha = blendSrcAlpha || blendSrc;
+			blendDstAlpha = blendDstAlpha || blendDst;
 
-					gl.blendEquationSeparate( utils.convert( blendEquation ), utils.convert( blendEquationAlpha ) );
+			if ( blendEquation !== currentBlendEquation || blendEquationAlpha !== currentBlendEquationAlpha ) {
 
-					currentBlendEquation = blendEquation;
-					currentBlendEquationAlpha = blendEquationAlpha;
+				gl.blendEquationSeparate( utils.convert( blendEquation ), utils.convert( blendEquationAlpha ) );
 
-				}
+				currentBlendEquation = blendEquation;
+				currentBlendEquationAlpha = blendEquationAlpha;
 
-				if ( blendSrc !== currentBlendSrc || blendDst !== currentBlendDst || blendSrcAlpha !== currentBlendSrcAlpha || blendDstAlpha !== currentBlendDstAlpha ) {
+			}
 
-					gl.blendFuncSeparate( utils.convert( blendSrc ), utils.convert( blendDst ), utils.convert( blendSrcAlpha ), utils.convert( blendDstAlpha ) );
+			if ( blendSrc !== currentBlendSrc || blendDst !== currentBlendDst || blendSrcAlpha !== currentBlendSrcAlpha || blendDstAlpha !== currentBlendDstAlpha ) {
 
-					currentBlendSrc = blendSrc;
-					currentBlendDst = blendDst;
-					currentBlendSrcAlpha = blendSrcAlpha;
-					currentBlendDstAlpha = blendDstAlpha;
+				gl.blendFuncSeparate( utils.convert( blendSrc ), utils.convert( blendDst ), utils.convert( blendSrcAlpha ), utils.convert( blendDstAlpha ) );
 
-				}
+				currentBlendSrc = blendSrc;
+				currentBlendDst = blendDst;
+				currentBlendSrcAlpha = blendSrcAlpha;
+				currentBlendDstAlpha = blendDstAlpha;
 
 			}
 
 			currentBlending = blending;
-			currentPremultipledAlpha = premultipliedAlpha;
+			currentPremultipledAlpha = null;
 
 		}
 
@@ -19633,6 +19698,20 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
+		function texImage3D() {
+
+			try {
+
+				gl.texImage3D.apply( gl, arguments );
+
+			} catch ( error ) {
+
+				console.error( 'THREE.WebGLState:', error );
+
+			}
+
+		}
+
 		//
 
 		function scissor( scissor ) {
@@ -19672,7 +19751,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			capabilities = {};
+			enabledCapabilities = {};
 
 			compressedTextureFormats = null;
 
@@ -19725,6 +19804,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			bindTexture: bindTexture,
 			compressedTexImage2D: compressedTexImage2D,
 			texImage2D: texImage2D,
+			texImage3D: texImage3D,
 
 			scissor: scissor,
 			viewport: viewport,
@@ -19769,7 +19849,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				var context = canvas.getContext( '2d' );
 				context.drawImage( image, 0, 0, image.width, image.height, 0, 0, canvas.width, canvas.height );
 
-				console.warn( 'THREE.WebGLRenderer: image is too big (' + image.width + 'x' + image.height + '). Resized to ' + canvas.width + 'x' + canvas.height, image );
+				console.warn( 'THREE.WebGLRenderer: image is too big (' + image.width + 'x' + image.height + '). Resized to ' + canvas.width + 'x' + canvas.height );
 
 				return canvas;
 
@@ -19797,7 +19877,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				var context = _canvas.getContext( '2d' );
 				context.drawImage( image, 0, 0, _canvas.width, _canvas.height );
 
-				console.warn( 'THREE.WebGLRenderer: image is not power of two (' + image.width + 'x' + image.height + '). Resized to ' + _canvas.width + 'x' + _canvas.height, image );
+				console.warn( 'THREE.WebGLRenderer: image is not power of two (' + image.width + 'x' + image.height + '). Resized to ' + _canvas.width + 'x' + _canvas.height );
 
 				return _canvas;
 
@@ -19809,7 +19889,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function textureNeedsPowerOfTwo( texture ) {
 
-			if ( _gl.isWebGL2 ) return false;
+			if ( capabilities.isWebGL2 ) return false;
 
 			return ( texture.wrapS !== ClampToEdgeWrapping || texture.wrapT !== ClampToEdgeWrapping ) ||
 				( texture.minFilter !== NearestFilter && texture.minFilter !== LinearFilter );
@@ -19836,7 +19916,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function getInternalFormat( glFormat, glType ) {
 
-			if ( ! _gl.isWebGL2 ) return glFormat;
+			if ( ! capabilities.isWebGL2 ) return glFormat;
+
+			if ( glFormat === _gl.RED ) {
+
+				if ( glType === _gl.FLOAT ) return _gl.R32F;
+				if ( glType === _gl.HALF_FLOAT ) return _gl.R16F;
+				if ( glType === _gl.UNSIGNED_BYTE ) return _gl.R8;
+
+			}
 
 			if ( glFormat === _gl.RGB ) {
 
@@ -19987,11 +20075,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( image === undefined ) {
 
-					console.warn( 'THREE.WebGLRenderer: Texture marked for update but image is undefined', texture );
+					console.warn( 'THREE.WebGLRenderer: Texture marked for update but image is undefined' );
 
 				} else if ( image.complete === false ) {
 
-					console.warn( 'THREE.WebGLRenderer: Texture marked for update but image is incomplete', texture );
+					console.warn( 'THREE.WebGLRenderer: Texture marked for update but image is incomplete' );
 
 				} else {
 
@@ -20006,6 +20094,23 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			state.bindTexture( _gl.TEXTURE_2D, textureProperties.__webglTexture );
 
 		}
+
+		function setTexture3D( texture, slot ) {
+
+			var textureProperties = properties.get( texture );
+
+			if ( texture.version > 0 && textureProperties.__version !== texture.version ) {
+
+				uploadTexture( textureProperties, texture, slot );
+				return;
+
+			}
+
+			state.activeTexture( _gl.TEXTURE0 + slot );
+			state.bindTexture( _gl.TEXTURE_3D, textureProperties.__webglTexture );
+
+		}
+
 
 		function setTextureCube( texture, slot ) {
 
@@ -20161,7 +20266,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( texture.wrapS !== ClampToEdgeWrapping || texture.wrapT !== ClampToEdgeWrapping ) {
 
-					console.warn( 'THREE.WebGLRenderer: Texture is not power of two. Texture.wrapS and Texture.wrapT should be set to THREE.ClampToEdgeWrapping.', texture );
+					console.warn( 'THREE.WebGLRenderer: Texture is not power of two. Texture.wrapS and Texture.wrapT should be set to THREE.ClampToEdgeWrapping.' );
 
 				}
 
@@ -20170,7 +20275,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( texture.minFilter !== NearestFilter && texture.minFilter !== LinearFilter ) {
 
-					console.warn( 'THREE.WebGLRenderer: Texture is not power of two. Texture.minFilter should be set to THREE.NearestFilter or THREE.LinearFilter.', texture );
+					console.warn( 'THREE.WebGLRenderer: Texture is not power of two. Texture.minFilter should be set to THREE.NearestFilter or THREE.LinearFilter.' );
 
 				}
 
@@ -20181,7 +20286,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( extension ) {
 
 				if ( texture.type === FloatType && extensions.get( 'OES_texture_float_linear' ) === null ) return;
-				if ( texture.type === HalfFloatType && ( _gl.isWebGL2 || extensions.get( 'OES_texture_half_float_linear' ) ) === null ) return;
+				if ( texture.type === HalfFloatType && ( capabilities.isWebGL2 || extensions.get( 'OES_texture_half_float_linear' ) ) === null ) return;
 
 				if ( texture.anisotropy > 1 || properties.get( texture ).__currentAnisotropy ) {
 
@@ -20196,6 +20301,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function uploadTexture( textureProperties, texture, slot ) {
 
+			var textureType;
+
+			if ( texture.isDataTexture3D ) {
+
+				textureType = _gl.TEXTURE_3D;
+
+			} else {
+
+				textureType = _gl.TEXTURE_2D;
+
+			}
+
+
 			if ( textureProperties.__webglInit === undefined ) {
 
 				textureProperties.__webglInit = true;
@@ -20207,9 +20325,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				info.memory.textures ++;
 
 			}
-
 			state.activeTexture( _gl.TEXTURE0 + slot );
-			state.bindTexture( _gl.TEXTURE_2D, textureProperties.__webglTexture );
+
+
+			state.bindTexture( textureType, textureProperties.__webglTexture );
+
+
 
 			_gl.pixelStorei( _gl.UNPACK_FLIP_Y_WEBGL, texture.flipY );
 			_gl.pixelStorei( _gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, texture.premultiplyAlpha );
@@ -20228,7 +20349,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				glType = utils.convert( texture.type ),
 				glInternalFormat = getInternalFormat( glFormat, glType );
 
-			setTextureParameters( _gl.TEXTURE_2D, texture, isPowerOfTwoImage );
+			setTextureParameters( textureType, texture, isPowerOfTwoImage );
 
 			var mipmap, mipmaps = texture.mipmaps;
 
@@ -20240,10 +20361,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( texture.type === FloatType ) {
 
-					if ( ! _gl.isWebGL2 ) throw new Error( 'Float Depth Texture only supported in WebGL2.0' );
+					if ( ! capabilities.isWebGL2 ) throw new Error( 'Float Depth Texture only supported in WebGL2.0' );
 					glInternalFormat = _gl.DEPTH_COMPONENT32F;
 
-				} else if ( _gl.isWebGL2 ) {
+				} else if ( capabilities.isWebGL2 ) {
 
 					// WebGL 2.0 requires signed internalformat for glTexImage2D
 					glInternalFormat = _gl.DEPTH_COMPONENT16;
@@ -20340,6 +20461,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				textureProperties.__maxMipLevel = mipmaps.length - 1;
+
+			} else if ( texture.isDataTexture3D ) {
+
+				state.texImage3D( _gl.TEXTURE_3D, 0, glInternalFormat, image.width, image.height, image.depth, 0, glFormat, glType, image.data );
+				textureProperties.__maxMipLevel = 0;
 
 			} else {
 
@@ -20624,6 +20750,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		}
 
 		this.setTexture2D = setTexture2D;
+		this.setTexture3D = setTexture3D;
 		this.setTextureCube = setTextureCube;
 		this.setTextureCubeDynamic = setTextureCubeDynamic;
 		this.setupRenderTarget = setupRenderTarget;
@@ -20635,7 +20762,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 * @author thespite / http://www.twitter.com/thespite
 	 */
 
-	function WebGLUtils( gl, extensions ) {
+	function WebGLUtils( gl, extensions, capabilities ) {
 
 		function convert( p ) {
 
@@ -20667,7 +20794,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( p === HalfFloatType ) {
 
-				if ( gl.isWebGL2 ) return gl.HALF_FLOAT;
+				if ( capabilities.isWebGL2 ) return gl.HALF_FLOAT;
 
 				extension = extensions.get( 'OES_texture_half_float' );
 
@@ -20682,6 +20809,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( p === LuminanceAlphaFormat ) return gl.LUMINANCE_ALPHA;
 			if ( p === DepthFormat ) return gl.DEPTH_COMPONENT;
 			if ( p === DepthStencilFormat ) return gl.DEPTH_STENCIL;
+			if ( p === RedFormat ) return gl.RED;
 
 			if ( p === AddEquation ) return gl.FUNC_ADD;
 			if ( p === SubtractEquation ) return gl.FUNC_SUBTRACT;
@@ -20758,7 +20886,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( p === MinEquation || p === MaxEquation ) {
 
-				if ( gl.isWebGL2 ) {
+				if ( capabilities.isWebGL2 ) {
 
 					if ( p === MinEquation ) return gl.MIN;
 					if ( p === MaxEquation ) return gl.MAX;
@@ -20778,7 +20906,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( p === UnsignedInt248Type ) {
 
-				if ( gl.isWebGL2 ) return gl.UNSIGNED_INT_24_8;
+				if ( capabilities.isWebGL2 ) return gl.UNSIGNED_INT_24_8;
 
 				extension = extensions.get( 'WEBGL_depth_texture' );
 
@@ -20811,6 +20939,77 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		constructor: Group,
 
 		isGroup: true
+
+	} );
+
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 * @author mikael emtinger / http://gomo.se/
+	 * @author WestLangley / http://github.com/WestLangley
+	*/
+
+	function Camera() {
+
+		Object3D.call( this );
+
+		this.type = 'Camera';
+
+		this.matrixWorldInverse = new Matrix4();
+
+		this.projectionMatrix = new Matrix4();
+		this.projectionMatrixInverse = new Matrix4();
+
+	}
+
+	Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
+
+		constructor: Camera,
+
+		isCamera: true,
+
+		copy: function ( source, recursive ) {
+
+			Object3D.prototype.copy.call( this, source, recursive );
+
+			this.matrixWorldInverse.copy( source.matrixWorldInverse );
+
+			this.projectionMatrix.copy( source.projectionMatrix );
+			this.projectionMatrixInverse.copy( source.projectionMatrixInverse );
+
+			return this;
+
+		},
+
+		getWorldDirection: function ( target ) {
+
+			if ( target === undefined ) {
+
+				console.warn( 'THREE.Camera: .getWorldDirection() target is now required' );
+				target = new Vector3();
+
+			}
+
+			this.updateMatrixWorld( true );
+
+			var e = this.matrixWorld.elements;
+
+			return target.set( - e[ 8 ], - e[ 9 ], - e[ 10 ] ).normalize();
+
+		},
+
+		updateMatrixWorld: function ( force ) {
+
+			Object3D.prototype.updateMatrixWorld.call( this, force );
+
+			this.matrixWorldInverse.getInverse( this.matrixWorld );
+
+		},
+
+		clone: function () {
+
+			return new this.constructor().copy( this );
+
+		}
 
 	} );
 
@@ -21001,8 +21200,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		updateProjectionMatrix: function () {
 
 			var near = this.near,
-				top = near * Math.tan(
-					_Math.DEG2RAD * 0.5 * this.fov ) / this.zoom,
+				top = near * Math.tan( _Math.DEG2RAD * 0.5 * this.fov ) / this.zoom,
 				height = 2 * top,
 				width = this.aspect * height,
 				left = - 0.5 * width,
@@ -21024,6 +21222,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( skew !== 0 ) left += near * skew / this.getFilmWidth();
 
 			this.projectionMatrix.makePerspective( left, left + width, top, top - height, near, this.far );
+
+			this.projectionMatrixInverse.getInverse( this.projectionMatrix );
 
 		},
 
@@ -21067,7 +21267,66 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		constructor: ArrayCamera,
 
-		isArrayCamera: true
+		isArrayCamera: true,
+
+		/**
+		 * Assumes 2 cameras that are perpendicular and share an X-axis, and that
+		 * the cameras' projection and world matrices have already been set.
+		 * And that near and far planes are identical for both cameras.
+		 */
+		setProjectionFromUnion: function () {
+			var cameraLPos = new Vector3();
+			var cameraRPos = new Vector3();
+
+			return function () {
+				cameraLPos.setFromMatrixPosition( this.cameras[ 0 ].matrixWorld );
+				cameraRPos.setFromMatrixPosition( this.cameras[ 1 ].matrixWorld );
+
+				var ipd = cameraLPos.distanceTo( cameraRPos );
+
+				var projL = this.cameras[ 0 ].projectionMatrix;
+				var projR = this.cameras[ 1 ].projectionMatrix;
+
+				// VR systems will have identical far and near planes, and
+				// most likely identical top and bottom frustum extents.
+				// via: https://computergraphics.stackexchange.com/a/4765
+				var near = projL[ 14 ] / ( projL[ 10 ] - 1 );
+				var far = projL[ 14 ] / ( projL[ 10 ] + 1 );
+
+				var leftFovL = ( projL[ 8 ] - 1 ) / projL[ 0 ];
+				var rightFovR = ( projR[ 8 ] + 1 ) / projR[ 0 ];
+				var leftL = leftFovL * near;
+				var rightR = rightFovR * near;
+				var topL = near * ( projL[ 9 ] + 1 ) / projL[ 5 ];
+				var topR = near * ( projR[ 9 ] + 1 ) / projR[ 5 ];
+				var bottomL = near * ( projL[ 9 ] - 1 ) / projL[ 5 ];
+				var bottomR = near * ( projR[ 9 ] - 1 ) / projR[ 5 ];
+
+				// Calculate the new camera's position offset from the
+				// left camera.
+				var zOffset = ipd / (leftFovL + rightFovR);
+				var xOffset = zOffset * leftFovL;
+
+				// TODO: Better way to apply this offset?
+				this.cameras[ 0 ].matrixWorld.decompose( this.position, this.quaternion, this.scale );
+				this.translateX(xOffset);
+				this.translateZ(-zOffset);
+				this.matrixWorld.compose( this.position, this.quaternion, this.scale );
+				this.matrixWorldInverse.getInverse(this.matrixWorld);
+
+				// Find the union of the frustum values of the cameras and scale
+				// the values so that the near plane's position does not change in world space,
+				// although must now be relative to the new union camera.
+				var near2 = near + zOffset;
+				var far2 = far + zOffset;
+				var left = leftL - xOffset;
+				var right = rightR + (ipd - xOffset);
+				var top = Math.max( topL, topR );
+				var bottom = Math.min( bottomL, bottomR );
+
+				this.projectionMatrix.makePerspective( left, right, top, bottom, near2, far2 );
+			}
+		}(),
 
 	} );
 
@@ -21087,6 +21346,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var controllers = [];
 		var standingMatrix = new Matrix4();
 		var standingMatrixInverse = new Matrix4();
+
+		var frameOfReferenceType = 'stage';
 
 		if ( typeof window !== 'undefined' && 'VRFrameData' in window ) {
 
@@ -21136,9 +21397,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				animation.start();
 
-			} else if ( scope.enabled ) {
+			} else {
 
-				renderer.setDrawingBufferSize( currentSize.width, currentSize.height, currentPixelRatio );
+				if ( scope.enabled ) {
+
+					renderer.setDrawingBufferSize( currentSize.width, currentSize.height, currentPixelRatio );
+
+				}
 
 				animation.stop();
 
@@ -21148,7 +21413,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		//
 
-		var isTriggerPressed = false;
+		var triggers = [];
 
 		function findGamepad( id ) {
 
@@ -21203,11 +21468,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					var buttonId = gamepad.id === 'Daydream Controller' ? 0 : 1;
 
-					if ( isTriggerPressed !== gamepad.buttons[ buttonId ].pressed ) {
+					if ( triggers[ i ] !== gamepad.buttons[ buttonId ].pressed ) {
 
-						isTriggerPressed = gamepad.buttons[ buttonId ].pressed;
+						triggers[ i ] = gamepad.buttons[ buttonId ].pressed;
 
-						if ( isTriggerPressed ) {
+						if ( triggers[ i ] === true ) {
 
 							controller.dispatchEvent( { type: 'selectstart' } );
 
@@ -21233,7 +21498,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		//
 
 		this.enabled = false;
-		this.userHeight = 1.6;
 
 		this.getController = function ( id ) {
 
@@ -21267,6 +21531,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		};
 
+		this.setFrameOfReferenceType = function ( value ) {
+
+			frameOfReferenceType = value;
+
+		};
+
 		this.setPoseTarget = function ( object ) {
 
 			if ( object !== undefined ) poseTarget = object;
@@ -21275,9 +21545,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		this.getCamera = function ( camera ) {
 
+			var userHeight = frameOfReferenceType === 'stage' ? 1.6 : 0;
+
 			if ( device === null ) {
 
-				camera.position.set( 0, scope.userHeight, 0 );
+				camera.position.set( 0, userHeight, 0 );
 				return camera;
 
 			}
@@ -21289,15 +21561,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			//
 
-			var stageParameters = device.stageParameters;
+			if ( frameOfReferenceType === 'stage' ) {
 
-			if ( stageParameters ) {
+				var stageParameters = device.stageParameters;
 
-				standingMatrix.fromArray( stageParameters.sittingToStandingTransform );
+				if ( stageParameters ) {
 
-			} else {
+					standingMatrix.fromArray( stageParameters.sittingToStandingTransform );
 
-				standingMatrix.makeTranslation( 0, scope.userHeight, 0 );
+				} else {
+
+					standingMatrix.makeTranslation( 0, userHeight, 0 );
+
+				}
 
 			}
 
@@ -21337,9 +21613,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			cameraL.far = camera.far;
 			cameraR.far = camera.far;
 
-			cameraVR.matrixWorld.copy( camera.matrixWorld );
-			cameraVR.matrixWorldInverse.copy( camera.matrixWorldInverse );
-
 			cameraL.matrixWorldInverse.fromArray( frameData.leftViewMatrix );
 			cameraR.matrixWorldInverse.fromArray( frameData.rightViewMatrix );
 
@@ -21347,8 +21620,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			standingMatrixInverse.getInverse( standingMatrix );
 
-			cameraL.matrixWorldInverse.multiply( standingMatrixInverse );
-			cameraR.matrixWorldInverse.multiply( standingMatrixInverse );
+			if ( frameOfReferenceType === 'stage' ) {
+
+				cameraL.matrixWorldInverse.multiply( standingMatrixInverse );
+				cameraR.matrixWorldInverse.multiply( standingMatrixInverse );
+
+			}
 
 			var parent = poseObject.parent;
 
@@ -21369,10 +21646,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			cameraL.projectionMatrix.fromArray( frameData.leftProjectionMatrix );
 			cameraR.projectionMatrix.fromArray( frameData.rightProjectionMatrix );
 
-			// HACK (mrdoob)
-			// https://github.com/w3c/webvr/issues/203
-
-			cameraVR.projectionMatrix.copy( cameraL.projectionMatrix );
+			cameraVR.setProjectionFromUnion();
 
 			//
 
@@ -21449,7 +21723,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var device = null;
 		var session = null;
 
-		var frameOfRef = null;
+		var frameOfReference = null;
+		var frameOfReferenceType = 'stage';
 
 		var pose = null;
 
@@ -21458,8 +21733,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function isPresenting() {
 
-			return session !== null && frameOfRef !== null;
-
+			return session !== null && frameOfReference !== null;
 
 		}
 
@@ -21528,7 +21802,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
-		this.setSession = function ( value, options ) {
+		this.setFrameOfReferenceType = function ( value ) {
+
+			frameOfReferenceType = value;
+
+		};
+
+		this.setSession = function ( value ) {
 
 			session = value;
 
@@ -21540,9 +21820,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				session.addEventListener( 'end', onSessionEnd );
 
 				session.baseLayer = new XRWebGLLayer( session, gl );
-				session.requestFrameOfReference( options.frameOfReferenceType ).then( function ( value ) {
+				session.requestFrameOfReference( frameOfReferenceType ).then( function ( value ) {
 
-					frameOfRef = value;
+					frameOfReference = value;
 
 					renderer.setFramebuffer( session.baseLayer.framebuffer );
 
@@ -21589,8 +21869,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				var parent = camera.parent;
 				var cameras = cameraVR.cameras;
 
-				// apply camera.parent to cameraVR
-
 				updateCamera( cameraVR, parent );
 
 				for ( var i = 0; i < cameras.length; i ++ ) {
@@ -21611,6 +21889,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				}
 
+				cameraVR.setProjectionFromUnion();
+
 				return cameraVR;
 
 			}
@@ -21627,7 +21907,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function onAnimationFrame( time, frame ) {
 
-			pose = frame.getDevicePose( frameOfRef );
+			pose = frame.getDevicePose( frameOfReference );
 
 			if ( pose !== null ) {
 
@@ -21649,11 +21929,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 						cameraVR.matrix.copy( camera.matrix );
 
-						// HACK (mrdoob)
-						// https://github.com/w3c/webvr/issues/203
-
-						cameraVR.projectionMatrix.copy( camera.projectionMatrix );
-
 					}
 
 				}
@@ -21670,11 +21945,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( inputSource ) {
 
-					var inputPose = frame.getInputPose( inputSource, frameOfRef );
+					var inputPose = frame.getInputPose( inputSource, frameOfReference );
 
 					if ( inputPose !== null ) {
 
-						controller.matrix.elements = inputPose.pointerMatrix;
+						if ( 'targetRay' in inputPose ) {
+
+							controller.matrix.elements = inputPose.targetRay.transformMatrix;
+
+						} else if ( 'pointerMatrix' in inputPose ) {
+
+							// DEPRECATED
+
+							controller.matrix.elements = inputPose.pointerMatrix;
+
+						}
+
 						controller.matrix.decompose( controller.position, controller.rotation, controller.scale );
 						controller.visible = true;
 
@@ -21799,7 +22085,14 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			_currentRenderTarget = null,
 			_currentFramebuffer = null,
 			_currentMaterialId = - 1,
-			_currentGeometryProgram = '',
+
+			// geometry and program caching
+
+			_currentGeometryProgram = {
+				geometry: null,
+				program: null,
+				wireframe: false
+			},
 
 			_currentCamera = null,
 			_currentArrayCamera = null,
@@ -21882,8 +22175,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			_gl.isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && _gl instanceof WebGL2RenderingContext;
-
 			// Some experimental-webgl implementations do not have getShaderPrecisionFormat
 
 			if ( _gl.getShaderPrecisionFormat === undefined ) {
@@ -21914,7 +22205,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			extensions = new WebGLExtensions( _gl );
 
-			if ( ! _gl.isWebGL2 ) {
+			capabilities = new WebGLCapabilities( _gl, extensions, parameters );
+
+			if ( ! capabilities.isWebGL2 ) {
 
 				extensions.get( 'WEBGL_depth_texture' );
 				extensions.get( 'OES_texture_float' );
@@ -21928,11 +22221,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			extensions.get( 'OES_texture_float_linear' );
 
-			utils = new WebGLUtils( _gl, extensions );
+			utils = new WebGLUtils( _gl, extensions, capabilities );
 
-			capabilities = new WebGLCapabilities( _gl, extensions, parameters );
-
-			state = new WebGLState( _gl, extensions, utils );
+			state = new WebGLState( _gl, extensions, utils, capabilities );
 			state.scissor( _currentScissor.copy( _scissor ).multiplyScalar( _pixelRatio ) );
 			state.viewport( _currentViewport.copy( _viewport ).multiplyScalar( _pixelRatio ) );
 
@@ -21949,8 +22240,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			background = new WebGLBackground( _this, state, objects, _premultipliedAlpha );
 
-			bufferRenderer = new WebGLBufferRenderer( _gl, extensions, info );
-			indexedBufferRenderer = new WebGLIndexedBufferRenderer( _gl, extensions, info );
+			bufferRenderer = new WebGLBufferRenderer( _gl, extensions, info, capabilities );
+			indexedBufferRenderer = new WebGLIndexedBufferRenderer( _gl, extensions, info, capabilities );
 
 			info.programs = programCache.programs;
 
@@ -21968,7 +22259,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		// vr
 
-		var vr = ( 'xr' in navigator ) ? new WebXRManager( _this ) : new WebVRManager( _this );
+		var vr = null;
+
+		if ( typeof navigator !== 'undefined' ) {
+
+			vr = ( 'xr' in navigator ) ? new WebXRManager( _this ) : new WebVRManager( _this );
+
+		}
 
 		this.vr = vr;
 
@@ -22162,13 +22459,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		};
 
-		this.clearTarget = function ( renderTarget, color, depth, stencil ) {
-
-			this.setRenderTarget( renderTarget );
-			this.clear( color, depth, stencil );
-
-		};
-
 		//
 
 		this.dispose = function () {
@@ -22324,13 +22614,16 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			state.setMaterial( material, frontFaceCW );
 
 			var program = setProgram( camera, fog, material, object );
-			var geometryProgram = geometry.id + '_' + program.id + '_' + ( material.wireframe === true );
 
 			var updateBuffers = false;
 
-			if ( geometryProgram !== _currentGeometryProgram ) {
+			if ( _currentGeometryProgram.geometry !== geometry.id ||
+				_currentGeometryProgram.program !== program.id ||
+				_currentGeometryProgram.wireframe !== ( material.wireframe === true ) ) {
 
-				_currentGeometryProgram = geometryProgram;
+				_currentGeometryProgram.geometry = geometry.id;
+				_currentGeometryProgram.program = program.id;
+				_currentGeometryProgram.wireframe = material.wireframe === true;
 				updateBuffers = true;
 
 			}
@@ -22487,7 +22780,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function setupVertexAttributes( material, program, geometry ) {
 
-			if ( geometry && geometry.isInstancedBufferGeometry & ! _gl.isWebGL2 ) {
+			if ( geometry && geometry.isInstancedBufferGeometry & ! capabilities.isWebGL2 ) {
 
 				if ( extensions.get( 'ANGLE_instanced_arrays' ) === null ) {
 
@@ -22703,7 +22996,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			// reset caching for this frame
 
-			_currentGeometryProgram = '';
+			_currentGeometryProgram.geometry = null;
+			_currentGeometryProgram.program = null;
+			_currentGeometryProgram.wireframe = false;
 			_currentMaterialId = - 1;
 			_currentCamera = null;
 
@@ -22777,7 +23072,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var opaqueObjects = currentRenderList.opaque;
 			var transparentObjects = currentRenderList.transparent;
-			var spriteObjects = currentRenderList.sprites;
 
 			if ( scene.overrideMaterial ) {
 
@@ -22785,7 +23079,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				if ( opaqueObjects.length ) renderObjects( opaqueObjects, scene, camera, overrideMaterial );
 				if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera, overrideMaterial );
-				if ( spriteObjects.length ) renderObjects( spriteObjects, scene, camera, overrideMaterial );
 
 			} else {
 
@@ -22796,10 +23089,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				// transparent pass (back-to-front order)
 
 				if ( transparentObjects.length ) renderObjects( transparentObjects, scene, camera );
-
-				//
-
-				if ( spriteObjects.length ) renderObjects( spriteObjects, scene, camera );
 
 			}
 
@@ -22915,8 +23204,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 							_vector3.setFromMatrixPosition( object.matrixWorld )
 								.applyMatrix4( _projScreenMatrix );
-
-							var material = object.material;
 
 						}
 
@@ -23037,6 +23324,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 							}
 
+							currentRenderState.setupLights( camera2 );
+
 							renderObject( object, scene, camera2, geometry, material, group );
 
 						}
@@ -23069,7 +23358,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				var program = setProgram( camera, scene.fog, material, object );
 
-				_currentGeometryProgram = '';
+				_currentGeometryProgram.geometry = null;
+				_currentGeometryProgram.program = null;
+				_currentGeometryProgram.wireframe = false;
 
 				renderObjectImmediate( object, program );
 
@@ -23091,6 +23382,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var lights = currentRenderState.state.lights;
 			var shadowsArray = currentRenderState.state.shadowsArray;
 
+			var lightsHash = materialProperties.lightsHash;
+			var lightsStateHash = lights.state.hash;
+
 			var parameters = programCache.getParameters(
 				material, lights.state, shadowsArray, fog, _clipping.numPlanes, _clipping.numIntersection, object );
 
@@ -23109,9 +23403,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				// changed glsl or parameters
 				releaseMaterialProgramReference( material );
 
-			} else if ( materialProperties.lightsHash !== lights.state.hash ) {
+			} else if ( lightsHash.stateID !== lightsStateHash.stateID ||
+				lightsHash.directionalLength !== lightsStateHash.directionalLength ||
+				lightsHash.pointLength !== lightsStateHash.pointLength ||
+				lightsHash.spotLength !== lightsStateHash.spotLength ||
+				lightsHash.rectAreaLength !== lightsStateHash.rectAreaLength ||
+				lightsHash.hemiLength !== lightsStateHash.hemiLength ||
+				lightsHash.shadowsLength !== lightsStateHash.shadowsLength ) {
 
-				properties.update( material, 'lightsHash', lights.state.hash );
+				lightsHash.stateID = lightsStateHash.stateID;
+				lightsHash.directionalLength = lightsStateHash.directionalLength;
+				lightsHash.pointLength = lightsStateHash.pointLength;
+				lightsHash.spotLength = lightsStateHash.spotLength;
+				lightsHash.rectAreaLength = lightsStateHash.rectAreaLength;
+				lightsHash.hemiLength = lightsStateHash.hemiLength;
+				lightsHash.shadowsLength = lightsStateHash.shadowsLength;
+
 				programChange = false;
 
 			} else if ( parameters.shaderID !== undefined ) {
@@ -23151,6 +23458,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				material.onBeforeCompile( materialProperties.shader, _this );
+
+				// Computing code again as onBeforeCompile may have changed the shaders
+				code = programCache.getProgramCode( material, parameters );
 
 				program = programCache.acquireProgram( material, materialProperties.shader, parameters, code );
 
@@ -23208,8 +23518,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			materialProperties.fog = fog;
 
 			// store the light setup it was created for
+			if ( lightsHash === undefined ) {
 
-			materialProperties.lightsHash = lights.state.hash;
+				materialProperties.lightsHash = lightsHash = {};
+
+			}
+
+			lightsHash.stateID = lightsStateHash.stateID;
+			lightsHash.directionalLength = lightsStateHash.directionalLength;
+			lightsHash.pointLength = lightsStateHash.pointLength;
+			lightsHash.spotLength = lightsStateHash.spotLength;
+			lightsHash.rectAreaLength = lightsStateHash.rectAreaLength;
+			lightsHash.hemiLength = lightsStateHash.hemiLength;
+			lightsHash.shadowsLength = lightsStateHash.shadowsLength;
 
 			if ( material.lights ) {
 
@@ -23247,6 +23568,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var materialProperties = properties.get( material );
 			var lights = currentRenderState.state.lights;
 
+			var lightsHash = materialProperties.lightsHash;
+			var lightsStateHash = lights.state.hash;
+
 			if ( _clippingEnabled ) {
 
 				if ( _localClippingEnabled || camera !== _currentCamera ) {
@@ -23276,7 +23600,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					material.needsUpdate = true;
 
-				} else if ( material.lights && materialProperties.lightsHash !== lights.state.hash ) {
+				} else if ( material.lights && ( lightsHash.stateID !== lightsStateHash.stateID ||
+					lightsHash.directionalLength !== lightsStateHash.directionalLength ||
+					lightsHash.pointLength !== lightsStateHash.pointLength ||
+					lightsHash.spotLength !== lightsStateHash.spotLength ||
+					lightsHash.rectAreaLength !== lightsStateHash.rectAreaLength ||
+					lightsHash.hemiLength !== lightsStateHash.hemiLength ||
+					lightsHash.shadowsLength !== lightsStateHash.shadowsLength ) ) {
 
 					material.needsUpdate = true;
 
@@ -23321,7 +23651,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			if ( refreshProgram || camera !== _currentCamera ) {
+			if ( refreshProgram || _currentCamera !== camera ) {
 
 				p_uniforms.setValue( _gl, 'projectionMatrix', camera.projectionMatrix );
 
@@ -23332,11 +23662,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				}
 
-				// Avoid unneeded uniform updates per ArrayCamera's sub-camera
+				if ( _currentCamera !== camera ) {
 
-				if ( _currentCamera !== ( _currentArrayCamera || camera ) ) {
-
-					_currentCamera = ( _currentArrayCamera || camera );
+					_currentCamera = camera;
 
 					// lighting uniforms depend on the camera so enforce an update
 					// now, in case this material supports lights - or later, when
@@ -23499,6 +23827,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 						refreshUniformsStandard( m_uniforms, material );
 
 					}
+
+				} else if ( material.isMeshMatcapMaterial ) {
+
+					refreshUniformsCommon( m_uniforms, material );
+
+					refreshUniformsMatcap( m_uniforms, material );
 
 				} else if ( material.isMeshDepthMaterial ) {
 
@@ -23911,6 +24245,40 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
+		function refreshUniformsMatcap( uniforms, material ) {
+
+			if ( material.matcap ) {
+
+				uniforms.matcap.value = material.matcap;
+
+			}
+
+			if ( material.bumpMap ) {
+
+				uniforms.bumpMap.value = material.bumpMap;
+				uniforms.bumpScale.value = material.bumpScale;
+				if ( material.side === BackSide ) uniforms.bumpScale.value *= - 1;
+
+			}
+
+			if ( material.normalMap ) {
+
+				uniforms.normalMap.value = material.normalMap;
+				uniforms.normalScale.value.copy( material.normalScale );
+				if ( material.side === BackSide ) uniforms.normalScale.value.negate();
+
+			}
+
+			if ( material.displacementMap ) {
+
+				uniforms.displacementMap.value = material.displacementMap;
+				uniforms.displacementScale.value = material.displacementScale;
+				uniforms.displacementBias.value = material.displacementBias;
+
+			}
+
+		}
+
 		function refreshUniformsDepth( uniforms, material ) {
 
 			if ( material.displacementMap ) {
@@ -24023,6 +24391,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				textures.setTexture2D( texture, slot );
+
+			};
+
+		}() );
+
+		this.setTexture3D = ( function () {
+
+			// backwards compatibility: peel texture.texture
+			return function setTexture3D( texture, slot ) {
+
+				textures.setTexture3D( texture, slot );
 
 			};
 
@@ -24200,8 +24579,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 					}
 
 					if ( textureType !== UnsignedByteType && utils.convert( textureType ) !== _gl.getParameter( _gl.IMPLEMENTATION_COLOR_READ_TYPE ) && // IE11, Edge and Chrome Mac < 52 (#9513)
-						! ( textureType === FloatType && ( _gl.isWebGL2 || extensions.get( 'OES_texture_float' ) || extensions.get( 'WEBGL_color_buffer_float' ) ) ) && // Chrome Mac >= 52 and Firefox
-						! ( textureType === HalfFloatType && ( _gl.isWebGL2 ? extensions.get( 'EXT_color_buffer_float' ) : extensions.get( 'EXT_color_buffer_half_float' ) ) ) ) {
+						! ( textureType === FloatType && ( capabilities.isWebGL2 || extensions.get( 'OES_texture_float' ) || extensions.get( 'WEBGL_color_buffer_float' ) ) ) && // Chrome Mac >= 52 and Firefox
+						! ( textureType === HalfFloatType && ( capabilities.isWebGL2 ? extensions.get( 'EXT_color_buffer_float' ) : extensions.get( 'EXT_color_buffer_half_float' ) ) ) ) {
 
 						console.error( 'THREE.WebGLRenderer.readRenderTargetPixels: renderTarget is not in UnsignedByteType or implementation defined type.' );
 						return;
@@ -24639,11 +25018,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 *
 	 * parameters = {
 	 *  color: <hex>,
-	 *  opacity: <float>,
 	 *  map: new THREE.Texture( <Image> ),
-	 *
-	 *	uvOffset: new THREE.Vector2(),
-	 *	uvScale: new THREE.Vector2()
+	 *  rotation: <float>,
+	 *  sizeAttenuation: <bool>
 	 * }
 	 */
 
@@ -24657,6 +25034,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		this.map = null;
 
 		this.rotation = 0;
+
+		this.sizeAttenuation = true;
 
 		this.lights = false;
 		this.transparent = true;
@@ -24677,6 +25056,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		this.map = source.map;
 
 		this.rotation = source.rotation;
+
+		this.sizeAttenuation = source.sizeAttenuation;
 
 		return this;
 
@@ -24741,6 +25122,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var vB = new Vector3();
 			var vC = new Vector3();
 
+			var uvA = new Vector2();
+			var uvB = new Vector2();
+			var uvC = new Vector2();
+
 			function transformVertex( vertexPosition, mvPosition, center, scale, sin, cos ) {
 
 				// compute position in camera space
@@ -24789,6 +25174,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				transformVertex( vB.set( 0.5, - 0.5, 0 ), mvPosition, center, worldScale, sin, cos );
 				transformVertex( vC.set( 0.5, 0.5, 0 ), mvPosition, center, worldScale, sin, cos );
 
+				uvA.set( 0, 0 );
+				uvB.set( 1, 0 );
+				uvC.set( 1, 1 );
+
 				// check first triangle
 				var intersect = raycaster.ray.intersectTriangle( vA, vB, vC, false, intersectPoint );
 
@@ -24796,6 +25185,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					// check second triangle
 					transformVertex( vB.set( - 0.5, 0.5, 0 ), mvPosition, center, worldScale, sin, cos );
+					uvB.set( 0, 1 );
+
 					intersect = raycaster.ray.intersectTriangle( vA, vC, vB, false, intersectPoint );
 					if ( intersect === null ) {
 
@@ -24813,6 +25204,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					distance: distance,
 					point: intersectPoint.clone(),
+					uv: Triangle.getUV( intersectPoint, vA, vB, vC, uvA, uvB, uvC, new Vector2() ),
 					face: null,
 					object: this
 
@@ -25554,7 +25946,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			return function raycast( raycaster, intersects ) {
 
 				var precision = raycaster.linePrecision;
-				var precisionSq = precision * precision;
 
 				var geometry = this.geometry;
 				var matrixWorld = this.matrixWorld;
@@ -25565,6 +25956,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				sphere.copy( geometry.boundingSphere );
 				sphere.applyMatrix4( matrixWorld );
+				sphere.radius += precision;
 
 				if ( raycaster.ray.intersectsSphere( sphere ) === false ) return;
 
@@ -25572,6 +25964,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				inverseMatrix.getInverse( matrixWorld );
 				ray.copy( raycaster.ray ).applyMatrix4( inverseMatrix );
+
+				var localPrecision = precision / ( ( this.scale.x + this.scale.y + this.scale.z ) / 3 );
+				var localPrecisionSq = localPrecision * localPrecision;
 
 				var vStart = new Vector3();
 				var vEnd = new Vector3();
@@ -25599,7 +25994,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 							var distSq = ray.distanceSqToSegment( vStart, vEnd, interRay, interSegment );
 
-							if ( distSq > precisionSq ) continue;
+							if ( distSq > localPrecisionSq ) continue;
 
 							interRay.applyMatrix4( this.matrixWorld ); //Move back to world space for distance calculation
 
@@ -25631,7 +26026,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 							var distSq = ray.distanceSqToSegment( vStart, vEnd, interRay, interSegment );
 
-							if ( distSq > precisionSq ) continue;
+							if ( distSq > localPrecisionSq ) continue;
 
 							interRay.applyMatrix4( this.matrixWorld ); //Move back to world space for distance calculation
 
@@ -25665,7 +26060,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 						var distSq = ray.distanceSqToSegment( vertices[ i ], vertices[ i + 1 ], interRay, interSegment );
 
-						if ( distSq > precisionSq ) continue;
+						if ( distSq > localPrecisionSq ) continue;
 
 						interRay.applyMatrix4( this.matrixWorld ); //Move back to world space for distance calculation
 
@@ -27725,7 +28120,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 					ear = cureLocalIntersections( ear, triangles, dim );
 					earcutLinked( ear, triangles, dim, minX, minY, invSize, 2 );
 
-				// as a last resort, try splitting the remaining polygon into two
+					// as a last resort, try splitting the remaining polygon into two
 
 				} else if ( pass === 2 ) {
 
@@ -29647,7 +30042,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	RingBufferGeometry.prototype.constructor = RingBufferGeometry;
 
 	/**
-	 * @author astrodud / http://astrodud.isgreat.org/
 	 * @author zz85 / https://github.com/zz85
 	 * @author bhouston / http://clara.io
 	 * @author Mugen87 / https://github.com/Mugen87
@@ -31350,6 +31744,128 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	};
 
 	/**
+	 * @author WestLangley / http://github.com/WestLangley
+	 *
+	 * parameters = {
+	 *  color: <hex>,
+	 *  opacity: <float>,
+	 *
+	 *  matcap: new THREE.Texture( <Image> ),
+	 *
+	 *  map: new THREE.Texture( <Image> ),
+	 *
+	 *  bumpMap: new THREE.Texture( <Image> ),
+	 *  bumpScale: <float>,
+	 *
+	 *  normalMap: new THREE.Texture( <Image> ),
+	 *  normalMapType: THREE.TangentSpaceNormalMap,
+	 *  normalScale: <Vector2>,
+	 *
+	 *  displacementMap: new THREE.Texture( <Image> ),
+	 *  displacementScale: <float>,
+	 *  displacementBias: <float>,
+	 *
+	 *  alphaMap: new THREE.Texture( <Image> ),
+	 *
+	 *  skinning: <bool>,
+	 *  morphTargets: <bool>,
+	 *  morphNormals: <bool>
+	 * }
+	 */
+
+	function MeshMatcapMaterial( parameters ) {
+
+		Material.call( this );
+
+		this.defines = { 'MATCAP': '' };
+
+		this.type = 'MeshMatcapMaterial';
+
+		this.color = new Color( 0xffffff ); // diffuse
+
+		this.matcap = null;
+
+		this.map = null;
+
+		this.bumpMap = null;
+		this.bumpScale = 1;
+
+		this.normalMap = null;
+		this.normalMapType = TangentSpaceNormalMap;
+		this.normalScale = new Vector2( 1, 1 );
+
+		this.displacementMap = null;
+		this.displacementScale = 1;
+		this.displacementBias = 0;
+
+		this.alphaMap = null;
+
+		this.skinning = false;
+		this.morphTargets = false;
+		this.morphNormals = false;
+
+		this.lights = false;
+
+		this.setValues( parameters );
+
+		// a matcap is required
+
+		if ( this.matcap === null ) {
+
+			var canvas = document.createElement( 'canvas' );
+			canvas.width = 1;
+			canvas.height = 1;
+
+			var context = canvas.getContext( '2d' );
+
+			context.fillStyle = '#fff';
+			context.fillRect( 0, 0, 1, 1 );
+
+			this.matcap = new THREE.CanvasTexture( canvas );
+
+		}
+
+	}
+
+	MeshMatcapMaterial.prototype = Object.create( Material.prototype );
+	MeshMatcapMaterial.prototype.constructor = MeshMatcapMaterial;
+
+	MeshMatcapMaterial.prototype.isMeshMatcapMaterial = true;
+
+	MeshMatcapMaterial.prototype.copy = function ( source ) {
+
+		Material.prototype.copy.call( this, source );
+
+		this.defines = { 'MATCAP': '' };
+
+		this.color.copy( source.color );
+
+		this.matcap = source.matcap;
+
+		this.map = source.map;
+
+		this.bumpMap = source.bumpMap;
+		this.bumpScale = source.bumpScale;
+
+		this.normalMap = source.normalMap;
+		this.normalMapType = source.normalMapType;
+		this.normalScale.copy( source.normalScale );
+
+		this.displacementMap = source.displacementMap;
+		this.displacementScale = source.displacementScale;
+		this.displacementBias = source.displacementBias;
+
+		this.alphaMap = source.alphaMap;
+
+		this.skinning = source.skinning;
+		this.morphTargets = source.morphTargets;
+		this.morphNormals = source.morphNormals;
+
+		return this;
+
+	};
+
+	/**
 	 * @author alteredq / http://alteredqualia.com/
 	 *
 	 * parameters = {
@@ -31412,6 +31928,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		MeshDepthMaterial: MeshDepthMaterial,
 		MeshDistanceMaterial: MeshDistanceMaterial,
 		MeshBasicMaterial: MeshBasicMaterial,
+		MeshMatcapMaterial: MeshMatcapMaterial,
 		LineDashedMaterial: LineDashedMaterial,
 		LineBasicMaterial: LineBasicMaterial,
 		Material: Material
@@ -31473,6 +31990,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		var itemsLoaded = 0;
 		var itemsTotal = 0;
 		var urlModifier = undefined;
+
+		// Refer to #5689 for the reason why we don't set .onStart
+		// in the constructor
 
 		this.onStart = undefined;
 		this.onLoad = onLoad;
@@ -31623,9 +32143,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				var isBase64 = !! dataUriRegexResult[ 2 ];
 				var data = dataUriRegexResult[ 3 ];
 
-				data = window.decodeURIComponent( data );
+				data = decodeURIComponent( data );
 
-				if ( isBase64 ) data = window.atob( data );
+				if ( isBase64 ) data = atob( data );
 
 				try {
 
@@ -31679,7 +32199,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 					}
 
 					// Wait for next browser tick like standard XMLHttpRequest event dispatching does
-					window.setTimeout( function () {
+					setTimeout( function () {
 
 						if ( onLoad ) onLoad( response );
 
@@ -31690,7 +32210,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				} catch ( error ) {
 
 					// Wait for next browser tick like standard XMLHttpRequest event dispatching does
-					window.setTimeout( function () {
+					setTimeout( function () {
 
 						if ( onError ) onError( error );
 
@@ -31775,6 +32295,24 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}, false );
 
 				request.addEventListener( 'error', function ( event ) {
+
+					var callbacks = loading[ url ];
+
+					delete loading[ url ];
+
+					for ( var i = 0, il = callbacks.length; i < il; i ++ ) {
+
+						var callback = callbacks[ i ];
+						if ( callback.onError ) callback.onError( event );
+
+					}
+
+					scope.manager.itemEnd( url );
+					scope.manager.itemError( url );
+
+				}, false );
+
+				request.addEventListener( 'abort', function ( event ) {
 
 					var callbacks = loading[ url ];
 
@@ -32009,7 +32547,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var loader = new FileLoader( this.manager );
 			loader.setResponseType( 'arraybuffer' );
-
+			loader.setPath( this.path );
 			loader.load( url, function ( buffer ) {
 
 				var texData = scope._parser( buffer );
@@ -32067,6 +32605,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 
 			return texture;
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
 
 		}
 
@@ -32274,7 +32819,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				texture.image = image;
 
 				// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
-				var isJPEG = url.search( /\.(jpg|jpeg)$/ ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
+				var isJPEG = url.search( /\.jpe?g$/i ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
 
 				texture.format = isJPEG ? RGBFormat : RGBAFormat;
 				texture.needsUpdate = true;
@@ -34618,6 +35163,148 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	} );
 
 	/**
+	 * @author alteredq / http://alteredqualia.com/
+	 * @author arose / http://github.com/arose
+	 */
+
+	function OrthographicCamera( left, right, top, bottom, near, far ) {
+
+		Camera.call( this );
+
+		this.type = 'OrthographicCamera';
+
+		this.zoom = 1;
+		this.view = null;
+
+		this.left = left;
+		this.right = right;
+		this.top = top;
+		this.bottom = bottom;
+
+		this.near = ( near !== undefined ) ? near : 0.1;
+		this.far = ( far !== undefined ) ? far : 2000;
+
+		this.updateProjectionMatrix();
+
+	}
+
+	OrthographicCamera.prototype = Object.assign( Object.create( Camera.prototype ), {
+
+		constructor: OrthographicCamera,
+
+		isOrthographicCamera: true,
+
+		copy: function ( source, recursive ) {
+
+			Camera.prototype.copy.call( this, source, recursive );
+
+			this.left = source.left;
+			this.right = source.right;
+			this.top = source.top;
+			this.bottom = source.bottom;
+			this.near = source.near;
+			this.far = source.far;
+
+			this.zoom = source.zoom;
+			this.view = source.view === null ? null : Object.assign( {}, source.view );
+
+			return this;
+
+		},
+
+		setViewOffset: function ( fullWidth, fullHeight, x, y, width, height ) {
+
+			if ( this.view === null ) {
+
+				this.view = {
+					enabled: true,
+					fullWidth: 1,
+					fullHeight: 1,
+					offsetX: 0,
+					offsetY: 0,
+					width: 1,
+					height: 1
+				};
+
+			}
+
+			this.view.enabled = true;
+			this.view.fullWidth = fullWidth;
+			this.view.fullHeight = fullHeight;
+			this.view.offsetX = x;
+			this.view.offsetY = y;
+			this.view.width = width;
+			this.view.height = height;
+
+			this.updateProjectionMatrix();
+
+		},
+
+		clearViewOffset: function () {
+
+			if ( this.view !== null ) {
+
+				this.view.enabled = false;
+
+			}
+
+			this.updateProjectionMatrix();
+
+		},
+
+		updateProjectionMatrix: function () {
+
+			var dx = ( this.right - this.left ) / ( 2 * this.zoom );
+			var dy = ( this.top - this.bottom ) / ( 2 * this.zoom );
+			var cx = ( this.right + this.left ) / 2;
+			var cy = ( this.top + this.bottom ) / 2;
+
+			var left = cx - dx;
+			var right = cx + dx;
+			var top = cy + dy;
+			var bottom = cy - dy;
+
+			if ( this.view !== null && this.view.enabled ) {
+
+				var zoomW = this.zoom / ( this.view.width / this.view.fullWidth );
+				var zoomH = this.zoom / ( this.view.height / this.view.fullHeight );
+				var scaleW = ( this.right - this.left ) / this.view.width;
+				var scaleH = ( this.top - this.bottom ) / this.view.height;
+
+				left += scaleW * ( this.view.offsetX / zoomW );
+				right = left + scaleW * ( this.view.width / zoomW );
+				top -= scaleH * ( this.view.offsetY / zoomH );
+				bottom = top - scaleH * ( this.view.height / zoomH );
+
+			}
+
+			this.projectionMatrix.makeOrthographic( left, right, top, bottom, this.near, this.far );
+
+			this.projectionMatrixInverse.getInverse( this.projectionMatrix );
+
+		},
+
+		toJSON: function ( meta ) {
+
+			var data = Object3D.prototype.toJSON.call( this, meta );
+
+			data.object.zoom = this.zoom;
+			data.object.left = this.left;
+			data.object.right = this.right;
+			data.object.top = this.top;
+			data.object.bottom = this.bottom;
+			data.object.near = this.near;
+			data.object.far = this.far;
+
+			if ( this.view !== null ) data.object.view = Object.assign( {}, this.view );
+
+			return data;
+
+		}
+
+	} );
+
+	/**
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
@@ -35399,9 +36086,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		this.setInterpolation( interpolation || this.DefaultInterpolation );
 
-		this.validate();
-		this.optimize();
-
 	}
 
 	// Static methods
@@ -35526,11 +36210,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				console.warn( 'THREE.KeyframeTrack:', message );
-				return;
+				return this;
 
 			}
 
 			this.createInterpolant = factoryMethod;
+
+			return this;
 
 		},
 
@@ -36068,8 +36754,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
-		this.optimize();
-
 	}
 
 	function getTrackTypeForValueTypeName( typeName ) {
@@ -36444,6 +37128,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			this.duration = duration;
 
+			return this;
+
 		},
 
 		trim: function () {
@@ -36455,6 +37141,20 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			}
 
 			return this;
+
+		},
+
+		validate: function () {
+
+			var valid = true;
+
+			for ( var i = 0; i < this.tracks.length; i ++ ) {
+
+				valid = valid && this.tracks[ i ].validate();
+
+			}
+
+			return valid;
 
 		},
 
@@ -36490,17 +37190,12 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var scope = this;
 
 			var loader = new FileLoader( scope.manager );
+			loader.setPath( scope.path );
 			loader.load( url, function ( text ) {
 
 				onLoad( scope.parse( JSON.parse( text ) ) );
 
 			}, onProgress, onError );
-
-		},
-
-		setTextures: function ( value ) {
-
-			this.textures = value;
 
 		},
 
@@ -36532,13 +37227,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( json.shininess !== undefined ) material.shininess = json.shininess;
 			if ( json.clearCoat !== undefined ) material.clearCoat = json.clearCoat;
 			if ( json.clearCoatRoughness !== undefined ) material.clearCoatRoughness = json.clearCoatRoughness;
-			if ( json.uniforms !== undefined ) material.uniforms = json.uniforms;
-			if ( json.vertexShader !== undefined ) material.vertexShader = json.vertexShader;
-			if ( json.fragmentShader !== undefined ) material.fragmentShader = json.fragmentShader;
 			if ( json.vertexColors !== undefined ) material.vertexColors = json.vertexColors;
 			if ( json.fog !== undefined ) material.fog = json.fog;
 			if ( json.flatShading !== undefined ) material.flatShading = json.flatShading;
 			if ( json.blending !== undefined ) material.blending = json.blending;
+			if ( json.combine !== undefined ) material.combine = json.combine;
 			if ( json.side !== undefined ) material.side = json.side;
 			if ( json.opacity !== undefined ) material.opacity = json.opacity;
 			if ( json.transparent !== undefined ) material.transparent = json.transparent;
@@ -36568,6 +37261,55 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			if ( json.visible !== undefined ) material.visible = json.visible;
 			if ( json.userData !== undefined ) material.userData = json.userData;
+
+			// Shader Material
+
+			if ( json.uniforms !== undefined ) {
+
+				for ( var name in json.uniforms ) {
+
+					var uniform = json.uniforms[ name ];
+
+					material.uniforms[ name ] = {};
+
+					switch ( uniform.type ) {
+
+						case 't':
+							material.uniforms[ name ].value = getTexture( uniform.value );
+							break;
+
+						case 'c':
+							material.uniforms[ name ].value = new Color().setHex( uniform.value );
+							break;
+
+						case 'v2':
+							material.uniforms[ name ].value = new Vector2().fromArray( uniform.value );
+							break;
+
+						case 'v3':
+							material.uniforms[ name ].value = new Vector3().fromArray( uniform.value );
+							break;
+
+						case 'v4':
+							material.uniforms[ name ].value = new Vector4().fromArray( uniform.value );
+							break;
+
+						case 'm4':
+							material.uniforms[ name ].value = new Matrix4().fromArray( uniform.value );
+							break;
+
+						default:
+							material.uniforms[ name ].value = uniform.value;
+
+					}
+
+				}
+
+			}
+
+			if ( json.defines !== undefined ) material.defines = json.defines;
+			if ( json.vertexShader !== undefined ) material.vertexShader = json.vertexShader;
+			if ( json.fragmentShader !== undefined ) material.fragmentShader = json.fragmentShader;
 
 			// Deprecated
 
@@ -36623,6 +37365,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( json.specularMap !== undefined ) material.specularMap = getTexture( json.specularMap );
 
 			if ( json.envMap !== undefined ) material.envMap = getTexture( json.envMap );
+			if ( json.envMapIntensity !== undefined ) material.envMapIntensity = json.envMapIntensity;
 
 			if ( json.reflectivity !== undefined ) material.reflectivity = json.reflectivity;
 
@@ -36636,9 +37379,66 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			return material;
 
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
+
+		},
+
+		setTextures: function ( value ) {
+
+			this.textures = value;
+			return this;
+
 		}
 
 	} );
+
+	/**
+	 * @author Don McCurdy / https://www.donmccurdy.com
+	 */
+
+	var LoaderUtils = {
+
+		decodeText: function ( array ) {
+
+			if ( typeof TextDecoder !== 'undefined' ) {
+
+				return new TextDecoder().decode( array );
+
+			}
+
+			// Avoid the String.fromCharCode.apply(null, array) shortcut, which
+			// throws a "maximum call stack size exceeded" error for large arrays.
+
+			var s = '';
+
+			for ( var i = 0, il = array.length; i < il; i ++ ) {
+
+				// Implicitly assumes little-endian.
+				s += String.fromCharCode( array[ i ] );
+
+			}
+
+			// Merges multi-byte utf-8 characters.
+			return decodeURIComponent( escape( s ) );
+
+		},
+
+		extractUrlBase: function ( url ) {
+
+			var index = url.lastIndexOf( '/' );
+
+			if ( index === - 1 ) return './';
+
+			return url.substr( 0, index + 1 );
+
+		}
+
+	};
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
@@ -36657,6 +37457,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			var scope = this;
 
 			var loader = new FileLoader( scope.manager );
+			loader.setPath( scope.path );
 			loader.load( url, function ( text ) {
 
 				onLoad( scope.parse( JSON.parse( text ) ) );
@@ -36720,6 +37521,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			}
 
 			return geometry;
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
 
 		}
 
@@ -37058,49 +37866,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	} );
 
 	/**
-	 * @author Don McCurdy / https://www.donmccurdy.com
-	 */
-
-	var LoaderUtils = {
-
-		decodeText: function ( array ) {
-
-			if ( typeof TextDecoder !== 'undefined' ) {
-
-				return new TextDecoder().decode( array );
-
-			}
-
-			// Avoid the String.fromCharCode.apply(null, array) shortcut, which
-			// throws a "maximum call stack size exceeded" error for large arrays.
-
-			var s = '';
-
-			for ( var i = 0, il = array.length; i < il; i ++ ) {
-
-				// Implicitly assumes little-endian.
-				s += String.fromCharCode( array[ i ] );
-
-			}
-
-			// Merges multi-byte utf-8 characters.
-			return decodeURIComponent( escape( s ) );
-
-		},
-
-		extractUrlBase: function ( url ) {
-
-			var index = url.lastIndexOf( '/' );
-
-			if ( index === - 1 ) return './';
-
-			return url.substr( 0, index + 1 );
-
-		}
-
-	};
-
-	/**
 	 * @author mrdoob / http://mrdoob.com/
 	 * @author alteredq / http://alteredqualia.com/
 	 */
@@ -37128,9 +37893,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var scope = this;
 
-			var texturePath = this.texturePath && ( typeof this.texturePath === 'string' ) ? this.texturePath : LoaderUtils.extractUrlBase( url );
+			var path = ( this.path === undefined ) ? LoaderUtils.extractUrlBase( url ) : this.path;
 
 			var loader = new FileLoader( this.manager );
+			loader.setPath( this.path );
 			loader.setWithCredentials( this.withCredentials );
 			loader.load( url, function ( text ) {
 
@@ -37154,23 +37920,30 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				}
 
-				var object = scope.parse( json, texturePath );
+				var object = scope.parse( json, path );
 				onLoad( object.geometry, object.materials );
 
 			}, onProgress, onError );
 
 		},
 
-		setCrossOrigin: function ( value ) {
+		setPath: function ( value ) {
 
-			this.crossOrigin = value;
+			this.path = value;
 			return this;
 
 		},
 
-		setTexturePath: function ( value ) {
+		setResourcePath: function ( value ) {
 
-			this.texturePath = value;
+			this.resourcePath = value;
+			return this;
+
+		},
+
+		setCrossOrigin: function ( value ) {
+
+			this.crossOrigin = value;
 			return this;
 
 		},
@@ -37618,7 +38391,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			return function parse( json, texturePath ) {
+			return function parse( json, path ) {
 
 				if ( json.data !== undefined ) {
 
@@ -37653,7 +38426,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				} else {
 
-					var materials = Loader.prototype.initMaterials( json.materials, texturePath, this.crossOrigin );
+					var materials = Loader.prototype.initMaterials( json.materials, this.resourcePath || path, this.crossOrigin );
 
 					return { geometry: geometry, materials: materials };
 
@@ -37672,7 +38445,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	function ObjectLoader( manager ) {
 
 		this.manager = ( manager !== undefined ) ? manager : DefaultLoadingManager;
-		this.texturePath = '';
+		this.resourcePath = '';
 
 	}
 
@@ -37682,15 +38455,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		load: function ( url, onLoad, onProgress, onError ) {
 
-			if ( this.texturePath === '' ) {
-
-				this.texturePath = url.substring( 0, url.lastIndexOf( '/' ) + 1 );
-
-			}
-
 			var scope = this;
 
+			var path = ( this.path === undefined ) ? LoaderUtils.extractUrlBase( url ) : this.path;
+			this.resourcePath = this.resourcePath || path;
+
 			var loader = new FileLoader( scope.manager );
+			loader.setPath( this.path );
 			loader.load( url, function ( text ) {
 
 				var json = null;
@@ -37724,9 +38495,16 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		setTexturePath: function ( value ) {
+		setPath: function ( value ) {
 
-			this.texturePath = value;
+			this.path = value;
+			return this;
+
+		},
+
+		setResourcePath: function ( value ) {
+
+			this.resourcePath = value;
 			return this;
 
 		},
@@ -38029,7 +38807,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 						case 'Geometry':
 
-							geometry = geometryLoader.parse( data, this.texturePath ).geometry;
+							geometry = geometryLoader.parse( data, this.resourcePath ).geometry;
 
 							break;
 
@@ -38161,7 +38939,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 							var currentUrl = url[ j ];
 
-							var path = /^(\/\/)|([a-z]+:(\/\/)?)/i.test( currentUrl ) ? currentUrl : scope.texturePath + currentUrl;
+							var path = /^(\/\/)|([a-z]+:(\/\/)?)/i.test( currentUrl ) ? currentUrl : scope.resourcePath + currentUrl;
 
 							images[ image.uuid ].push( loadImage( path ) );
 
@@ -38171,7 +38949,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 						// load single image
 
-						var path = /^(\/\/)|([a-z]+:(\/\/)?)/i.test( image.url ) ? image.url : scope.texturePath + image.url;
+						var path = /^(\/\/)|([a-z]+:(\/\/)?)/i.test( image.url ) ? image.url : scope.resourcePath + image.url;
 
 						images[ image.uuid ] = loadImage( path );
 
@@ -39206,6 +39984,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var loader = new FileLoader( this.manager );
 			loader.setResponseType( 'arraybuffer' );
+			loader.setPath( this.path );
 			loader.load( url, function ( buffer ) {
 
 				// Create a copy of the buffer. The `decodeAudioData` method
@@ -39220,6 +39999,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				} );
 
 			}, onProgress, onError );
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
 
 		}
 
@@ -39670,6 +40456,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( this.isPlaying === true ) {
 
 				this.source.stop();
+				this.source.onended = null;
 				this.offset += ( this.context.currentTime - this.startTime ) * this.playbackRate;
 				this.isPlaying = false;
 
@@ -39689,6 +40476,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			}
 
 			this.source.stop();
+			this.source.onended = null;
 			this.offset = 0;
 			this.isPlaying = false;
 
@@ -40823,15 +41611,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			// determine versioning scheme
 			var versioning = this.Versioning.None;
 
+			this.targetObject = targetObject;
+
 			if ( targetObject.needsUpdate !== undefined ) { // material
 
 				versioning = this.Versioning.NeedsUpdate;
-				this.targetObject = targetObject;
 
 			} else if ( targetObject.matrixWorldNeedsUpdate !== undefined ) { // node transform
 
 				versioning = this.Versioning.MatrixWorldNeedsUpdate;
-				this.targetObject = targetObject;
 
 			}
 
@@ -41796,13 +42584,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		_updateTime: function ( deltaTime ) {
 
 			var time = this.time + deltaTime;
+			var duration = this._clip.duration;
+			var loop = this.loop;
+			var loopCount = this._loopCount;
 
-			if ( deltaTime === 0 ) return time;
+			var pingPong = ( loop === LoopPingPong );
 
-			var duration = this._clip.duration,
+			if ( deltaTime === 0 ) {
 
-				loop = this.loop,
-				loopCount = this._loopCount;
+				if ( loopCount === - 1 ) return time;
+
+				return ( pingPong && ( loopCount & 1 ) === 1 ) ? duration - time : time;
+
+			}
 
 			if ( loop === LoopOnce ) {
 
@@ -41838,8 +42632,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 			} else { // repetitive Repeat or PingPong
-
-				var pingPong = ( loop === LoopPingPong );
 
 				if ( loopCount === - 1 ) {
 
@@ -42838,9 +43630,19 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 * @author benaadams / https://twitter.com/ben_a_adams
 	 */
 
-	function InstancedBufferAttribute( array, itemSize, meshPerAttribute ) {
+	function InstancedBufferAttribute( array, itemSize, normalized, meshPerAttribute ) {
 
-		BufferAttribute.call( this, array, itemSize );
+		if ( typeof ( normalized ) === 'number' ) {
+
+			meshPerAttribute = normalized;
+
+			normalized = false;
+
+			console.error( 'THREE.InstancedBufferAttribute: The constructor now expects normalized as the third argument.' );
+
+		}
+
+		BufferAttribute.call( this, array, itemSize, normalized );
 
 		this.meshPerAttribute = meshPerAttribute || 1;
 
@@ -43071,15 +43873,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 *
 	 * Ref: https://en.wikipedia.org/wiki/Spherical_coordinate_system
 	 *
-	 * The poles (phi) are at the positive and negative y axis.
-	 * The equator starts at positive z.
+	 * The polar angle (phi) is measured from the positive y-axis. The positive y-axis is up.
+	 * The azimuthal angle (theta) is measured from the positive z-axiz.
 	 */
 
 	function Spherical( radius, phi, theta ) {
 
 		this.radius = ( radius !== undefined ) ? radius : 1.0;
-		this.phi = ( phi !== undefined ) ? phi : 0; // up / down towards top and bottom pole
-		this.theta = ( theta !== undefined ) ? theta : 0; // around the equator of the sphere
+		this.phi = ( phi !== undefined ) ? phi : 0; // polar angle
+		this.theta = ( theta !== undefined ) ? theta : 0; // azimuthal angle
 
 		return this;
 
@@ -43123,9 +43925,15 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		setFromVector3: function ( vec3 ) {
+		setFromVector3: function ( v ) {
 
-			this.radius = vec3.length();
+			return this.setFromCartesianCoords( v.x, v.y, v.z );
+
+		},
+
+		setFromCartesianCoords: function ( x, y, z ) {
+
+			this.radius = Math.sqrt( x * x + y * y + z * z );
 
 			if ( this.radius === 0 ) {
 
@@ -43134,8 +43942,8 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			} else {
 
-				this.theta = Math.atan2( vec3.x, vec3.z ); // equator angle around y-up axis
-				this.phi = Math.acos( _Math.clamp( vec3.y / this.radius, - 1, 1 ) ); // polar angle
+				this.theta = Math.atan2( x, z );
+				this.phi = Math.acos( _Math.clamp( y / this.radius, - 1, 1 ) );
 
 			}
 
@@ -43190,11 +43998,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		setFromVector3: function ( vec3 ) {
+		setFromVector3: function ( v ) {
 
-			this.radius = Math.sqrt( vec3.x * vec3.x + vec3.z * vec3.z );
-			this.theta = Math.atan2( vec3.x, vec3.z );
-			this.y = vec3.y;
+			return this.setFromCartesianCoords( v.x, v.y, v.z );
+
+		},
+
+		setFromCartesianCoords: function ( x, y, z ) {
+
+			this.radius = Math.sqrt( x * x + z * z );
+			this.theta = Math.atan2( x, z );
+			this.y = y;
 
 			return this;
 
@@ -45435,6 +46249,28 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
+	Object.assign( JSONLoader.prototype, {
+
+		setTexturePath: function ( value ) {
+
+			console.warn( 'THREE.JSONLoader: .setTexturePath() has been renamed to .setResourcePath().' );
+			return this.setResourcePath( value );
+
+		}
+
+	} );
+
+	Object.assign( ObjectLoader.prototype, {
+
+		setTexturePath: function ( value ) {
+
+			console.warn( 'THREE.ObjectLoader: .setTexturePath() has been renamed to .setResourcePath().' );
+			return this.setResourcePath( value );
+
+		}
+
+	} );
+
 	//
 
 	Object.assign( Box2.prototype, {
@@ -46330,6 +47166,14 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	Object.assign( WebGLRenderer.prototype, {
 
+		clearTarget: function ( renderTarget, color, depth, stencil ) {
+
+			console.warn( 'THREE.WebGLRenderer: .clearTarget() has been deprecated. Use .setRenderTarget() and .clear() instead.' );
+			this.setRenderTarget( renderTarget );
+			this.clear( color, depth, stencil );
+
+		},
+
 		animate: function ( callback ) {
 
 			console.warn( 'THREE.WebGLRenderer: .animate() is now .setAnimationLoop().' );
@@ -46691,6 +47535,13 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				console.warn( 'THREE.WebVRManager: .standing has been removed.' );
 
 			}
+		},
+		userHeight: {
+			set: function ( /* value */ ) {
+
+				console.warn( 'THREE.WebVRManager: .userHeight has been removed.' );
+
+			}
 		}
 
 	} );
@@ -46899,6 +47750,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	exports.Group = Group;
 	exports.VideoTexture = VideoTexture;
 	exports.DataTexture = DataTexture;
+	exports.DataTexture3D = DataTexture3D;
 	exports.CompressedTexture = CompressedTexture;
 	exports.CubeTexture = CubeTexture;
 	exports.CanvasTexture = CanvasTexture;
@@ -47076,6 +47928,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	exports.MeshDepthMaterial = MeshDepthMaterial;
 	exports.MeshDistanceMaterial = MeshDistanceMaterial;
 	exports.MeshBasicMaterial = MeshBasicMaterial;
+	exports.MeshMatcapMaterial = MeshMatcapMaterial;
 	exports.LineDashedMaterial = LineDashedMaterial;
 	exports.LineBasicMaterial = LineBasicMaterial;
 	exports.Material = Material;
@@ -47193,6 +48046,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	exports.RGBEFormat = RGBEFormat;
 	exports.DepthFormat = DepthFormat;
 	exports.DepthStencilFormat = DepthStencilFormat;
+	exports.RedFormat = RedFormat;
 	exports.RGB_S3TC_DXT1_Format = RGB_S3TC_DXT1_Format;
 	exports.RGBA_S3TC_DXT1_Format = RGBA_S3TC_DXT1_Format;
 	exports.RGBA_S3TC_DXT3_Format = RGBA_S3TC_DXT3_Format;
@@ -47281,2920 +48135,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
-
-/*global ArrayBuffer, Uint32Array, Int32Array, Float32Array, Int8Array, Uint8Array, window, performance, Console*/
-
-/*
-Copyright (c) 2013 Khaled Mammou - Advanced Micro Devices, Inc.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
-
-var o3dgc = (function () {
-    "use strict";
-    var module, local;
-    module = {};
-    local = {};
-    local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0 = 7;
-    local.O3DGC_BINARY_STREAM_MAX_SYMBOL0 = 127; // ((1 << O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0) >>> 0) - 1;
-    local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL1 = 6;
-    local.O3DGC_BINARY_STREAM_MAX_SYMBOL1 = 63; // ((1 << O3DGC_BINARY_STREAM_BITS_PER_SYMBOL1) >>> 0) - 1;
-    local.O3DGC_BINARY_STREAM_NUM_SYMBOLS_UINT32 = 5; // Math.floor((32 + O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0 - 1) / O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0);
-    local.O3DGC_BIG_ENDIAN = 0;
-    local.O3DGC_LITTLE_ENDIAN = 1;
-    local.O3DGC_MAX_DOUBLE = 1.79769e+308;
-    local.O3DGC_MIN_LONG = -2147483647;
-    local.O3DGC_MAX_LONG = 2147483647;
-    local.O3DGC_MAX_UCHAR8 = 255;
-    local.O3DGC_MAX_TFAN_SIZE = 256;
-    local.O3DGC_MAX_ULONG = 4294967295;
-    local.O3DGC_SC3DMC_START_CODE = 0x00001F1;
-    local.O3DGC_DV_START_CODE = 0x00001F2;
-    local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES = 256;
-    local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES = 256;
-    local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES = 32;
-    local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS = 2;
-    local.O3DGC_SC3DMC_BINARIZATION_FL = 0; // Fixed Length (not supported)
-    local.O3DGC_SC3DMC_BINARIZATION_BP = 1; // BPC (not supported)
-    local.O3DGC_SC3DMC_BINARIZATION_FC = 2; // 4 bits Coding (not supported)
-    local.O3DGC_SC3DMC_BINARIZATION_AC = 3; // Arithmetic Coding (not supported)
-    local.O3DGC_SC3DMC_BINARIZATION_AC_EGC = 4; // Arithmetic Coding & EGCk
-    local.O3DGC_SC3DMC_BINARIZATION_ASCII = 5; // Arithmetic Coding & EGCk
-    local.O3DGC_STREAM_TYPE_UNKOWN = 0;
-    local.O3DGC_STREAM_TYPE_ASCII = 1;
-    local.O3DGC_STREAM_TYPE_BINARY = 2;
-    local.O3DGC_SC3DMC_NO_PREDICTION = 0; // supported
-    local.O3DGC_SC3DMC_DIFFERENTIAL_PREDICTION = 1; // supported
-    local.O3DGC_SC3DMC_XOR_PREDICTION = 2; // not supported
-    local.O3DGC_SC3DMC_ADAPTIVE_DIFFERENTIAL_PREDICTION = 3; // not supported
-    local.O3DGC_SC3DMC_CIRCULAR_DIFFERENTIAL_PREDICTION = 4; // not supported
-    local.O3DGC_SC3DMC_PARALLELOGRAM_PREDICTION = 5; // supported
-    local.O3DGC_SC3DMC_SURF_NORMALS_PREDICTION = 6; // supported
-    local.O3DGC_SC3DMC_ENCODE_MODE_QBCR = 0; // not supported
-    local.O3DGC_SC3DMC_ENCODE_MODE_SVA = 1; // not supported
-    local.O3DGC_SC3DMC_ENCODE_MODE_TFAN = 2; // supported
-    local.O3DGC_DYNAMIC_VECTOR_ENCODE_MODE_LIFT = 0;
-    local.O3DGC_MIN_NEIGHBORS_SIZE = 128;
-    local.O3DGC_MIN_NUM_NEIGHBORS_SIZE = 16;
-    local.O3DGC_TFANS_MIN_SIZE_ALLOCATED_VERTICES_BUFFER = 128;
-    local.O3DGC_TFANS_MIN_SIZE_TFAN_SIZE_BUFFER = 8;
-    local.O3DGC_DEFAULT_VECTOR_SIZE = 32;
-
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_UNKOWN = 0;
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_POSITION = 1;
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_NORMAL = 2;
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_COLOR = 3;
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_TEXCOORD = 4;
-    module.O3DGC_IFS_FLOAT_ATTRIBUTE_TYPE_WEIGHT = 5;
-    module.O3DGC_IFS_INT_ATTRIBUTE_TYPE_UNKOWN = 0;
-    module.O3DGC_IFS_INT_ATTRIBUTE_TYPE_INDEX = 1;
-    module.O3DGC_IFS_INT_ATTRIBUTE_TYPE_JOINT_ID = 2;
-    module.O3DGC_IFS_INT_ATTRIBUTE_TYPE_INDEX_BUFFER_ID = 3;
-
-    module.O3DGC_OK = 0;
-    module.O3DGC_ERROR_BUFFER_FULL = 1;
-    module.O3DGC_ERROR_CORRUPTED_STREAM = 5;
-    module.O3DGC_ERROR_NON_SUPPORTED_FEATURE = 6;
-    module.O3DGC_ERROR_AC = 7;
-
-    function SystemEndianness() {
-        var a, b, c;
-        b = new ArrayBuffer(4);
-        a = new Uint32Array(b);
-        c = new Uint8Array(b);
-        a[0] = 1;
-        if (c[0] === 1) {
-            return local.O3DGC_LITTLE_ENDIAN;
-        }
-        return local.O3DGC_BIG_ENDIAN;
-    }
-    // SC3DMCStats class
-    module.SC3DMCStats = function () {
-        this.m_timeCoord = 0;
-        this.m_timeNormal = 0;
-        this.m_timeCoordIndex = 0;
-        this.m_timeFloatAttribute = new Float32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_timeIntAttribute = new Float32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-        this.m_timeReorder = 0;
-        this.m_streamSizeCoord = 0;
-        this.m_streamSizeNormal = 0;
-        this.m_streamSizeCoordIndex = 0;
-        this.m_streamSizeFloatAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_streamSizeIntAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-    };
-    // SC3DMCTriplet class
-    module.SC3DMCTriplet = function (a, b, c) {
-        this.m_a = a;
-        this.m_b = b;
-        this.m_c = c;
-    };
-    module.SC3DMCTriplet.prototype.Less = function (rhs) {
-        var res;
-        if (this.m_c !== rhs.m_c) {
-            res = (this.m_c < rhs.m_c);
-        } else if (this.m_b !== rhs.m_b) {
-            res = (this.m_b < rhs.m_b);
-        } else {
-            res = (this.m_a < rhs.m_a);
-        }
-        return res;
-    };
-    module.SC3DMCTriplet.prototype.Equal = function (rhs) {
-        return (this.m_c === rhs.m_c && this.m_b === rhs.m_b && this.m_a === rhs.m_a);
-    };
-    // SC3DMCPredictor class
-    module.SC3DMCPredictor = function () {
-        this.m_id = new module.SC3DMCTriplet(-1, -1, -1);
-        this.m_pred = new Float32Array(local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES);
-    };
-    // fix me: optimize this function (e.g., binary search)
-    function InsertPredictor(e, nPred, list, dimFloatArray) {
-        var pos, foundOrInserted, j, j1, j0, h, i;
-        pos = -1;
-        foundOrInserted = false;
-        j1 = nPred.m_value;
-        j0 = 0;
-        for (j = j0; j < j1; ++j) {
-            if (e.Equal(list[j].m_id)) {
-                foundOrInserted = true;
-                break;
-            } else if (e.Less(list[j].m_id)) {
-                if (nPred.m_value < local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS) {
-                    ++nPred.m_value;
-                }
-                for (h = nPred.m_value - 1; h > j; --h) {
-                    list[h].m_id.m_a = list[h - 1].m_id.m_a;
-                    list[h].m_id.m_b = list[h - 1].m_id.m_b;
-                    list[h].m_id.m_c = list[h - 1].m_id.m_c;
-                    for (i = 0; i < dimFloatArray; ++i) {
-                        list[h].m_pred[i] = list[h - 1].m_pred[i];
-                    }
-                }
-                list[j].m_id.m_a = e.m_a;
-                list[j].m_id.m_b = e.m_b;
-                list[j].m_id.m_c = e.m_c;
-                pos = j;
-                foundOrInserted = true;
-                break;
-            }
-        }
-        if (!foundOrInserted && nPred.m_value < local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS) {
-            pos = nPred.m_value++;
-            list[pos].m_id.m_a = e.m_a;
-            list[pos].m_id.m_b = e.m_b;
-            list[pos].m_id.m_c = e.m_c;
-        }
-        return pos;
-    }
-    // Timer class
-    if (typeof window.performance === 'undefined') {
-        window.performance = {};
-    }
-    if (!window.performance.now) {
-        local.nowOffset = Date.now();
-        if (performance.timing && performance.timing.navigationStart) {
-            local.nowOffset = performance.timing.navigationStart;
-        }
-        window.performance.now = function now() {
-            return Date.now() - local.nowOffset;
-        };
-    }
-    module.Timer = function () {
-        this.m_start = 0;
-        this.m_end = 0;
-    };
-    module.Timer.prototype.Tic = function () {
-        this.m_start = window.performance.now();
-    };
-    module.Timer.prototype.Toc = function () {
-        this.m_end = window.performance.now();
-    };
-    module.Timer.prototype.GetElapsedTime = function () {
-        return this.m_end - this.m_start;
-    };
-    // Vec3 class
-    module.Vec3 = function (x, y, z) {
-        this.m_x = x;
-        this.m_y = y;
-        this.m_z = z;
-    };
-    module.Vec3.prototype.Set = function (x, y, z) {
-        this.m_x = x;
-        this.m_y = y;
-        this.m_z = z;
-    };
-    module.Vec3.prototype.Sub = function (lhs, rhs) {
-        this.m_x = lhs.m_x - rhs.m_x;
-        this.m_y = lhs.m_y - rhs.m_y;
-        this.m_z = lhs.m_z - rhs.m_z;
-    };
-    module.Vec3.prototype.Add = function (lhs, rhs) {
-        this.m_x = lhs.m_x + rhs.m_x;
-        this.m_y = lhs.m_y + rhs.m_y;
-        this.m_z = lhs.m_z + rhs.m_z;
-    };
-    module.Vec3.prototype.SelfAdd = function (v) {
-        this.m_x += v.m_x;
-        this.m_y += v.m_y;
-        this.m_z += v.m_z;
-    };
-    module.Vec3.prototype.Cross = function (lhs, rhs) {
-        this.m_x = lhs.m_y * rhs.m_z - lhs.m_z * rhs.m_y;
-        this.m_y = lhs.m_z * rhs.m_x - lhs.m_x * rhs.m_z;
-        this.m_z = lhs.m_x * rhs.m_y - lhs.m_y * rhs.m_x;
-    };
-    module.Vec3.prototype.GetNorm = function () {
-        return Math.sqrt(this.m_x * this.m_x + this.m_y * this.m_y + this.m_z * this.m_z);
-    };
-    function SphereToCube(vin, vout) {
-        var ax, ay, az;
-        ax = Math.abs(vin.m_x);
-        ay = Math.abs(vin.m_y);
-        az = Math.abs(vin.m_z);
-        if (az >= ax && az >= ay) {
-            if (vin.m_z >= 0) {
-                vout.m_z = 0;
-                vout.m_x = vin.m_x;
-                vout.m_y = vin.m_y;
-            } else {
-                vout.m_z = 1;
-                vout.m_x = -vin.m_x;
-                vout.m_y = -vin.m_y;
-            }
-        } else if (ay >= ax && ay >= az) {
-            if (vin.m_y >= 0) {
-                vout.m_z = 2;
-                vout.m_x = vin.m_z;
-                vout.m_y = vin.m_x;
-            } else {
-                vout.m_z = 3;
-                vout.m_x = -vin.m_z;
-                vout.m_y = -vin.m_x;
-            }
-        } else {
-            if (vin.m_x >= 0) {
-                vout.m_z = 4;
-                vout.m_x = vin.m_y;
-                vout.m_y = vin.m_z;
-            } else {
-                vout.m_z = 5;
-                vout.m_x = -vin.m_y;
-                vout.m_y = -vin.m_z;
-            }
-        }
-    }
-    local.CubeToSphere = {
-        0: function (vin, vout) {
-            vout.m_x = vin.m_x;
-            vout.m_y = vin.m_y;
-            vout.m_z = Math.sqrt(Math.max(0.0, 1.0 - vout.m_x * vout.m_x - vout.m_y * vout.m_y));
-        },
-        1: function (vin, vout) {
-            vout.m_x = -vin.m_x;
-            vout.m_y = -vin.m_y;
-            vout.m_z = -Math.sqrt(Math.max(0.0, 1.0 - vout.m_x * vout.m_x - vout.m_y * vout.m_y));
-        },
-        2: function (vin, vout) {
-            vout.m_z = vin.m_x;
-            vout.m_x = vin.m_y;
-            vout.m_y = Math.sqrt(Math.max(0.0, 1.0 - vout.m_x * vout.m_x - vout.m_z * vout.m_z));
-        },
-        3: function (vin, vout) {
-            vout.m_z = -vin.m_x;
-            vout.m_x = -vin.m_y;
-            vout.m_y = -Math.sqrt(Math.max(0.0, 1.0 - vout.m_x * vout.m_x - vout.m_z * vout.m_z));
-        },
-        4: function (vin, vout) {
-            vout.m_y = vin.m_x;
-            vout.m_z = vin.m_y;
-            vout.m_x = Math.sqrt(Math.max(0.0, 1.0 - vout.m_y * vout.m_y - vout.m_z * vout.m_z));
-        },
-        5: function (vin, vout) {
-            vout.m_y = -vin.m_x;
-            vout.m_z = -vin.m_y;
-            vout.m_x = -Math.sqrt(Math.max(0.0, 1.0 - vout.m_y * vout.m_y - vout.m_z * vout.m_z));
-        }
-    };
-    function IntToUInt(value) {
-        return (value < 0) ? (-1 - (2 * value)) : (2 * value);
-    }
-    function UIntToInt(uiValue) {
-        return (uiValue & 1) ? -((uiValue + 1) >>> 1) : ((uiValue >>> 1));
-    }
-    module.Iterator = function () {
-        this.m_count = 0;
-    };
-    module.NumberRef = function () {
-        this.m_value = 0;
-    };
-    // BinaryStream class
-    module.BinaryStream = function (buffer) {
-        this.m_endianness = SystemEndianness();
-        this.m_buffer = buffer;
-        this.m_stream = new Uint8Array(this.m_buffer);
-        this.m_localBuffer = new ArrayBuffer(4);
-        this.m_localBufferViewUChar8 = new Uint8Array(this.m_localBuffer);
-        this.m_localBufferViewFloat32 = new Float32Array(this.m_localBuffer);
-        this.m_localBufferViewUInt32 = new Uint32Array(this.m_localBuffer);
-    };
-    module.BinaryStream.prototype.ReadFloat32Bin = function (bsIterator) {
-        if (this.m_endianness === local.O3DGC_BIG_ENDIAN) {
-            this.m_localBufferViewUChar8[3] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[2] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[1] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[0] = this.m_stream[bsIterator.m_count++];
-        } else {
-            this.m_localBufferViewUChar8[0] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[1] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[2] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[3] = this.m_stream[bsIterator.m_count++];
-        }
-        return this.m_localBufferViewFloat32[0];
-    };
-    module.BinaryStream.prototype.ReadUInt32Bin = function (bsIterator) {
-        if (this.m_endianness === local.O3DGC_BIG_ENDIAN) {
-            this.m_localBufferViewUChar8[3] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[2] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[1] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[0] = this.m_stream[bsIterator.m_count++];
-        } else {
-            this.m_localBufferViewUChar8[0] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[1] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[2] = this.m_stream[bsIterator.m_count++];
-            this.m_localBufferViewUChar8[3] = this.m_stream[bsIterator.m_count++];
-        }
-        return this.m_localBufferViewUInt32[0];
-    };
-    module.BinaryStream.prototype.ReadUChar8Bin = function (bsIterator) {
-        return this.m_stream[bsIterator.m_count++];
-    };
-    module.BinaryStream.prototype.ReadUInt32ASCII = function (bsIterator) {
-        var value, shift, i;
-        value = 0;
-        shift = 0;
-        for (i = 0; i < local.O3DGC_BINARY_STREAM_NUM_SYMBOLS_UINT32; ++i) {
-            value += (this.m_stream[bsIterator.m_count++] << shift) >>> 0;
-            shift += local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0;
-        }
-        return value;
-    };
-    module.BinaryStream.prototype.ReadFloat32ASCII = function (bsIterator) {
-        var value = this.ReadUInt32ASCII(bsIterator);
-        if (this.m_endianness === local.O3DGC_BIG_ENDIAN) {
-            this.m_localBufferViewUChar8[3] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[2] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[1] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[0] = value & local.O3DGC_MAX_UCHAR8;
-        } else {
-            this.m_localBufferViewUChar8[0] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[1] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[2] = value & local.O3DGC_MAX_UCHAR8;
-            value >>>= 8;
-            this.m_localBufferViewUChar8[3] = value & local.O3DGC_MAX_UCHAR8;
-        }
-        return this.m_localBufferViewFloat32[0];
-    };
-    module.BinaryStream.prototype.ReadIntASCII = function (bsIterator) {
-        return UIntToInt(this.ReadUIntASCII(bsIterator));
-    };
-    module.BinaryStream.prototype.ReadUIntASCII = function (bsIterator) {
-        var i, x, value;
-        value = this.m_stream[bsIterator.m_count++];
-        if (value === local.O3DGC_BINARY_STREAM_MAX_SYMBOL0) {
-            i = 0;
-            do {
-                x = this.m_stream[bsIterator.m_count++];
-                value += ((x >>> 1) << i) >>> 0;
-                i += local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL1;
-            } while (x & 1);
-        }
-        return value;
-    };
-    module.BinaryStream.prototype.ReadUCharASCII = function (bsIterator) {
-        return this.m_stream[bsIterator.m_count++];
-    };
-    module.BinaryStream.prototype.ReadFloat32 = function (bsIterator, streamType) {
-        if (streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            return this.ReadFloat32ASCII(bsIterator);
-        }
-        return this.ReadFloat32Bin(bsIterator);
-    };
-    module.BinaryStream.prototype.ReadUInt32 = function (bsIterator, streamType) {
-        if (streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            return this.ReadUInt32ASCII(bsIterator);
-        }
-        return this.ReadUInt32Bin(bsIterator);
-    };
-    module.BinaryStream.prototype.ReadUChar = function (bsIterator, streamType) {
-        if (streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            return this.ReadUCharASCII(bsIterator);
-        }
-        return this.ReadUChar8Bin(bsIterator);
-    };
-    module.BinaryStream.prototype.GetBuffer = function (bsIterator, size) {
-        return new Uint8Array(this.m_buffer, bsIterator.m_count, size);
-    };
-
-    // Copyright (c) 2004 Amir Said (said@ieee.org) & William A. Pearlman (pearlw@ecse.rpi.edu)
-    // All rights reserved.
-
-    local.O3DGC_AC_MIN_LENGTH = 0x01000000;   // threshold for renormalization
-    local.O3DGC_AC_MAX_LENGTH = 0xFFFFFFFF;      // maximum AC interval length
-    local.O3DGC_AC_BM_LENGTH_SHIFT = 13;     // Maximum values for binary models length bits discarded before mult.
-    local.O3DGC_AC_BM_MAX_COUNT = (1 << local.O3DGC_AC_BM_LENGTH_SHIFT) >>> 0;  // for adaptive models
-    local.O3DGC_AC_DM_LENGTH_SHIFT = 15; // Maximum values for general models length bits discarded before mult.
-    local.O3DGC_AC_DM_MAX_COUNT = (1 << local.O3DGC_AC_DM_LENGTH_SHIFT) >>> 0;  // for adaptive models
-    // StaticBitModel class 
-    module.StaticBitModel = function () {
-        this.m_bit0Prob = (1 << (local.O3DGC_AC_BM_LENGTH_SHIFT - 1)) >>> 0; // p0 = 0.5
-    };
-    module.StaticBitModel.prototype.SetProbability = function (p) {
-        this.m_bit0Prob = Math.floor(p * ((1 << local.O3DGC_AC_BM_LENGTH_SHIFT) >>> 0));
-    };
-    // AdaptiveBitModel class 
-    module.AdaptiveBitModel = function () {
-        // initialization to equiprobable model
-        this.m_updateCycle = 4;
-        this.m_bitsUntilUpdate = 4;
-        this.m_bit0Prob = (1 << (local.O3DGC_AC_BM_LENGTH_SHIFT - 1)) >>> 0;
-        this.m_bit0Count = 1;
-        this.m_bitCount = 2;
-    };
-    module.AdaptiveBitModel.prototype.Reset = function () {
-        this.m_updateCycle = 4;
-        this.m_bitsUntilUpdate = 4;
-        this.m_bit0Prob = (1 << (local.O3DGC_AC_BM_LENGTH_SHIFT - 1)) >>> 0;
-        this.m_bit0Count = 1;
-        this.m_bitCount = 2;
-    };
-    module.AdaptiveBitModel.prototype.Update = function () {
-        // halve counts when a threshold is reached
-        if ((this.m_bitCount += this.m_updateCycle) > local.O3DGC_AC_BM_MAX_COUNT) {
-            this.m_bitCount = (this.m_bitCount + 1) >>> 1;
-            this.m_bit0Count = (this.m_bit0Count + 1) >>> 1;
-            if (this.m_bit0Count === this.m_bitCount) {
-                ++this.m_bitCount;
-            }
-        }
-        // compute scaled bit 0 probability
-        var scale = Math.floor(0x80000000 / this.m_bitCount);
-        this.m_bit0Prob = (this.m_bit0Count * scale) >>> (31 - local.O3DGC_AC_BM_LENGTH_SHIFT);
-        // set frequency of model updates
-        this.m_updateCycle = (5 * this.m_updateCycle) >>> 2;
-        if (this.m_updateCycle > 64) {
-            this.m_updateCycle = 64;
-        }
-        this.m_bitsUntilUpdate = this.m_updateCycle;
-    };
-    // AdaptiveDataModel class 
-    module.AdaptiveDataModel = function () {
-        this.m_buffer = {};
-        this.m_distribution = {};
-        this.m_symbolCount = {};
-        this.m_decoderTable = {};
-        this.m_totalCount = 0;
-        this.m_updateCycle = 0;
-        this.m_symbolsUntilUpdate = 0;
-        this.m_dataSymbols = 0;
-        this.m_lastSymbol = 0;
-        this.m_tableSize = 0;
-        this.m_tableShift = 0;
-    };
-    module.AdaptiveDataModel.prototype.Update = function () {
-        var n, sum, s, scale, k, max_cycle, w;
-        // halve counts when a threshold is reached
-        if ((this.m_totalCount += this.m_updateCycle) > local.O3DGC_AC_DM_MAX_COUNT) {
-            this.m_totalCount = 0;
-            for (n = 0; n < this.m_dataSymbols; ++n) {
-                this.m_totalCount += (this.m_symbolCount[n] = (this.m_symbolCount[n] + 1) >>> 1);
-            }
-        }
-        // compute cumulative distribution, decoder table
-        sum = 0;
-        s = 0;
-        scale = Math.floor(0x80000000 / this.m_totalCount);
-        if (this.m_tableSize === 0) {
-            for (k = 0; k < this.m_dataSymbols; ++k) {
-                this.m_distribution[k] = (scale * sum) >>> (31 - local.O3DGC_AC_DM_LENGTH_SHIFT);
-                sum += this.m_symbolCount[k];
-            }
-        } else {
-            for (k = 0; k < this.m_dataSymbols; ++k) {
-                this.m_distribution[k] = (scale * sum) >>> (31 - local.O3DGC_AC_DM_LENGTH_SHIFT);
-                sum += this.m_symbolCount[k];
-                w = this.m_distribution[k] >>> this.m_tableShift;
-                while (s < w) {
-                    this.m_decoderTable[++s] = k - 1;
-                }
-            }
-            this.m_decoderTable[0] = 0;
-            while (s <= this.m_tableSize) {
-                this.m_decoderTable[++s] = this.m_dataSymbols - 1;
-            }
-        }
-        // set frequency of model updates
-        this.m_updateCycle = (5 * this.m_updateCycle) >>> 2;
-        max_cycle = ((this.m_dataSymbols + 6) << 3) >>> 0;
-        if (this.m_updateCycle > max_cycle) {
-            this.m_updateCycle = max_cycle;
-        }
-        this.m_symbolsUntilUpdate = this.m_updateCycle;
-    };
-    module.AdaptiveDataModel.prototype.Reset = function () {
-        var k;
-        if (this.m_dataSymbols === 0) {
-            return;
-        }
-        // restore probability estimates to uniform distribution
-        this.m_totalCount = 0;
-        this.m_updateCycle = this.m_dataSymbols;
-        for (k = 0; k < this.m_dataSymbols; ++k) {
-            this.m_symbolCount[k] = 1;
-        }
-        this.Update();
-        this.m_symbolsUntilUpdate = this.m_updateCycle = (this.m_dataSymbols + 6) >>> 1;
-    };
-    module.AdaptiveDataModel.prototype.SetAlphabet = function (number_of_symbols) {
-        if ((number_of_symbols < 2) || (number_of_symbols > (1 << 11))) {
-            Console.log("invalid number of data symbols");
-            return module.O3DGC_ERROR_AC;
-        }
-        if (this.m_dataSymbols !== number_of_symbols) { // assign memory for data model
-            this.m_dataSymbols = number_of_symbols;
-            this.m_lastSymbol = this.m_dataSymbols - 1;
-            // define size of table for fast decoding
-            if (this.m_dataSymbols > 16) {
-                var table_bits = 3;
-                while (this.m_dataSymbols > ((1 << (table_bits + 2)) >>> 0)) {
-                    ++table_bits;
-                }
-                this.m_tableSize = (1 << table_bits) >>> 0;
-                this.m_tableShift = local.O3DGC_AC_DM_LENGTH_SHIFT - table_bits;
-                this.m_buffer = new ArrayBuffer(4 * (2 * this.m_dataSymbols + this.m_tableSize + 2));
-                this.m_distribution = new Uint32Array(this.m_buffer, 0, this.m_dataSymbols);
-                this.m_symbolCount = new Uint32Array(this.m_buffer, 4 * this.m_dataSymbols, this.m_dataSymbols);
-                this.m_decoderTable = new Uint32Array(this.m_buffer, 8 * this.m_dataSymbols, this.m_tableSize + 2);
-            } else {// small alphabet: no table needed
-                this.m_tableSize = this.m_tableShift = 0;
-                this.m_buffer = new ArrayBuffer(4 * 2 * this.m_dataSymbols);
-                this.m_distribution = new Uint32Array(this.m_buffer, 0, this.m_dataSymbols);
-                this.m_symbolCount = new Uint32Array(this.m_buffer, 4 * this.m_dataSymbols, this.m_dataSymbols);
-                this.m_decoderTable = {};
-            }
-        }
-        this.Reset(); // initialize model
-        return module.O3DGC_OK;
-    };
-    // ArithmeticDecoder class
-    module.ArithmeticDecoder = function () {
-        this.m_codeBuffer = {};
-        this.m_acShift = 0;
-        this.m_base = 0;
-        this.m_value = 0;
-        this.m_length = 0; // arithmetic coding state
-        this.m_bufferSize = 0;
-        this.m_mode = 0; // mode: 0 = undef, 1 = encoder, 2 = decoder
-    };
-    module.ArithmeticDecoder.prototype.SetBuffer = function (max_code_bytes, user_buffer) {
-        if (max_code_bytes === 0) {
-            Console.log("invalid codec buffer size");
-            return module.O3DGC_ERROR_AC;
-        }
-        if (this.m_mode !== 0) {
-            Console.log("cannot set buffer while encoding or decoding");
-            return module.O3DGC_ERROR_AC;
-        }
-        this.m_bufferSize = max_code_bytes;
-        this.m_codeBuffer = user_buffer;
-    };
-    module.ArithmeticDecoder.prototype.StartDecoder = function () {
-        if (this.m_mode !== 0) {
-            Console.log("cannot start decoder");
-            return module.O3DGC_ERROR_AC;
-        }
-        if (this.m_bufferSize === 0) {
-            Console.log("no code buffer set");
-            return module.O3DGC_ERROR_AC;
-        }
-        // initialize decoder: interval, pointer, initial code value
-        this.m_mode = 2;
-        this.m_length = local.O3DGC_AC_MAX_LENGTH;
-        this.m_acShift = 3;
-        this.m_value = ((this.m_codeBuffer[0] << 24) | (this.m_codeBuffer[1] << 16) | (this.m_codeBuffer[2] << 8) | (this.m_codeBuffer[3])) >>> 0;
-    };
-    module.ArithmeticDecoder.prototype.StopDecoder = function () {
-        if (this.m_mode !== 2) {
-            Console.log("invalid to stop decoder");
-            return module.O3DGC_ERROR_AC;
-        }
-        this.m_mode = 0;
-    };
-    module.ArithmeticDecoder.prototype.GetBit = function () {
-        this.m_length >>>= 1; // halve interval
-        var bit = (this.m_value >= this.m_length); // decode bit
-        if (bit) {
-            this.m_value -= this.m_length; // move base
-        }
-        if (this.m_length < local.O3DGC_AC_MIN_LENGTH) {
-            this.RenormDecInterval(); // renormalization
-        }
-        return bit;
-    };
-    module.ArithmeticDecoder.prototype.GetBits = function (bits) {
-        var s = Math.floor(this.m_value / (this.m_length >>>= bits)); // decode symbol, change length
-        this.m_value -= this.m_length * s; // update interval
-        if (this.m_length < local.O3DGC_AC_MIN_LENGTH) {
-            this.RenormDecInterval(); // renormalization
-        }
-        return s;
-    };
-    module.ArithmeticDecoder.prototype.DecodeStaticBitModel = function (M) {
-        var x, bit;
-        x = M.m_bit0Prob * (this.m_length >>> local.O3DGC_AC_BM_LENGTH_SHIFT); // product l x p0
-        bit = (this.m_value >= x); // decision
-        // update & shift interval
-        if (!bit) {
-            this.m_length = x;
-        } else {
-            this.m_value -= x; // shifted interval base = 0
-            this.m_length -= x;
-        }
-        if (this.m_length < local.O3DGC_AC_MIN_LENGTH) {
-            this.RenormDecInterval(); // renormalization
-        }
-        return bit; // return data bit value
-    };
-    module.ArithmeticDecoder.prototype.DecodeAdaptiveBitModel = function (M) {
-        var x, bit;
-        x = M.m_bit0Prob * (this.m_length >>> local.O3DGC_AC_BM_LENGTH_SHIFT);   // product l x p0
-        bit = (this.m_value >= x); // decision
-        // update interval
-        if (!bit) {
-            this.m_length = x;
-            ++M.m_bit0Count;
-        } else {
-            this.m_value -= x;
-            this.m_length -= x;
-        }
-        if (this.m_length < local.O3DGC_AC_MIN_LENGTH) {
-            this.RenormDecInterval(); // renormalization
-        }
-        if (--M.m_bitsUntilUpdate === 0) {
-            M.Update(); // periodic model update
-        }
-        return bit; // return data bit value
-    };
-    module.ArithmeticDecoder.prototype.DecodeAdaptiveDataModel = function (M) {
-        var n, s, x, y, t, dv, z, m;
-        y = this.m_length;
-        if (M.m_tableSize > 0) { // use table look-up for faster decoding
-            dv = Math.floor(this.m_value / (this.m_length >>>= local.O3DGC_AC_DM_LENGTH_SHIFT));
-            t = dv >>> M.m_tableShift;
-            s = M.m_decoderTable[t];         // initial decision based on table look-up
-            n = M.m_decoderTable[t + 1] + 1;
-            while (n > s + 1) { // finish with bisection search
-                m = (s + n) >>> 1;
-                if (M.m_distribution[m] > dv) {
-                    n = m;
-                } else {
-                    s = m;
-                }
-            }
-            // compute products
-            x = M.m_distribution[s] * this.m_length;
-            if (s !== M.m_lastSymbol) {
-                y = M.m_distribution[s + 1] * this.m_length;
-            }
-        } else { // decode using only multiplications
-            x = s = 0;
-            this.m_length >>>= local.O3DGC_AC_DM_LENGTH_SHIFT;
-            m = (n = M.m_dataSymbols) >>> 1;
-            // decode via bisection search
-            do {
-                z = this.m_length * M.m_distribution[m];
-                if (z > this.m_value) {
-                    n = m;
-                    y = z; // value is smaller
-                } else {
-                    s = m;
-                    x = z; // value is larger or equal
-                }
-            } while ((m = (s + n) >>> 1) !== s);
-        }
-        this.m_value -= x; // update interval
-        this.m_length = y - x;
-        if (this.m_length < local.O3DGC_AC_MIN_LENGTH) {
-            this.RenormDecInterval(); // renormalization
-        }
-        ++M.m_symbolCount[s];
-        if (--M.m_symbolsUntilUpdate === 0) {
-            M.Update(false); // periodic model update
-        }
-        return s;
-    };
-    module.ArithmeticDecoder.prototype.ExpGolombDecode = function (k, bModel0, bModel1) {
-        var symbol, binary_symbol, l;
-        symbol = 0;
-        binary_symbol = 0;
-        do {
-            l = this.DecodeAdaptiveBitModel(bModel1);
-            if (l) {
-                symbol += (1 << k) >>> 0;
-                k++;
-            }
-        } while (l);
-        while (k--) { //next binary part
-            if (this.DecodeStaticBitModel(bModel0)) {
-                binary_symbol = (binary_symbol | (1 << k)) >>> 0;
-            }
-        }
-        return (symbol + binary_symbol);
-    };
-    module.ArithmeticDecoder.prototype.RenormDecInterval = function () {
-        do { // read least-significant byte
-            this.m_value = ((this.m_value << 8) | this.m_codeBuffer[++this.m_acShift]) >>> 0;
-            this.m_length = (this.m_length << 8) >>> 0;
-        } while (this.m_length < local.O3DGC_AC_MIN_LENGTH); // length multiplied by 256
-    };
-    module.ArithmeticDecoder.prototype.DecodeIntACEGC = function (mModelValues, bModel0, bModel1, exp_k, M) {
-        var uiValue = this.DecodeAdaptiveDataModel(mModelValues);
-        if (uiValue === M) {
-            uiValue += this.ExpGolombDecode(exp_k, bModel0, bModel1);
-        }
-        return UIntToInt(uiValue);
-    };
-    module.ArithmeticDecoder.prototype.DecodeUIntACEGC = function (mModelValues, bModel0, bModel1, exp_k, M) {
-        var uiValue = this.DecodeAdaptiveDataModel(mModelValues);
-        if (uiValue === M) {
-            uiValue += this.ExpGolombDecode(exp_k, bModel0, bModel1);
-        }
-        return uiValue;
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -    
-    // FIFO class
-    module.FIFO = function () {
-        this.m_data = {};
-        this.m_allocated = 0;
-        this.m_size = 0;
-        this.m_start = 0;
-        this.m_end = 0;
-    };
-    module.FIFO.prototype.Clear = function () {
-        this.m_start = this.m_end = this.m_size = 0;
-    };
-    module.FIFO.prototype.GetAllocatedSize = function () {
-        return this.m_allocated;
-    };
-    module.FIFO.prototype.GetSize = function () {
-        return this.m_size;
-    };
-    module.FIFO.prototype.Allocate = function (size) {
-        if (size > this.m_allocated) {
-            this.m_allocated = size;
-            this.m_data = new Int32Array(this.m_allocated);
-        }
-        this.Clear();
-        return module.O3DGC_OK;
-    };
-    module.FIFO.prototype.PopFirst = function () {
-        --this.m_size;
-        var current = this.m_start++;
-        if (this.m_start === this.m_allocated) {
-            this.m_end = 0;
-        }
-        return this.m_data[current];
-    };
-    module.FIFO.prototype.PushBack = function (value) {
-        --this.m_size;
-        this.m_data[this.m_end] = value;
-        ++this.m_size;
-        ++this.m_end;
-        if (this.m_end === this.m_allocated) {
-            this.m_end = 0;
-        }
-    };
-    // IndexedFaceSet class
-    module.IndexedFaceSet = function () {
-        this.m_nCoordIndex = 0;
-        this.m_nCoord = 0;
-        this.m_nNormal = 0;
-        this.m_numFloatAttributes = 0;
-        this.m_numIntAttributes = 0;
-        this.m_creaseAngle = 30.0;
-        this.m_ccw = true;
-        this.m_solid = true;
-        this.m_convex = true;
-        this.m_isTriangularMesh = true;
-        this.m_coordMin = new Float32Array(3);
-        this.m_coordMax = new Float32Array(3);
-        this.m_normalMin = new Float32Array(3);
-        this.m_normalMax = new Float32Array(3);
-        this.m_nFloatAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_nIntAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-        this.m_dimFloatAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_dimIntAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-        this.m_typeFloatAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_typeIntAttribute = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-        this.m_minFloatAttributeBuffer = new ArrayBuffer(4 * local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES);
-        this.m_minFloatAttribute = new Float32Array(this.m_minFloatAttributeBuffer);
-        this.m_maxFloatAttributeBuffer = new ArrayBuffer(4 * local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES);
-        this.m_maxFloatAttribute = new Float32Array(this.m_maxFloatAttributeBuffer);
-        this.m_coordIndex = {};
-        this.m_coord = {};
-        this.m_normal = {};
-        this.m_floatAttribute = [];
-        this.m_intAttribute = [];
-    };
-    module.IndexedFaceSet.prototype.GetNCoordIndex = function () {
-        return this.m_nCoordIndex;
-    };
-    module.IndexedFaceSet.prototype.GetNCoordIndex = function () {
-        return this.m_nCoordIndex;
-    };
-    module.IndexedFaceSet.prototype.GetNCoord = function () {
-        return this.m_nCoord;
-    };
-    module.IndexedFaceSet.prototype.GetNNormal = function () {
-        return this.m_nNormal;
-    };
-    module.IndexedFaceSet.prototype.GetNFloatAttribute = function (a) {
-        return this.m_nFloatAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetNIntAttribute = function (a) {
-        return this.m_nIntAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetNumFloatAttributes = function () {
-        return this.m_numFloatAttributes;
-    };
-    module.IndexedFaceSet.prototype.GetNumIntAttributes = function () {
-        return this.m_numIntAttributes;
-    };
-    module.IndexedFaceSet.prototype.GetCoordMinArray = function () {
-        return this.m_coordMin;
-    };
-    module.IndexedFaceSet.prototype.GetCoordMaxArray = function () {
-        return this.m_coordMax;
-    };
-    module.IndexedFaceSet.prototype.GetNormalMinArray = function () {
-        return this.m_normalMin;
-    };
-    module.IndexedFaceSet.prototype.GetNormalMaxArray = function () {
-        return this.m_normalMax;
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttributeMinArray = function (a) {
-        return (new Float32Array(this.m_minFloatAttributeBuffer, a * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES * 4, this.GetFloatAttributeDim(a)));
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttributeMaxArray = function (a) {
-        return (new Float32Array(this.m_maxFloatAttributeBuffer, a * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES * 4, this.GetFloatAttributeDim(a)));
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttributeDim = function (a) {
-        return this.m_dimFloatAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetIntAttributeDim = function (a) {
-        return this.m_dimIntAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttributeType = function (a) {
-        return this.m_typeFloatAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetIntAttributeType = function (a) {
-        return this.m_typeIntAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttributeMax = function (a, dim) {
-        return this.m_maxFloatAttribute[a * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES + dim];
-    };
-    module.IndexedFaceSet.prototype.GetCreaseAngle = function () {
-        return this.m_creaseAngle;
-    };
-    module.IndexedFaceSet.prototype.GetCreaseAngle = function () {
-        return this.m_creaseAngle;
-    };
-    module.IndexedFaceSet.prototype.GetCCW = function () {
-        return this.m_ccw;
-    };
-    module.IndexedFaceSet.prototype.GetSolid = function () {
-        return this.m_solid;
-    };
-    module.IndexedFaceSet.prototype.GetConvex = function () {
-        return this.m_convex;
-    };
-    module.IndexedFaceSet.prototype.GetIsTriangularMesh = function () {
-        return this.m_isTriangularMesh;
-    };
-    module.IndexedFaceSet.prototype.GetCoordIndex = function () {
-        return this.m_coordIndex;
-    };
-    module.IndexedFaceSet.prototype.GetCoordIndex = function () {
-        return this.m_coordIndex;
-    };
-    module.IndexedFaceSet.prototype.GetCoord = function () {
-        return this.m_coord;
-    };
-    module.IndexedFaceSet.prototype.GetNormal = function () {
-        return this.m_normal;
-    };
-    module.IndexedFaceSet.prototype.GetFloatAttribute = function (a) {
-        return this.m_floatAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.GetIntAttribute = function (a) {
-        return this.m_intAttribute[a];
-    };
-    module.IndexedFaceSet.prototype.SetNCoordIndex = function (nCoordIndex) {
-        this.m_nCoordIndex = nCoordIndex;
-    };
-    module.IndexedFaceSet.prototype.SetNNormalIndex = function (nNormalIndex) {
-    };
-    module.IndexedFaceSet.prototype.SetNormalPerVertex = function (perVertex) {
-    };
-    module.IndexedFaceSet.prototype.SetNFloatAttributeIndex = function (nFloatAttributeIndex) {
-    };
-    module.IndexedFaceSet.prototype.SetNIntAttributeIndex = function (nIntAttributeIndex) {
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttributePerVertex = function (perVertex) {
-    };
-    module.IndexedFaceSet.prototype.SetIntAttributePerVertex = function (perVertex) {
-    };
-    module.IndexedFaceSet.prototype.SetNCoord = function (nCoord) {
-        this.m_nCoord = nCoord;
-    };
-    module.IndexedFaceSet.prototype.SetNNormal = function (nNormal) {
-        this.m_nNormal = nNormal;
-    };
-    module.IndexedFaceSet.prototype.SetNumFloatAttributes = function (numFloatAttributes) {
-        this.m_numFloatAttributes = numFloatAttributes;
-    };
-    module.IndexedFaceSet.prototype.SetNumIntAttributes = function (numIntAttributes) {
-        this.m_numIntAttributes = numIntAttributes;
-    };
-    module.IndexedFaceSet.prototype.SetCreaseAngle = function (creaseAngle) {
-        this.m_creaseAngle = creaseAngle;
-    };
-    module.IndexedFaceSet.prototype.SetCCW = function (ccw) {
-        this.m_ccw = ccw;
-    };
-    module.IndexedFaceSet.prototype.SetSolid = function (solid) {
-        this.m_solid = solid;
-    };
-    module.IndexedFaceSet.prototype.SetConvex = function (convex) {
-        this.m_convex = convex;
-    };
-    module.IndexedFaceSet.prototype.SetIsTriangularMesh = function (isTriangularMesh) {
-        this.m_isTriangularMesh = isTriangularMesh;
-    };
-    module.IndexedFaceSet.prototype.SetCoordMin = function (j, min) {
-        this.m_coordMin[j] = min;
-    };
-    module.IndexedFaceSet.prototype.SetCoordMax = function (j, max) {
-        this.m_coordMax[j] = max;
-    };
-    module.IndexedFaceSet.prototype.SetNormalMin = function (j, min) {
-        this.m_normalMin[j] = min;
-    };
-    module.IndexedFaceSet.prototype.SetNormalMax = function (j, max) {
-        this.m_normalMax[j] = max;
-    };
-    module.IndexedFaceSet.prototype.SetNFloatAttribute = function (a, nFloatAttribute) {
-        this.m_nFloatAttribute[a] = nFloatAttribute;
-    };
-    module.IndexedFaceSet.prototype.SetNIntAttribute = function (a, nIntAttribute) {
-        this.m_nIntAttribute[a] = nIntAttribute;
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttributeDim = function (a, d) {
-        this.m_dimFloatAttribute[a] = d;
-    };
-    module.IndexedFaceSet.prototype.SetIntAttributeDim = function (a, d) {
-        this.m_dimIntAttribute[a] = d;
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttributeType = function (a, d) {
-        this.m_typeFloatAttribute[a] = d;
-    };
-    module.IndexedFaceSet.prototype.SetIntAttributeType = function (a, d) {
-        this.m_typeIntAttribute[a] = d;
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttributeMin = function (a, dim, min) {
-        this.m_minFloatAttribute[a * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES + dim] = min;
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttributeMax = function (a, dim, max) {
-        this.m_maxFloatAttribute[a * local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES + dim] = max;
-    };
-    module.IndexedFaceSet.prototype.SetCoordIndex = function (coordIndex) {
-        this.m_coordIndex = coordIndex;
-    };
-    module.IndexedFaceSet.prototype.SetCoord = function (coord) {
-        this.m_coord = coord;
-    };
-    module.IndexedFaceSet.prototype.SetNormal = function (normal) {
-        this.m_normal = normal;
-    };
-    module.IndexedFaceSet.prototype.SetFloatAttribute = function (a, floatAttribute) {
-        this.m_floatAttribute[a] = floatAttribute;
-    };
-    module.IndexedFaceSet.prototype.SetIntAttribute = function (a, intAttribute) {
-        this.m_intAttribute[a] = intAttribute;
-    };
-
-    // SC3DMCEncodeParams class
-    module.SC3DMCEncodeParams = function () {
-        var a;
-        this.m_numFloatAttributes = 0;
-        this.m_numIntAttributes = 0;
-        this.m_floatAttributeQuantBits = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_floatAttributePredMode = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES);
-        this.m_intAttributePredMode = new Uint32Array(local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES);
-        this.m_encodeMode = local.O3DGC_SC3DMC_ENCODE_MODE_TFAN;
-        this.m_streamTypeMode = local.O3DGC_STREAM_TYPE_ASCII;
-        this.m_coordQuantBits = 14;
-        this.m_normalQuantBits = 8;
-        this.m_coordPredMode = local.O3DGC_SC3DMC_PARALLELOGRAM_PREDICTION;
-        this.m_normalPredMode = local.O3DGC_SC3DMC_SURF_NORMALS_PREDICTION;
-        for (a = 0; a < local.O3DGC_SC3DMC_MAX_NUM_FLOAT_ATTRIBUTES; ++a) {
-            this.m_floatAttributePredMode[a] = local.O3DGC_SC3DMC_PARALLELOGRAM_PREDICTION;
-        }
-        for (a = 0; a < local.O3DGC_SC3DMC_MAX_NUM_INT_ATTRIBUTES; ++a) {
-            this.m_intAttributePredMode[a] = local.O3DGC_SC3DMC_DIFFERENTIAL_PREDICTION;
-        }
-    };
-    module.SC3DMCEncodeParams.prototype.GetStreamType = function () {
-        return this.m_streamTypeMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetEncodeMode = function () {
-        return this.m_encodeMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetNumFloatAttributes = function () {
-        return this.m_numFloatAttributes;
-    };
-    module.SC3DMCEncodeParams.prototype.GetNumIntAttributes = function () {
-        return this.m_numIntAttributes;
-    };
-    module.SC3DMCEncodeParams.prototype.GetCoordQuantBits = function () {
-        return this.m_coordQuantBits;
-    };
-    module.SC3DMCEncodeParams.prototype.GetNormalQuantBits = function () {
-        return this.m_normalQuantBits;
-    };
-    module.SC3DMCEncodeParams.prototype.GetFloatAttributeQuantBits = function (a) {
-        return this.m_floatAttributeQuantBits[a];
-    };
-    module.SC3DMCEncodeParams.prototype.GetCoordPredMode = function () {
-        return this.m_coordPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetNormalPredMode = function () {
-        return this.m_normalPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetFloatAttributePredMode = function (a) {
-        return this.m_floatAttributePredMode[a];
-    };
-    module.SC3DMCEncodeParams.prototype.GetIntAttributePredMode = function (a) {
-        return this.m_intAttributePredMode[a];
-    };
-    module.SC3DMCEncodeParams.prototype.GetCoordPredMode = function () {
-        return this.m_coordPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetNormalPredMode = function () {
-        return this.m_normalPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.GetFloatAttributePredMode = function (a) {
-        return this.m_floatAttributePredMode[a];
-    };
-    module.SC3DMCEncodeParams.prototype.GetIntAttributePredMode = function (a) {
-        return this.m_intAttributePredMode[a];
-    };
-    module.SC3DMCEncodeParams.prototype.SetStreamType = function (streamTypeMode) {
-        this.m_streamTypeMode = streamTypeMode;
-    };
-    module.SC3DMCEncodeParams.prototype.SetEncodeMode = function (encodeMode) {
-        this.m_encodeMode = encodeMode;
-    };
-    module.SC3DMCEncodeParams.prototype.SetNumFloatAttributes = function (numFloatAttributes) {
-        this.m_numFloatAttributes = numFloatAttributes;
-    };
-    module.SC3DMCEncodeParams.prototype.SetNumIntAttributes = function (numIntAttributes) {
-        this.m_numIntAttributes = numIntAttributes;
-    };
-    module.SC3DMCEncodeParams.prototype.SetCoordQuantBits = function (coordQuantBits) {
-        this.m_coordQuantBits = coordQuantBits;
-    };
-    module.SC3DMCEncodeParams.prototype.SetNormalQuantBits = function (normalQuantBits) {
-        this.m_normalQuantBits = normalQuantBits;
-    };
-    module.SC3DMCEncodeParams.prototype.SetFloatAttributeQuantBits = function (a, q) {
-        this.m_floatAttributeQuantBits[a] = q;
-    };
-    module.SC3DMCEncodeParams.prototype.SetCoordPredMode = function (coordPredMode) {
-        this.m_coordPredMode = coordPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.SetNormalPredMode = function (normalPredMode) {
-        this.m_normalPredMode = normalPredMode;
-    };
-    module.SC3DMCEncodeParams.prototype.SetFloatAttributePredMode = function (a, p) {
-        this.m_floatAttributePredMode[a] = p;
-    };
-    module.SC3DMCEncodeParams.prototype.SetIntAttributePredMode = function (a, p) {
-        this.m_intAttributePredMode[a] = p;
-    };
-    // AdjacencyInfo class
-    module.AdjacencyInfo = function () {
-        this.m_neighborsSize = 0;    // actual allocated size for m_neighbors
-        this.m_numNeighborsSize = 0; // actual allocated size for m_numNeighbors
-        this.m_numElements = 0;      // number of elements 
-        this.m_neighbors = {};
-        this.m_numNeighbors = {};
-    };
-    module.AdjacencyInfo.prototype.Allocate = function (numNeighborsSize, neighborsSize) {
-        this.m_numElements = numNeighborsSize;
-        if (neighborsSize > this.m_neighborsSize) {
-            this.m_neighborsSize = neighborsSize;
-            this.m_neighbors = new Int32Array(this.m_neighborsSize);
-        }
-        if (numNeighborsSize > this.m_numNeighborsSize) {
-            this.m_numNeighborsSize = numNeighborsSize;
-            this.m_numNeighbors = new Int32Array(this.m_numNeighborsSize);
-        }
-        return module.O3DGC_OK;
-    };
-    module.AdjacencyInfo.prototype.AllocateNumNeighborsArray = function (numElements) {
-        if (numElements > this.m_numNeighborsSize) {
-            this.m_numNeighborsSize = numElements;
-            this.m_numNeighbors = new Int32Array(this.m_numNeighborsSize);
-        }
-        this.m_numElements = numElements;
-        return module.O3DGC_OK;
-    };
-    module.AdjacencyInfo.prototype.AllocateNeighborsArray = function () {
-        var i;
-        for (i = 1; i < this.m_numElements; ++i) {
-            this.m_numNeighbors[i] += this.m_numNeighbors[i - 1];
-        }
-        if (this.m_numNeighbors[this.m_numElements - 1] > this.m_neighborsSize) {
-            this.m_neighborsSize = this.m_numNeighbors[this.m_numElements - 1];
-            this.m_neighbors = new Int32Array(this.m_neighborsSize);
-        }
-        return module.O3DGC_OK;
-    };
-    module.AdjacencyInfo.prototype.ClearNumNeighborsArray = function () {
-        var i;
-        for (i = 0; i < this.m_numElements; ++i) {
-            this.m_numNeighbors[i] = 0;
-        }
-        return module.O3DGC_OK;
-    };
-    module.AdjacencyInfo.prototype.ClearNeighborsArray = function () {
-        var i;
-        for (i = 0; i < this.m_neighborsSize; ++i) {
-            this.m_neighbors[i] = -1;
-        }
-        return module.O3DGC_OK;
-    };
-    module.AdjacencyInfo.prototype.Begin = function (element) {
-        return (element > 0) ? this.m_numNeighbors[element - 1] : 0;
-    };
-    module.AdjacencyInfo.prototype.End = function (element) {
-        return this.m_numNeighbors[element];
-    };
-    module.AdjacencyInfo.prototype.AddNeighbor = function (element, neighbor) {
-        var p, p0, p1;
-        p0 = this.Begin(element);
-        p1 = this.End(element);
-        for (p = p0; p < p1; ++p) {
-            if (this.m_neighbors[p] === -1) {
-                this.m_neighbors[p] = neighbor;
-                return module.O3DGC_OK;
-            }
-        }
-        return module.O3DGC_ERROR_BUFFER_FULL;
-    };
-    module.AdjacencyInfo.prototype.GetNeighbor = function (element) {
-        return this.m_neighbors[element];
-    };
-    module.AdjacencyInfo.prototype.GetNumNeighbors = function (element) {
-        return this.End(element) - this.Begin(element);
-    };
-    module.AdjacencyInfo.prototype.GetNumNeighborsBuffer = function () {
-        return this.m_numNeighbors;
-    };
-    module.AdjacencyInfo.prototype.GetNeighborsBuffer = function () {
-        return this.m_neighbors;
-    };
-    // Vector class
-    module.Vector = function () {
-        this.m_data = {};
-        this.m_allocated = 0;
-        this.m_size = 0;
-    };
-    module.Vector.prototype.Clear = function () {
-        this.m_size = 0;
-    };
-    module.Vector.prototype.Get = function (i) {
-        return this.m_data[i];
-    };
-    module.Vector.prototype.GetAllocatedSize = function () {
-        return this.m_allocated;
-    };
-    module.Vector.prototype.GetSize = function () {
-        return this.m_size;
-    };
-    module.Vector.prototype.GetBuffer = function () {
-        return this.m_data;
-    };
-    module.Vector.prototype.SetSize = function (size) {
-        this.m_size = size;
-    };
-    module.Vector.prototype.Allocate = function (size) {
-        var i, tmp_data;
-        if (size > this.m_allocated) {
-            this.m_allocated = size;
-            tmp_data = new Int32Array(this.m_allocated);
-            if (this.m_size > 0) {
-                for (i = 0; i < this.m_size; ++i) {
-                    tmp_data[i] = this.m_data[i];
-                }
-            }
-            this.m_data = tmp_data;
-        }
-    };
-    module.Vector.prototype.PushBack = function (value) {
-        var i, tmp_data;
-        if (this.m_size === this.m_allocated) {
-            this.m_allocated *= 2;
-            if (this.m_allocated < local.O3DGC_DEFAULT_VECTOR_SIZE) {
-                this.m_allocated = local.O3DGC_DEFAULT_VECTOR_SIZE;
-            }
-            tmp_data = new Int32Array(this.m_allocated);
-            if (this.m_size > 0) {
-                for (i = 0; i < this.m_size; ++i) {
-                    tmp_data[i] = this.m_data[i];
-                }
-            }
-            this.m_data = tmp_data;
-        }
-        this.m_data[this.m_size++] = value;
-    };
-    // CompressedTriangleFans class
-    module.CompressedTriangleFans = function () {
-        this.m_numTFANs = new module.Vector();
-        this.m_degrees = new module.Vector();
-        this.m_configs = new module.Vector();
-        this.m_operations = new module.Vector();
-        this.m_indices = new module.Vector();
-        this.m_trianglesOrder = new module.Vector();
-        this.m_streamType = local.O3DGC_STREAM_TYPE_UNKOWN;
-    };
-    module.CompressedTriangleFans.prototype.GetStreamType = function () {
-        return this.m_streamType;
-    };
-    module.CompressedTriangleFans.prototype.SetStreamType = function (streamType) {
-        this.m_streamType = streamType;
-    };
-    module.CompressedTriangleFans.prototype.Clear = function () {
-        this.m_numTFANs.Clear();
-        this.m_degrees.Clear();
-        this.m_configs.Clear();
-        this.m_operations.Clear();
-        this.m_indices.Clear();
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.Allocate = function (numVertices, numTriangles) {
-        this.m_numTFANs.Allocate(numVertices);
-        this.m_degrees.Allocate(2 * numVertices);
-        this.m_configs.Allocate(2 * numVertices);
-        this.m_operations.Allocate(2 * numVertices);
-        this.m_indices.Allocate(2 * numVertices);
-        this.m_trianglesOrder.Allocate(numTriangles);
-        this.Clear();
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.PushNumTFans = function (numTFans) {
-        this.m_numTFANs.PushBack(numTFans);
-    };
-    module.CompressedTriangleFans.prototype.ReadNumTFans = function (it) {
-        return this.m_numTFANs.Get(it.m_count++);
-    };
-    module.CompressedTriangleFans.prototype.PushDegree = function (degree) {
-        this.m_degrees.PushBack(degree);
-    };
-    module.CompressedTriangleFans.prototype.ReadDegree = function (it) {
-        return this.m_degrees.Get(it.m_count++);
-    };
-    module.CompressedTriangleFans.prototype.PushConfig = function (config) {
-        this.m_configs.PushBack(config);
-    };
-    module.CompressedTriangleFans.prototype.ReadConfig = function (it) {
-        return this.m_configs.Get(it.m_count++);
-    };
-    module.CompressedTriangleFans.prototype.PushOperation = function (op) {
-        this.m_operations.PushBack(op);
-    };
-    module.CompressedTriangleFans.prototype.ReadOperation = function (it) {
-        return this.m_operations.Get(it.m_count++);
-    };
-    module.CompressedTriangleFans.prototype.PushIndex = function (index) {
-        this.m_indices.PushBack(index);
-    };
-    module.CompressedTriangleFans.prototype.ReadIndex = function (it) {
-        return this.m_indices.Get(it.m_count++);
-    };
-    module.CompressedTriangleFans.prototype.PushTriangleIndex = function (index) {
-        this.m_trianglesOrder.PushBack(IntToUInt(index));
-    };
-    module.CompressedTriangleFans.prototype.ReadTriangleIndex = function (it) {
-        return UIntToInt(this.m_trianglesOrder.Get(it.m_count++));
-    };
-    module.CompressedTriangleFans.prototype.LoadUIntData = function (data, bstream, it) {
-        var size, i;
-        bstream.ReadUInt32ASCII(it);
-        size = bstream.ReadUInt32ASCII(it);
-        data.Allocate(size);
-        data.Clear();
-        for (i = 0; i < size; ++i) {
-            data.PushBack(bstream.ReadUIntASCII(it));
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.LoadIntData = function (data, bstream, it) {
-        var size, i;
-        bstream.ReadUInt32ASCII(it);
-        size = bstream.ReadUInt32ASCII(it);
-        data.Allocate(size);
-        data.Clear();
-        for (i = 0; i < size; ++i) {
-            data.PushBack(bstream.ReadIntASCII(it));
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.LoadBinData = function (data, bstream, it) {
-        var size, symbol, i, h;
-        bstream.ReadUInt32ASCII(it);
-        size = bstream.ReadUInt32ASCII(it);
-        data.Allocate(size * local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0);
-        data.Clear();
-        i = 0;
-        while (i < size) {
-            symbol = bstream.ReadUCharASCII(it);
-            for (h = 0; h < local.O3DGC_BINARY_STREAM_BITS_PER_SYMBOL0; ++h) {
-                data.PushBack(symbol & 1);
-                symbol >>>= 1;
-                ++i;
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.LoadUIntAC = function (data, M, bstream, it) {
-
-        var sizeSize, size, minValue, buffer, acd, mModelValues, i;
-        sizeSize = bstream.ReadUInt32Bin(it) - 12;
-        size = bstream.ReadUInt32Bin(it);
-        if (size === 0) {
-            return module.O3DGC_OK;
-        }
-        minValue = bstream.ReadUInt32Bin(it);
-        buffer = bstream.GetBuffer(it, sizeSize);
-        it.m_count += sizeSize;
-        data.Allocate(size);
-        acd = new module.ArithmeticDecoder();
-        acd.SetBuffer(sizeSize, buffer);
-        acd.StartDecoder();
-        mModelValues = new module.AdaptiveDataModel();
-        mModelValues.SetAlphabet(M + 1);
-        for (i = 0; i < size; ++i) {
-            data.PushBack(acd.DecodeAdaptiveDataModel(mModelValues) + minValue);
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.LoadIntACEGC = function (data, M, bstream, it) {
-        var sizeSize, size, minValue, buffer, acd, mModelValues, bModel0, bModel1, value, i;
-        sizeSize = bstream.ReadUInt32Bin(it) - 12;
-        size = bstream.ReadUInt32Bin(it);
-        if (size === 0) {
-            return module.O3DGC_OK;
-        }
-        minValue = bstream.ReadUInt32Bin(it) - local.O3DGC_MAX_LONG;
-        buffer = bstream.GetBuffer(it, sizeSize);
-        it.m_count += sizeSize;
-        data.Allocate(size);
-        acd = new module.ArithmeticDecoder();
-        acd.SetBuffer(sizeSize, buffer);
-        acd.StartDecoder();
-        mModelValues = new module.AdaptiveDataModel();
-        mModelValues.SetAlphabet(M + 2);
-        bModel0 = new module.StaticBitModel();
-        bModel1 = new module.AdaptiveBitModel();
-        for (i = 0; i < size; ++i) {
-            value = acd.DecodeAdaptiveDataModel(mModelValues);
-            if (value === M) {
-                value += acd.ExpGolombDecode(0, bModel0, bModel1);
-            }
-            data.PushBack(value + minValue);
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.LoadBinAC = function (data, bstream, it) {
-        var sizeSize, size, buffer, acd, bModel, i;
-        sizeSize = bstream.ReadUInt32Bin(it) - 8;
-        size = bstream.ReadUInt32Bin(it);
-        if (size === 0) {
-            return module.O3DGC_OK;
-        }
-        buffer = bstream.GetBuffer(it, sizeSize);
-        it.m_count += sizeSize;
-        data.Allocate(size);
-        acd = new module.ArithmeticDecoder();
-        acd.SetBuffer(sizeSize, buffer);
-        acd.StartDecoder();
-        bModel = new module.AdaptiveBitModel();
-        for (i = 0; i < size; ++i) {
-            data.PushBack(acd.DecodeAdaptiveBitModel(bModel));
-        }
-        return module.O3DGC_OK;
-    };
-    module.CompressedTriangleFans.prototype.Load = function (bstream, iterator, decodeTrianglesOrder, streamType) {
-        if (streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            this.LoadUIntData(this.m_numTFANs, bstream, iterator);
-            this.LoadUIntData(this.m_degrees, bstream, iterator);
-            this.LoadUIntData(this.m_configs, bstream, iterator);
-            this.LoadBinData(this.m_operations, bstream, iterator);
-            this.LoadIntData(this.m_indices, bstream, iterator);
-            if (decodeTrianglesOrder) {
-                this.LoadUIntData(this.m_trianglesOrder, bstream, iterator);
-            }
-        } else {
-            this.LoadIntACEGC(this.m_numTFANs, 4, bstream, iterator);
-            this.LoadIntACEGC(this.m_degrees, 16, bstream, iterator);
-            this.LoadUIntAC(this.m_configs, 10, bstream, iterator);
-            this.LoadBinAC(this.m_operations, bstream, iterator);
-            this.LoadIntACEGC(this.m_indices, 8, bstream, iterator);
-            if (decodeTrianglesOrder) {
-                this.LoadIntACEGC(this.m_trianglesOrder, 16, bstream, iterator);
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    // TriangleFans class
-    module.TriangleFans = function () {
-        this.m_verticesAllocatedSize = 0;
-        this.m_sizeTFANAllocatedSize = 0;
-        this.m_numTFANs = 0;
-        this.m_numVertices = 0;
-        this.m_sizeTFAN = {};
-        this.m_vertices = {};
-    };
-    module.TriangleFans.prototype.Allocate = function (sizeTFAN, verticesSize) {
-        this.m_numTFANs = 0;
-        this.m_numVertices = 0;
-        if (this.m_verticesAllocatedSize < verticesSize) {
-            this.m_verticesAllocatedSize = verticesSize;
-            this.m_vertices = new Int32Array(this.m_verticesAllocatedSize);
-        }
-        if (this.m_sizeTFANAllocatedSize < sizeTFAN) {
-            this.m_sizeTFANAllocatedSize = sizeTFAN;
-            this.m_sizeTFAN = new Int32Array(this.m_sizeTFANAllocatedSize);
-        }
-        return module.O3DGC_OK;
-    };
-    module.TriangleFans.prototype.Clear = function () {
-        this.m_numTFANs = 0;
-        this.m_numVertices = 0;
-        return module.O3DGC_OK;
-    };
-    module.TriangleFans.prototype.AddVertex = function (vertex) {
-        var i, tmp_vertices;
-        ++this.m_numVertices;
-        if (this.m_numVertices > this.m_verticesAllocatedSize) {
-            this.m_verticesAllocatedSize *= 2;
-            tmp_vertices = new Int32Array(this.m_verticesAllocatedSize);
-            for (i = 0; i < this.m_numVertices; ++i) {
-                tmp_vertices[i] = this.m_vertices[i];
-            }
-            this.m_vertices = tmp_vertices;
-        }
-        this.m_vertices[this.m_numVertices - 1] = vertex;
-        ++this.m_sizeTFAN[this.m_numTFANs - 1];
-        return module.O3DGC_OK;
-    };
-    module.TriangleFans.prototype.AddTFAN = function () {
-        var i, tmp_sizeTFAN;
-        ++this.m_numTFANs;
-        if (this.m_numTFANs > this.m_sizeTFANAllocatedSize) {
-            this.m_sizeTFANAllocatedSize *= 2;
-            tmp_sizeTFAN = new Int32Array(this.m_sizeTFANAllocatedSize);
-            for (i = 0; i < this.m_numTFANs; ++i) {
-                tmp_sizeTFAN[i] = this.m_sizeTFAN[i];
-            }
-            this.m_sizeTFAN = tmp_sizeTFAN;
-        }
-        this.m_sizeTFAN[this.m_numTFANs - 1] = (this.m_numTFANs > 1) ? this.m_sizeTFAN[this.m_numTFANs - 2] : 0;
-        return module.O3DGC_OK;
-    };
-    module.TriangleFans.prototype.Begin = function (tfan) {
-        return (tfan > 0) ? this.m_sizeTFAN[tfan - 1] : 0;
-    };
-    module.TriangleFans.prototype.End = function (tfan) {
-        return this.m_sizeTFAN[tfan];
-    };
-    module.TriangleFans.prototype.GetVertex = function (vertex) {
-        return this.m_vertices[vertex];
-    };
-    module.TriangleFans.prototype.GetTFANSize = function (tfan) {
-        return this.End(tfan) - this.Begin(tfan);
-    };
-    module.TriangleFans.prototype.GetNumTFANs = function () {
-        return this.m_numTFANs;
-    };
-    module.TriangleFans.prototype.GetNumVertices = function () {
-        return this.m_numVertices;
-    };
-    // TriangleListDecoder class
-    module.TriangleListDecoder = function () {
-        this.m_itNumTFans = new module.Iterator();
-        this.m_itDegree = new module.Iterator();
-        this.m_itConfig = new module.Iterator();
-        this.m_itOperation = new module.Iterator();
-        this.m_itIndex = new module.Iterator();
-        this.m_maxNumVertices = 0;
-        this.m_maxNumTriangles = 0;
-        this.m_numTriangles = 0;
-        this.m_numVertices = 0;
-        this.m_tempTrianglesSize = 0;
-        this.m_vertexCount = 0;
-        this.m_triangleCount = 0;
-        this.m_numConqueredTriangles = 0;
-        this.m_numVisitedVertices = 0;
-        this.m_triangles = {};
-        this.m_tempTriangles = {};
-        this.m_visitedVertices = {};
-        this.m_visitedVerticesValence = {};
-        this.m_vertexToTriangle = new module.AdjacencyInfo();
-        this.m_ctfans = new module.CompressedTriangleFans();
-        this.m_tfans = new module.TriangleFans();
-        this.m_streamType = local.O3DGC_STREAM_TYPE_ASCII;
-        this.m_decodeTrianglesOrder = false;
-        this.m_decodeVerticesOrder = false;
-        this.m_processConfig = {
-            0: function (decoder, degree) { // ops: 1000001 vertices: -1 -2
-                var u;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-                for (u = 1; u < degree - 1; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-            },
-            1: function (decoder, degree, focusVertex) { // ops: 1xxxxxx1 vertices: -1 x x x x x -2
-                var u, op, index;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-                for (u = 1; u < degree - 1; ++u) {
-                    op = decoder.m_ctfans.ReadOperation(decoder.m_itOperation);
-                    if (op === 1) {
-                        index = decoder.m_ctfans.ReadIndex(decoder.m_itIndex);
-                        if (index < 0) {
-                            decoder.m_tfans.AddVertex(decoder.m_visitedVertices[-index - 1]);
-                        } else {
-                            decoder.m_tfans.AddVertex(index + focusVertex);
-                        }
-                    } else {
-                        decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                        decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                    }
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-            },
-            2: function (decoder, degree) { // ops: 00000001 vertices: -1
-                var u;
-                for (u = 0; u < degree - 1; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-            },
-            3: function (decoder, degree) { // ops: 00000001 vertices: -2
-                var u;
-                for (u = 0; u < degree - 1; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-            },
-            4: function (decoder, degree) {// ops: 10000000 vertices: -1
-                var u;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-                for (u = 1; u < degree; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-            },
-            5: function (decoder, degree) { // ops: 10000000 vertices: -2
-                var u;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-                for (u = 1; u < degree; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-            },
-            6: function (decoder, degree) { // ops: 00000000 vertices:
-                var u;
-                for (u = 0; u < degree; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-            },
-            7: function (decoder, degree) { // ops: 1000001 vertices: -2 -1
-                var u;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-                for (u = 1; u < degree - 1; ++u) {
-                    decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                    decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-            },
-            8: function (decoder, degree, focusVertex) { // ops: 1xxxxxx1 vertices: -2 x x x x x -1
-                var u, op, index;
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[1]);
-                for (u = 1; u < degree - 1; ++u) {
-                    op = decoder.m_ctfans.ReadOperation(decoder.m_itOperation);
-                    if (op === 1) {
-                        index = decoder.m_ctfans.ReadIndex(decoder.m_itIndex);
-                        if (index < 0) {
-                            decoder.m_tfans.AddVertex(decoder.m_visitedVertices[-index - 1]);
-                        } else {
-                            decoder.m_tfans.AddVertex(index + focusVertex);
-                        }
-                    } else {
-                        decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                        decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                    }
-                }
-                decoder.m_tfans.AddVertex(decoder.m_visitedVertices[0]);
-            },
-            9: function (decoder, degree, focusVertex) { // general case
-                var u, op, index;
-                for (u = 0; u < degree; ++u) {
-                    op = decoder.m_ctfans.ReadOperation(decoder.m_itOperation);
-                    if (op === 1) {
-                        index = decoder.m_ctfans.ReadIndex(decoder.m_itIndex);
-                        if (index < 0) {
-                            decoder.m_tfans.AddVertex(decoder.m_visitedVertices[-index - 1]);
-                        } else {
-                            decoder.m_tfans.AddVertex(index + focusVertex);
-                        }
-                    } else {
-                        decoder.m_visitedVertices[decoder.m_numVisitedVertices++] = decoder.m_vertexCount;
-                        decoder.m_tfans.AddVertex(decoder.m_vertexCount++);
-                    }
-                }
-            }
-        };
-    };
-    module.TriangleListDecoder.prototype.GetStreamType = function () {
-        return this.m_streamType;
-    };
-    module.TriangleListDecoder.prototype.GetReorderTriangles = function () {
-        return this.m_decodeTrianglesOrder;
-    };
-    module.TriangleListDecoder.prototype.GetReorderVertices = function () {
-        return this.m_decodeVerticesOrder;
-    };
-    module.TriangleListDecoder.prototype.SetStreamType = function (streamType) {
-        this.m_streamType = streamType;
-    };
-    module.TriangleListDecoder.prototype.GetVertexToTriangle = function () {
-        return this.m_vertexToTriangle;
-    };
-    module.TriangleListDecoder.prototype.Reorder = function () {
-        var triangles, numTriangles, order, it, prevTriangleIndex, tempTriangles, t, i;
-        if (this.m_decodeTrianglesOrder) {
-            triangles = this.m_triangles;
-            numTriangles = this.m_numTriangles;
-            order = this.m_ctfans.m_trianglesOrder.m_data;
-            tempTriangles = this.m_tempTriangles;
-            tempTriangles.set(triangles);
-            it = 0;
-            prevTriangleIndex = 0;
-            for (i = 0; i < numTriangles; ++i) {
-                t = UIntToInt(order[it++]) + prevTriangleIndex;
-                triangles[3 * t] = tempTriangles[3 * i];
-                triangles[3 * t + 1] = tempTriangles[3 * i + 1];
-                triangles[3 * t + 2] = tempTriangles[3 * i + 2];
-                prevTriangleIndex = t + 1;
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    module.TriangleListDecoder.prototype.CompueLocalConnectivityInfo = function (focusVertex) {
-        var visitedVertices, visitedVerticesValence, triangles, vertexToTriangle, beginV2T, endV2T, numConqueredTriangles, foundOrInserted, numVisitedVertices, tmp, i, j, k, h, x, y, t, p, v;
-        visitedVertices = this.m_visitedVertices;
-        visitedVerticesValence = this.m_visitedVerticesValence;
-        triangles = this.m_triangles;
-        vertexToTriangle = this.m_vertexToTriangle;
-        beginV2T = vertexToTriangle.Begin(focusVertex);
-        endV2T = vertexToTriangle.End(focusVertex);
-        numConqueredTriangles = 0;
-        numVisitedVertices = 0;
-        t = 0;
-        for (i = beginV2T; (t >= 0) && (i < endV2T); ++i) {
-            t = vertexToTriangle.GetNeighbor(i);
-            if (t >= 0) {
-                ++numConqueredTriangles;
-                p = 3 * t;
-                // extract visited vertices
-                for (k = 0; k < 3; ++k) {
-                    v = triangles[p + k];
-                    if (v > focusVertex) { // vertices are insertices by increasing traversal order
-                        foundOrInserted = false;
-                        for (j = 0; j < numVisitedVertices; ++j) {
-                            if (v === visitedVertices[j]) {
-                                visitedVerticesValence[j]++;
-                                foundOrInserted = true;
-                                break;
-                            } else if (v < visitedVertices[j]) {
-                                ++numVisitedVertices;
-                                for (h = numVisitedVertices - 1; h > j; --h) {
-                                    visitedVertices[h] = visitedVertices[h - 1];
-                                    visitedVerticesValence[h] = visitedVerticesValence[h - 1];
-                                }
-                                visitedVertices[j] = v;
-                                visitedVerticesValence[j] = 1;
-                                foundOrInserted = true;
-                                break;
-                            }
-                        }
-                        if (!foundOrInserted) {
-                            visitedVertices[numVisitedVertices] = v;
-                            visitedVerticesValence[numVisitedVertices] = 1;
-                            numVisitedVertices++;
-                        }
-                    }
-                }
-            }
-        }
-        // re-order visited vertices by taking into account their valence (i.e., # of conquered triangles incident to each vertex)
-        // in order to avoid config. 9
-        if (numVisitedVertices > 2) {
-            for (x = 1; x < numVisitedVertices; ++x) {
-                if (visitedVerticesValence[x] === 1) {
-                    y = x;
-                    while ((y > 0) && (visitedVerticesValence[y] < visitedVerticesValence[y - 1])) {
-                        tmp = visitedVerticesValence[y];
-                        visitedVerticesValence[y] = visitedVerticesValence[y - 1];
-                        visitedVerticesValence[y - 1] = tmp;
-                        tmp = visitedVertices[y];
-                        visitedVertices[y] = visitedVertices[y - 1];
-                        visitedVertices[y - 1] = tmp;
-                        --y;
-                    }
-                }
-            }
-        }
-        this.m_numConqueredTriangles = numConqueredTriangles;
-        this.m_numVisitedVertices = numVisitedVertices;
-        return module.O3DGC_OK;
-    };
-    module.TriangleListDecoder.prototype.DecompressTFAN = function (focusVertex) {
-        var vertexToTriangle, triangles, itDegree, itConfig, tfans, ntfans, processConfig, ctfans, triangleCount, numConqueredTriangles, degree, config, k0, k1, b, c, t, f, k;
-        vertexToTriangle = this.m_vertexToTriangle;
-        triangles = this.m_triangles;
-        itDegree = this.m_itDegree;
-        itConfig = this.m_itConfig;
-        tfans = this.m_tfans;
-        processConfig = this.m_processConfig;
-        ctfans = this.m_ctfans;
-        triangleCount = this.m_triangleCount;
-        numConqueredTriangles = this.m_numConqueredTriangles;
-        ntfans = ctfans.ReadNumTFans(this.m_itNumTFans);
-        if (ntfans > 0) {
-            for (f = 0; f < ntfans; ++f) {
-                tfans.AddTFAN();
-                degree = ctfans.ReadDegree(itDegree) + 2 - numConqueredTriangles;
-                config = ctfans.ReadConfig(itConfig);
-                k0 = tfans.GetNumVertices();
-                tfans.AddVertex(focusVertex);
-                processConfig[config](this, degree, focusVertex);
-                k1 = tfans.GetNumVertices();
-                b = tfans.GetVertex(k0 + 1);
-                for (k = k0 + 2; k < k1; ++k) {
-                    c = tfans.GetVertex(k);
-                    t = triangleCount * 3;
-                    triangles[t++] = focusVertex;
-                    triangles[t++] = b;
-                    triangles[t] = c;
-                    vertexToTriangle.AddNeighbor(focusVertex, triangleCount);
-                    vertexToTriangle.AddNeighbor(b, triangleCount);
-                    vertexToTriangle.AddNeighbor(c, triangleCount);
-                    b = c;
-                    triangleCount++;
-                }
-            }
-        }
-        this.m_triangleCount = triangleCount;
-        return module.O3DGC_OK;
-    };
-    module.TriangleListDecoder.prototype.Decompress = function () {
-        var focusVertex;
-        for (focusVertex = 0; focusVertex < this.m_numVertices; ++focusVertex) {
-            if (focusVertex === this.m_vertexCount) {
-                this.m_vertexCount++; // insert focusVertex
-            }
-            this.CompueLocalConnectivityInfo(focusVertex);
-            this.DecompressTFAN(focusVertex);
-        }
-        return module.O3DGC_OK;
-    };
-    module.TriangleListDecoder.prototype.Init = function (triangles, numTriangles, numVertices, maxSizeV2T) {
-        var i, numNeighbors;
-        this.m_numTriangles = numTriangles;
-        this.m_numVertices = numVertices;
-        this.m_triangles = triangles;
-        this.m_vertexCount = 0;
-        this.m_triangleCount = 0;
-        this.m_itNumTFans.m_count = 0;
-        this.m_itDegree.m_count = 0;
-        this.m_itConfig.m_count = 0;
-        this.m_itOperation.m_count = 0;
-        this.m_itIndex.m_count = 0;
-        if (this.m_numVertices > this.m_maxNumVertices) {
-            this.m_maxNumVertices = this.m_numVertices;
-            this.m_visitedVerticesValence = new Int32Array(this.m_numVertices);
-            this.m_visitedVertices = new Int32Array(this.m_numVertices);
-        }
-        if (this.m_decodeTrianglesOrder && this.m_tempTrianglesSize < this.m_numTriangles) {
-            this.m_tempTrianglesSize = this.m_numTriangles;
-            this.m_tempTriangles = new Int32Array(3 * this.m_tempTrianglesSize);
-        }
-        this.m_ctfans.SetStreamType(this.m_streamType);
-        this.m_ctfans.Allocate(this.m_numVertices, this.m_numTriangles);
-        this.m_tfans.Allocate(2 * this.m_numVertices, 8 * this.m_numVertices);
-        // compute vertex-to-triangle adjacency information
-        this.m_vertexToTriangle.AllocateNumNeighborsArray(numVertices);
-        numNeighbors = this.m_vertexToTriangle.GetNumNeighborsBuffer();
-        for (i = 0; i < numVertices; ++i) {
-            numNeighbors[i] = maxSizeV2T;
-        }
-        this.m_vertexToTriangle.AllocateNeighborsArray();
-        this.m_vertexToTriangle.ClearNeighborsArray();
-        return module.O3DGC_OK;
-    };
-    module.TriangleListDecoder.prototype.Decode = function (triangles, numTriangles, numVertices, bstream, it) {
-        var compressionMask, maxSizeV2T;
-        compressionMask = bstream.ReadUChar(it, this.m_streamType);
-        this.m_decodeTrianglesOrder = ((compressionMask & 2) !== 0);
-        this.m_decodeVerticesOrder = ((compressionMask & 1) !== 0);
-        if (this.m_decodeVerticesOrder) { // vertices reordering not supported
-            return module.O3DGC_ERROR_NON_SUPPORTED_FEATURE;
-        }
-        maxSizeV2T = bstream.ReadUInt32(it, this.m_streamType);
-        this.Init(triangles, numTriangles, numVertices, maxSizeV2T);
-        this.m_ctfans.Load(bstream, it, this.m_decodeTrianglesOrder, this.m_streamType);
-        this.Decompress();
-        return module.O3DGC_OK;
-    };
-    // SC3DMCDecoder class
-    module.SC3DMCDecoder = function () {
-        var i;
-        this.m_iterator = new module.Iterator();
-        this.m_streamSize = 0;
-        this.m_params = new module.SC3DMCEncodeParams();
-        this.m_triangleListDecoder = new module.TriangleListDecoder();
-        this.m_quantFloatArray = {};
-        this.m_orientation = {};
-        this.m_normals = {};
-        this.m_quantFloatArraySize = 0;
-        this.m_normalsSize = 0;
-        this.m_orientationSize = 0;
-        this.m_stats = new module.SC3DMCStats();
-        this.m_streamType = local.O3DGC_STREAM_TYPE_UNKOWN;
-        this.m_neighbors = [];
-        this.m_idelta = new Float32Array(local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES);
-        this.m_minNormal = new Float32Array(2);
-        this.m_maxNormal = new Float32Array(2);
-        this.m_minNormal[0] = this.m_minNormal[1] = -2;
-        this.m_maxNormal[0] = this.m_maxNormal[1] = 2;
-        for (i = 0; i < local.O3DGC_SC3DMC_MAX_DIM_ATTRIBUTES; ++i) {
-            this.m_neighbors[i] = new module.SC3DMCPredictor();
-        }
-    };
-    module.SC3DMCDecoder.prototype.GetStats = function () {
-        return this.m_stats;
-    };
-    module.SC3DMCDecoder.prototype.DecodeHeader = function (ifs, bstream) {
-        var c0, start_code, mask, j, a, d;
-        c0 = this.m_iterator.m_count;
-        start_code = bstream.ReadUInt32(this.m_iterator, local.O3DGC_STREAM_TYPE_BINARY);
-        if (start_code !== local.O3DGC_SC3DMC_START_CODE) {
-            this.m_iterator.m_count = c0;
-            start_code = bstream.ReadUInt32(this.m_iterator, local.O3DGC_STREAM_TYPE_ASCII);
-            if (start_code !== local.O3DGC_SC3DMC_START_CODE) {
-                return module.O3DGC_ERROR_CORRUPTED_STREAM;
-            }
-            this.m_streamType = local.O3DGC_STREAM_TYPE_ASCII;
-        } else {
-            this.m_streamType = local.O3DGC_STREAM_TYPE_BINARY;
-        }
-        this.m_streamSize = bstream.ReadUInt32(this.m_iterator, this.m_streamType);
-        this.m_params.SetEncodeMode(bstream.ReadUChar(this.m_iterator, this.m_streamType));
-
-        ifs.SetCreaseAngle(bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-        mask = bstream.ReadUChar(this.m_iterator, this.m_streamType);
-        ifs.SetCCW((mask & 1) === 1);
-        ifs.SetSolid((mask & 2) === 1);
-        ifs.SetConvex((mask & 4) === 1);
-        ifs.SetIsTriangularMesh((mask & 8) === 1);
-
-        ifs.SetNCoord(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-        ifs.SetNNormal(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-        ifs.SetNumFloatAttributes(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-        ifs.SetNumIntAttributes(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-
-        if (ifs.GetNCoord() > 0) {
-            ifs.SetNCoordIndex(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-            for (j = 0; j < 3; ++j) {
-                ifs.SetCoordMin(j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-                ifs.SetCoordMax(j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-            }
-            this.m_params.SetCoordQuantBits(bstream.ReadUChar(this.m_iterator, this.m_streamType));
-        }
-        if (ifs.GetNNormal() > 0) {
-            ifs.SetNNormalIndex(bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-            for (j = 0; j < 3; ++j) {
-                ifs.SetNormalMin(j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-                ifs.SetNormalMax(j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-            }
-            ifs.SetNormalPerVertex(bstream.ReadUChar(this.m_iterator, this.m_streamType) === 1);
-            this.m_params.SetNormalQuantBits(bstream.ReadUChar(this.m_iterator, this.m_streamType));
-        }
-        for (a = 0; a < ifs.GetNumFloatAttributes(); ++a) {
-            ifs.SetNFloatAttribute(a, bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-            if (ifs.GetNFloatAttribute(a) > 0) {
-                ifs.SetNFloatAttributeIndex(a, bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-                d = bstream.ReadUChar(this.m_iterator, this.m_streamType);
-                ifs.SetFloatAttributeDim(a, d);
-                for (j = 0; j < d; ++j) {
-                    ifs.SetFloatAttributeMin(a, j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-                    ifs.SetFloatAttributeMax(a, j, bstream.ReadFloat32(this.m_iterator, this.m_streamType));
-                }
-                ifs.SetFloatAttributePerVertex(a, bstream.ReadUChar(this.m_iterator, this.m_streamType) === 1);
-                ifs.SetFloatAttributeType(a, bstream.ReadUChar(this.m_iterator, this.m_streamType));
-                this.m_params.SetFloatAttributeQuantBits(a, bstream.ReadUChar(this.m_iterator, this.m_streamType));
-            }
-        }
-        for (a = 0; a < ifs.GetNumIntAttributes(); ++a) {
-            ifs.SetNIntAttribute(a, bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-            if (ifs.GetNIntAttribute(a) > 0) {
-                ifs.SetNIntAttributeIndex(a, bstream.ReadUInt32(this.m_iterator, this.m_streamType));
-                ifs.SetIntAttributeDim(a, bstream.ReadUChar(this.m_iterator, this.m_streamType));
-                ifs.SetIntAttributePerVertex(a, bstream.ReadUChar(this.m_iterator, this.m_streamType) === 1);
-                ifs.SetIntAttributeType(a, bstream.ReadUChar(this.m_iterator, this.m_streamType));
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    function DeltaPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride) {
-        var ws, k, p, w, i, id;
-        id = new module.SC3DMCTriplet(-1, -1, -1);
-        for (k = 0; k < 3; ++k) {
-            w = triangles[ta * 3 + k];
-            if (w < v) {
-                id.m_a = -1;
-                id.m_b = -1;
-                id.m_c = w;
-                p = InsertPredictor(id, nPred, neighbors, dimFloatArray);
-                if (p !== -1) {
-                    ws = w * stride;
-                    for (i = 0; i < dimFloatArray; ++i) {
-                        neighbors[p].m_pred[i] = quantFloatArray[ws + i];
-                    }
-                }
-            }
-        }
-    }
-    function ParallelogramPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride, v2T, v2TNeighbors) {
-        var ta3, tb3, as, bs, cs, a, b, c, x, i, k, u1_begin, u1_end, u1, tb, foundB, p, id;
-        ta3 = ta * 3;
-        id = new module.SC3DMCTriplet(-1, -1, -1);
-        if (triangles[ta3] === v) {
-            a = triangles[ta3 + 1];
-            b = triangles[ta3 + 2];
-        } else if (triangles[ta3 + 1] === v) {
-            a = triangles[ta3];
-            b = triangles[ta3 + 2];
-        } else {
-            a = triangles[ta3];
-            b = triangles[ta3 + 1];
-        }
-        if (a < v && b < v) {
-            u1_begin = v2T.Begin(a);
-            u1_end = v2T.End(a);
-            for (u1 = u1_begin; u1 < u1_end; ++u1) {
-                tb = v2TNeighbors[u1];
-                if (tb < 0) {
-                    break;
-                }
-                tb3 = tb * 3;
-                c = -1;
-                foundB = false;
-                for (k = 0; k < 3; ++k) {
-                    x = triangles[tb3 + k];
-                    if (x === b) {
-                        foundB = true;
-                    } else if (x < v && x !== a) {
-                        c = x;
-                    }
-                }
-                if (c !== -1 && foundB) {
-                    if (a < b) {
-                        id.m_a = a;
-                        id.m_b = b;
-                    } else {
-                        id.m_a = b;
-                        id.m_b = a;
-                    }
-                    id.m_c = (-c - 1);
-                    p = InsertPredictor(id, nPred, neighbors, dimFloatArray);
-                    if (p !== -1) {
-                        as = a * stride;
-                        bs = b * stride;
-                        cs = c * stride;
-                        for (i = 0; i < dimFloatArray; ++i) {
-                            neighbors[p].m_pred[i] = quantFloatArray[as + i] + quantFloatArray[bs + i] - quantFloatArray[cs + i];
-                        }
-                    }
-                }
-            }
-        }
-    }
-    module.SC3DMCDecoder.prototype.DecodeIntArrayBinary = function (intArray,
-                                                                    numIntArray,
-                                                                    dimIntArray,
-                                                                    stride,
-                                                                    ifs,
-                                                                    predMode,
-                                                                    bstream) {
-        var testPredEnabled, bestPred, i, u, ta, u_begin, u_end, buffer, iterator, streamType, predResidual, acd, bModel0, bModel1, mModelPreds, v2T, v2TNeighbors, triangles, size, start, streamSize, mask, binarization, iteratorPred, exp_k, M, id, mModelValues, neighbors, normals, nPred, v;
-        iterator = this.m_iterator;
-        streamType = this.m_streamType;
-        acd = new module.ArithmeticDecoder();
-        bModel0 = new module.StaticBitModel();
-        bModel1 = new module.AdaptiveBitModel();
-        mModelPreds = new module.AdaptiveDataModel();
-        mModelPreds.SetAlphabet(local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS + 1);
-        v2T = this.m_triangleListDecoder.GetVertexToTriangle();
-        v2TNeighbors = v2T.m_neighbors;
-        triangles = ifs.GetCoordIndex();
-        size = numIntArray * dimIntArray;
-        start = iterator.m_count;
-        streamSize = bstream.ReadUInt32(iterator, streamType);        // bitsream size
-        mask = bstream.ReadUChar(iterator, streamType);
-        binarization = (mask >>> 4) & 7;
-        predMode.m_value = mask & 7;
-        streamSize -= (iterator.m_count - start);
-        iteratorPred = new module.Iterator();
-        iteratorPred.m_count = iterator.m_count + streamSize;
-        exp_k = 0;
-        M = 0;
-        id = new module.SC3DMCTriplet(-1, -1, -1);
-        if (binarization !== local.O3DGC_SC3DMC_BINARIZATION_AC_EGC) {
-            return module.O3DGC_ERROR_CORRUPTED_STREAM;
-        }
-        buffer = bstream.GetBuffer(iterator, streamSize);
-        iterator.m_count += streamSize;
-        acd.SetBuffer(streamSize, buffer);
-        acd.StartDecoder();
-        exp_k = acd.ExpGolombDecode(0, bModel0, bModel1);
-        M = acd.ExpGolombDecode(0, bModel0, bModel1);
-        mModelValues = new module.AdaptiveDataModel();
-        mModelValues.SetAlphabet(M + 2);
-        neighbors = this.m_neighbors;
-        normals = this.m_normals;
-        nPred = new module.NumberRef();
-        testPredEnabled = predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION;
-        for (v = 0; v < numIntArray; ++v) {
-            nPred.m_value = 0;
-            if (v2T.GetNumNeighbors(v) > 0 && testPredEnabled) {
-                u_begin = v2T.Begin(v);
-                u_end = v2T.End(v);
-                for (u = u_begin; u < u_end; ++u) {
-                    ta = v2TNeighbors[u];
-                    if (ta < 0) {
-                        break;
-                    }
-                    DeltaPredictors(triangles, ta, v, nPred, neighbors, dimIntArray, intArray, stride);
-                }
-            }
-            if (nPred.m_value > 1) {
-                bestPred = acd.DecodeAdaptiveDataModel(mModelPreds);
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = acd.DecodeIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    intArray[v * stride + i] = predResidual + neighbors[bestPred].m_pred[i];
-                }
-            } else if (v > 0 && predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION) {
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = acd.DecodeIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    intArray[v * stride + i] = predResidual + intArray[(v - 1) * stride + i];
-                }
-            } else {
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = acd.DecodeUIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    intArray[v * stride + i] = predResidual;
-                }
-            }
-        }
-        iterator.m_count = iteratorPred.m_count;
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.DecodeIntArrayASCII = function (intArray,
-                                                                   numIntArray,
-                                                                   dimIntArray,
-                                                                   stride,
-                                                                   ifs,
-                                                                   predMode,
-                                                                   bstream) {
-        var testPredEnabled, iterator, streamType, predResidual, v2T, v2TNeighbors, triangles, size, start, streamSize, mask, binarization, iteratorPred, id, neighbors, normals, nPred, v, u_begin, u_end, u, ta, i, bestPred;
-        iterator = this.m_iterator;
-        streamType = this.m_streamType;
-        v2T = this.m_triangleListDecoder.GetVertexToTriangle();
-        v2TNeighbors = v2T.m_neighbors;
-        triangles = ifs.GetCoordIndex();
-        size = numIntArray * dimIntArray;
-        start = iterator.m_count;
-        streamSize = bstream.ReadUInt32(iterator, streamType);        // bitsream size
-        mask = bstream.ReadUChar(iterator, streamType);
-        binarization = (mask >>> 4) & 7;
-        predMode.m_value = mask & 7;
-        streamSize -= (iterator.m_count - start);
-        iteratorPred = new module.Iterator();
-        iteratorPred.m_count = iterator.m_count + streamSize;
-        id = new module.SC3DMCTriplet(-1, -1, -1);
-        if (binarization !== local.O3DGC_SC3DMC_BINARIZATION_ASCII) {
-            return module.O3DGC_ERROR_CORRUPTED_STREAM;
-        }
-        bstream.ReadUInt32(iteratorPred, streamType);        // predictors bitsream size
-        neighbors = this.m_neighbors;
-        normals = this.m_normals;
-        nPred = new module.NumberRef();
-        testPredEnabled = predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION;
-        for (v = 0; v < numIntArray; ++v) {
-            nPred.m_value = 0;
-            if (v2T.GetNumNeighbors(v) > 0 && testPredEnabled) {
-                u_begin = v2T.Begin(v);
-                u_end = v2T.End(v);
-                for (u = u_begin; u < u_end; ++u) {
-                    ta = v2TNeighbors[u];
-                    if (ta < 0) {
-                        break;
-                    }
-                    DeltaPredictors(triangles, ta, v, nPred, neighbors, dimIntArray, intArray, stride);
-                }
-            }
-            if (nPred.m_value > 1) {
-                bestPred = bstream.ReadUCharASCII(iteratorPred);
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = bstream.ReadIntASCII(iterator);
-                    intArray[v * stride + i] = predResidual + neighbors[bestPred].m_pred[i];
-                }
-            } else if (v > 0 && predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION) {
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = bstream.ReadIntASCII(iterator);
-                    intArray[v * stride + i] = predResidual + intArray[(v - 1) * stride + i];
-                }
-            } else {
-                for (i = 0; i < dimIntArray; ++i) {
-                    predResidual = bstream.ReadUIntASCII(iterator);
-                    intArray[v * stride + i] = predResidual;
-                }
-            }
-        }
-        iterator.m_count = iteratorPred.m_count;
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.DecodeIntArray = function (intArray,
-                                                              numIntArray,
-                                                              dimIntArray,
-                                                              stride,
-                                                              ifs,
-                                                              predMode,
-                                                              bstream) {
-        if (this.m_streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            return this.DecodeIntArrayASCII(intArray, numIntArray, dimIntArray, stride, ifs, predMode, bstream);
-        }
-        return this.DecodeIntArrayBinary(intArray, numIntArray, dimIntArray, stride, ifs, predMode, bstream);
-    };
-    function ComputeNormals(triangles, ntris, coords, nvert, normals) {
-        var t3, v, n, t, a, b, c, d1, d2, n0;
-        n0 = new module.Vec3();
-        d1 = new module.Vec3();
-        d2 = new module.Vec3();
-        n = nvert * 3;
-        for (v = 0; v < n; ++v) {
-            normals[v] = 0;
-        }
-        for (t = 0; t < ntris; ++t) {
-            t3 = t * 3;
-            a = triangles[t3] * 3;
-            b = triangles[t3 + 1] * 3;
-            c = triangles[t3 + 2] * 3;
-            d1.m_x = coords[b] - coords[a];
-            d1.m_y = coords[b + 1] - coords[a + 1];
-            d1.m_z = coords[b + 2] - coords[a + 2];
-            d2.m_x = coords[c] - coords[a];
-            d2.m_y = coords[c + 1] - coords[a + 1];
-            d2.m_z = coords[c + 2] - coords[a + 2];
-            n0.m_x = d1.m_y * d2.m_z - d1.m_z * d2.m_y;
-            n0.m_y = d1.m_z * d2.m_x - d1.m_x * d2.m_z;
-            n0.m_z = d1.m_x * d2.m_y - d1.m_y * d2.m_x;
-            normals[a] += n0.m_x;
-            normals[a + 1] += n0.m_y;
-            normals[a + 2] += n0.m_z;
-            normals[b] += n0.m_x;
-            normals[b + 1] += n0.m_y;
-            normals[b + 2] += n0.m_z;
-            normals[c] += n0.m_x;
-            normals[c + 1] += n0.m_y;
-            normals[c + 2] += n0.m_z;
-        }
-    }
-    module.SC3DMCDecoder.prototype.ProcessNormals = function (ifs) {
-        var v3, v2, nvert, normalSize, normals, quantFloatArray, orientation, triangles, n0, n1, v, rna0, rnb0, ni1, norm0;
-        nvert = ifs.GetNNormal();
-
-        normalSize = ifs.GetNNormal() * 3;
-        if (this.m_normalsSize < normalSize) {
-            this.m_normalsSize = normalSize;
-            this.m_normals = new Float32Array(this.m_normalsSize);
-        }
-        normals = this.m_normals;
-        quantFloatArray = this.m_quantFloatArray;
-        orientation = this.m_orientation;
-        triangles = ifs.GetCoordIndex();
-        ComputeNormals(triangles, ifs.GetNCoordIndex(), quantFloatArray, nvert, normals);
-        n0 = new module.Vec3();
-        n1 = new module.Vec3();
-        for (v = 0; v < nvert; ++v) {
-            v3 = 3 * v;
-            n0.m_x = normals[v3];
-            n0.m_y = normals[v3 + 1];
-            n0.m_z = normals[v3 + 2];
-            norm0 = Math.sqrt(n0.m_x * n0.m_x + n0.m_y * n0.m_y + n0.m_z * n0.m_z);
-            if (norm0 === 0.0) {
-                norm0 = 1.0;
-            }
-            SphereToCube(n0, n1);
-            rna0 = n1.m_x / norm0;
-            rnb0 = n1.m_y / norm0;
-            ni1 = n1.m_z + orientation[v];
-            orientation[v] = ni1;
-            if ((ni1 >>> 1) !== (n1.m_z >>> 1)) {
-                rna0 = 0.0;
-                rnb0 = 0.0;
-            }
-            v2 = v * 2;
-            normals[v2] = rna0;
-            normals[v2 + 1] = rnb0;
-        }
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.IQuantize = function (floatArray,
-                                                         numFloatArray,
-                                                         dimFloatArray,
-                                                         stride,
-                                                         minFloatArray,
-                                                         maxFloatArray,
-                                                         nQBits,
-                                                         predMode) {
-        var v, nin, nout, orientation, normals, CubeToSphere;
-        if (predMode.m_value === local.O3DGC_SC3DMC_SURF_NORMALS_PREDICTION) {
-            CubeToSphere = local.CubeToSphere;
-            orientation = this.m_orientation;
-            normals = this.m_normals;
-            nin = new module.Vec3(0, 0, 0);
-            nout = new module.Vec3(0, 0, 0);
-            this.IQuantizeFloatArray(floatArray, numFloatArray, dimFloatArray, stride, this.m_minNormal, this.m_maxNormal, nQBits + 1);
-            for (v = 0; v < numFloatArray; ++v) {
-                nin.m_x = floatArray[stride * v] + normals[2 * v];
-                nin.m_y = floatArray[stride * v + 1] + normals[2 * v + 1];
-                nin.m_z = orientation[v];
-                CubeToSphere[nin.m_z](nin, nout);
-                floatArray[stride * v] = nout.m_x;
-                floatArray[stride * v + 1] = nout.m_y;
-                floatArray[stride * v + 2] = nout.m_z;
-            }
-        } else {
-            this.IQuantizeFloatArray(floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits);
-        }
-    };
-    module.SC3DMCDecoder.prototype.DecodeFloatArrayBinary = function (floatArray,
-                                                                      numFloatArray,
-                                                                      dimFloatArray,
-                                                                      stride,
-                                                                      minFloatArray,
-                                                                      maxFloatArray,
-                                                                      nQBits,
-                                                                      ifs,
-                                                                      predMode,
-                                                                      bstream) {
-        var maxNPred, testPredEnabled, testParaPredEnabled, bestPred, dModel, buffer, quantFloatArray, neighbors, normals, nPred, ta, i, v, u, u_begin, u_end, iterator, orientation, streamType, predResidual, acd, bModel0, bModel1, mModelPreds, v2T, v2TNeighbors, triangles, size, start, streamSize, mask, binarization, iteratorPred, exp_k, M, mModelValues;
-        iterator = this.m_iterator;
-        orientation = this.m_orientation;
-        streamType = this.m_streamType;
-        acd = new module.ArithmeticDecoder();
-        bModel0 = new module.StaticBitModel();
-        bModel1 = new module.AdaptiveBitModel();
-        mModelPreds = new module.AdaptiveDataModel();
-        maxNPred = local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS;
-        mModelPreds.SetAlphabet(maxNPred + 1);
-        v2T = this.m_triangleListDecoder.GetVertexToTriangle();
-        v2TNeighbors = v2T.m_neighbors;
-        triangles = ifs.GetCoordIndex();
-        size = numFloatArray * dimFloatArray;
-        start = iterator.m_count;
-        streamSize = bstream.ReadUInt32(iterator, streamType);
-        mask = bstream.ReadUChar(iterator, streamType);
-        binarization = (mask >>> 4) & 7;
-        predMode.m_value = mask & 7;
-        streamSize -= (iterator.m_count - start);
-        iteratorPred = new module.Iterator();
-        iteratorPred.m_count = iterator.m_count + streamSize;
-        exp_k = 0;
-        M = 0;
-        if (binarization !== local.O3DGC_SC3DMC_BINARIZATION_AC_EGC) {
-            return module.O3DGC_ERROR_CORRUPTED_STREAM;
-        }
-        buffer = bstream.GetBuffer(iterator, streamSize);
-        iterator.m_count += streamSize;
-        acd.SetBuffer(streamSize, buffer);
-        acd.StartDecoder();
-        exp_k = acd.ExpGolombDecode(0, bModel0, bModel1);
-        M = acd.ExpGolombDecode(0, bModel0, bModel1);
-        mModelValues = new module.AdaptiveDataModel();
-        mModelValues.SetAlphabet(M + 2);
-        if (predMode.m_value === local.O3DGC_SC3DMC_SURF_NORMALS_PREDICTION) {
-            if (this.m_orientationSize < size) {
-                this.m_orientationSize = size;
-                this.m_orientation = new Int8Array(this.m_orientationSize);
-                orientation = this.m_orientation;
-            }
-            dModel = new module.AdaptiveDataModel();
-            dModel.SetAlphabet(12);
-            for (i = 0; i < numFloatArray; ++i) {
-                orientation[i] = UIntToInt(acd.DecodeAdaptiveDataModel(dModel));
-            }
-            this.ProcessNormals(ifs);
-            dimFloatArray = 2;
-        }
-        if (this.m_quantFloatArraySize < size) {
-            this.m_quantFloatArraySize = size;
-            this.m_quantFloatArray = new Int32Array(this.m_quantFloatArraySize);
-        }
-        quantFloatArray = this.m_quantFloatArray;
-        neighbors = this.m_neighbors;
-        normals = this.m_normals;
-        nPred = new module.NumberRef();
-        testPredEnabled = predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION;
-        testParaPredEnabled = predMode.m_value === local.O3DGC_SC3DMC_PARALLELOGRAM_PREDICTION;
-        for (v = 0; v < numFloatArray; ++v) {
-            nPred.m_value = 0;
-            if (v2T.GetNumNeighbors(v) > 0 && testPredEnabled) {
-                u_begin = v2T.Begin(v);
-                u_end = v2T.End(v);
-                if (testParaPredEnabled) {
-                    for (u = u_begin; u < u_end; ++u) {
-                        ta = v2TNeighbors[u];
-                        if (ta < 0) {
-                            break;
-                        }
-                        ParallelogramPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride, v2T, v2TNeighbors);
-                    }
-                }
-                if (nPred.m_value < maxNPred) {
-                    for (u = u_begin; u < u_end; ++u) {
-                        ta = v2TNeighbors[u];
-                        if (ta < 0) {
-                            break;
-                        }
-                        DeltaPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride);
-                    }
-                }
-            }
-            if (nPred.m_value > 1) {
-                bestPred = acd.DecodeAdaptiveDataModel(mModelPreds);
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = acd.DecodeIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    quantFloatArray[v * stride + i] = predResidual + neighbors[bestPred].m_pred[i];
-                }
-            } else if (v > 0 && testPredEnabled) {
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = acd.DecodeIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    quantFloatArray[v * stride + i] = predResidual + quantFloatArray[(v - 1) * stride + i];
-                }
-            } else {
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = acd.DecodeUIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                    quantFloatArray[v * stride + i] = predResidual;
-                }
-            }
-        }
-        iterator.m_count = iteratorPred.m_count;
-        this.IQuantize(floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits, predMode);
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.DecodeFloatArrayASCII = function (floatArray,
-                                                                     numFloatArray,
-                                                                     dimFloatArray,
-                                                                     stride,
-                                                                     minFloatArray,
-                                                                     maxFloatArray,
-                                                                     nQBits,
-                                                                     ifs,
-                                                                     predMode,
-                                                                     bstream) {
-        var maxNPred, testPredEnabled, testParaPredEnabled, iterator, orientation, streamType, predResidual, v2T, v2TNeighbors, triangles, size, start, streamSize, mask, binarization, iteratorPred, quantFloatArray, neighbors, normals, nPred, v, u, u_begin, u_end, ta, i, bestPred;
-        maxNPred = local.O3DGC_SC3DMC_MAX_PREDICTION_NEIGHBORS;
-        iterator = this.m_iterator;
-        orientation = this.m_orientation;
-        streamType = this.m_streamType;
-        v2T = this.m_triangleListDecoder.GetVertexToTriangle();
-        v2TNeighbors = v2T.m_neighbors;
-        triangles = ifs.GetCoordIndex();
-        size = numFloatArray * dimFloatArray;
-        start = iterator.m_count;
-        streamSize = bstream.ReadUInt32(iterator, streamType);
-        mask = bstream.ReadUChar(iterator, streamType);
-        binarization = (mask >>> 4) & 7;
-        predMode.m_value = mask & 7;
-        streamSize -= (iterator.m_count - start);
-        iteratorPred = new module.Iterator();
-        iteratorPred.m_count = iterator.m_count + streamSize;
-        if (binarization !== local.O3DGC_SC3DMC_BINARIZATION_ASCII) {
-            return module.O3DGC_ERROR_CORRUPTED_STREAM;
-        }
-        bstream.ReadUInt32(iteratorPred, streamType);
-        if (predMode.m_value === local.O3DGC_SC3DMC_SURF_NORMALS_PREDICTION) {
-            if (this.m_orientationSize < numFloatArray) {
-                this.m_orientationSize = numFloatArray;
-                this.m_orientation = new Int8Array(this.m_orientationSize);
-                orientation = this.m_orientation;
-            }
-            for (i = 0; i < numFloatArray; ++i) {
-                orientation[i] = bstream.ReadIntASCII(iterator);
-            }
-            this.ProcessNormals(ifs);
-            dimFloatArray = 2;
-        }
-        if (this.m_quantFloatArraySize < size) {
-            this.m_quantFloatArraySize = size;
-            this.m_quantFloatArray = new Int32Array(this.m_quantFloatArraySize);
-        }
-        quantFloatArray = this.m_quantFloatArray;
-        neighbors = this.m_neighbors;
-        normals = this.m_normals;
-        nPred = new module.NumberRef();
-        testPredEnabled = predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION;
-        testParaPredEnabled = predMode.m_value === local.O3DGC_SC3DMC_PARALLELOGRAM_PREDICTION;
-        for (v = 0; v < numFloatArray; ++v) {
-            nPred.m_value = 0;
-            if (v2T.GetNumNeighbors(v) > 0 && testPredEnabled) {
-                u_begin = v2T.Begin(v);
-                u_end = v2T.End(v);
-                if (testParaPredEnabled) {
-                    for (u = u_begin; u < u_end; ++u) {
-                        ta = v2TNeighbors[u];
-                        if (ta < 0) {
-                            break;
-                        }
-                        ParallelogramPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride, v2T, v2TNeighbors);
-                    }
-                }
-                if (nPred.m_value < maxNPred) {
-                    for (u = u_begin; u < u_end; ++u) {
-                        ta = v2TNeighbors[u];
-                        if (ta < 0) {
-                            break;
-                        }
-                        DeltaPredictors(triangles, ta, v, nPred, neighbors, dimFloatArray, quantFloatArray, stride);
-                    }
-                }
-            }
-            if (nPred.m_value > 1) {
-                bestPred = bstream.ReadUCharASCII(iteratorPred);
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = bstream.ReadIntASCII(iterator);
-                    quantFloatArray[v * stride + i] = predResidual + neighbors[bestPred].m_pred[i];
-                }
-            } else if (v > 0 && predMode.m_value !== local.O3DGC_SC3DMC_NO_PREDICTION) {
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = bstream.ReadIntASCII(iterator);
-                    quantFloatArray[v * stride + i] = predResidual + quantFloatArray[(v - 1) * stride + i];
-                }
-            } else {
-                for (i = 0; i < dimFloatArray; ++i) {
-                    predResidual = bstream.ReadUIntASCII(iterator);
-                    quantFloatArray[v * stride + i] = predResidual;
-                }
-            }
-        }
-        iterator.m_count = iteratorPred.m_count;
-        this.IQuantize(floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits, predMode);
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.DecodeFloatArray = function (floatArray,
-                                                                numFloatArray,
-                                                                dimFloatArray,
-                                                                stride,
-                                                                minFloatArray,
-                                                                maxFloatArray,
-                                                                nQBits,
-                                                                ifs,
-                                                                predMode,
-                                                                bstream) {
-        if (this.m_streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            return this.DecodeFloatArrayASCII(floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits, ifs, predMode, bstream);
-        }
-        return this.DecodeFloatArrayBinary(floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits, ifs, predMode, bstream);
-    };
-    module.SC3DMCDecoder.prototype.IQuantizeFloatArray = function (floatArray, numFloatArray, dimFloatArray, stride, minFloatArray, maxFloatArray, nQBits) {
-        var idelta, quantFloatArray, d, r, v;
-        idelta = this.m_idelta;
-        quantFloatArray = this.m_quantFloatArray;
-        for (d = 0; d < dimFloatArray; ++d) {
-            r = maxFloatArray[d] - minFloatArray[d];
-            if (r > 0.0) {
-                idelta[d] = r / (((1 << nQBits) >>> 0) - 1);
-            } else {
-                idelta[d] = 1.0;
-            }
-        }
-        for (v = 0; v < numFloatArray; ++v) {
-            for (d = 0; d < dimFloatArray; ++d) {
-                floatArray[v * stride + d] = quantFloatArray[v * stride + d] * idelta[d] + minFloatArray[d];
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    module.SC3DMCDecoder.prototype.DecodePlayload = function (ifs, bstream) {
-        var params, iterator, stats, predMode, timer, ret, a;
-        params = this.m_params;
-        iterator = this.m_iterator;
-        stats = this.m_stats;
-        predMode = new module.NumberRef();
-        timer = new module.Timer();
-        ret = module.O3DGC_OK;
-        this.m_triangleListDecoder.SetStreamType(this.m_streamType);
-        stats.m_streamSizeCoordIndex = iterator.m_count;
-        timer.Tic();
-        this.m_triangleListDecoder.Decode(ifs.GetCoordIndex(), ifs.GetNCoordIndex(), ifs.GetNCoord(), bstream, iterator);
-        timer.Toc();
-        stats.m_timeCoordIndex = timer.GetElapsedTime();
-        stats.m_streamSizeCoordIndex = iterator.m_count - stats.m_streamSizeCoordIndex;
-        // decode coord
-        stats.m_streamSizeCoord = iterator.m_count;
-        timer.Tic();
-        if (ifs.GetNCoord() > 0) {
-            ret = this.DecodeFloatArray(ifs.GetCoord(), ifs.GetNCoord(), 3, 3, ifs.GetCoordMinArray(), ifs.GetCoordMaxArray(), params.GetCoordQuantBits(), ifs, predMode, bstream);
-            params.SetCoordPredMode(predMode.m_value);
-        }
-        if (ret !== module.O3DGC_OK) {
-            return ret;
-        }
-        timer.Toc();
-        stats.m_timeCoord = timer.GetElapsedTime();
-        stats.m_streamSizeCoord = iterator.m_count - stats.m_streamSizeCoord;
-
-        // decode Normal
-        stats.m_streamSizeNormal = iterator.m_count;
-        timer.Tic();
-        if (ifs.GetNNormal() > 0) {
-            ret = this.DecodeFloatArray(ifs.GetNormal(), ifs.GetNNormal(), 3, 3, ifs.GetNormalMinArray(), ifs.GetNormalMaxArray(), params.GetNormalQuantBits(), ifs, predMode, bstream);
-            params.SetNormalPredMode(predMode.m_value);
-        }
-        if (ret !== module.O3DGC_OK) {
-            return ret;
-        }
-        timer.Toc();
-        stats.m_timeNormal = timer.GetElapsedTime();
-        stats.m_streamSizeNormal = iterator.m_count - stats.m_streamSizeNormal;
-
-        // decode FloatAttributes
-        for (a = 0; a < ifs.GetNumFloatAttributes(); ++a) {
-            stats.m_streamSizeFloatAttribute[a] = iterator.m_count;
-            timer.Tic();
-            ret = this.DecodeFloatArray(ifs.GetFloatAttribute(a), ifs.GetNFloatAttribute(a), ifs.GetFloatAttributeDim(a), ifs.GetFloatAttributeDim(a), ifs.GetFloatAttributeMinArray(a), ifs.GetFloatAttributeMaxArray(a), params.GetFloatAttributeQuantBits(a), ifs, predMode, bstream);
-            params.SetFloatAttributePredMode(a, predMode.m_value);
-            timer.Toc();
-            stats.m_timeFloatAttribute[a] = timer.GetElapsedTime();
-            stats.m_streamSizeFloatAttribute[a] = iterator.m_count - stats.m_streamSizeFloatAttribute[a];
-        }
-        if (ret !== module.O3DGC_OK) {
-            return ret;
-        }
-        // decode IntAttributes
-        for (a = 0; a < ifs.GetNumIntAttributes(); ++a) {
-            stats.m_streamSizeIntAttribute[a] = iterator.m_count;
-            timer.Tic();
-            ret = this.DecodeIntArray(ifs.GetIntAttribute(a), ifs.GetNIntAttribute(a), ifs.GetIntAttributeDim(a), ifs.GetIntAttributeDim(a), ifs, predMode, bstream);
-            params.SetIntAttributePredMode(a, predMode.m_value);
-            timer.Toc();
-            stats.m_timeIntAttribute[a] = timer.GetElapsedTime();
-            stats.m_streamSizeIntAttribute[a] = iterator.m_count - stats.m_streamSizeIntAttribute[a];
-        }
-        if (ret !== module.O3DGC_OK) {
-            return ret;
-        }
-        timer.Tic();
-        this.m_triangleListDecoder.Reorder();
-        timer.Toc();
-        stats.m_timeReorder = timer.GetElapsedTime();
-        return ret;
-    };
-    // DVEncodeParams class
-    module.DVEncodeParams = function () {
-        this.m_encodeMode = local.O3DGC_DYNAMIC_VECTOR_ENCODE_MODE_LIFT;
-        this.m_streamTypeMode = local.O3DGC_STREAM_TYPE_ASCII;
-        this.m_quantBits = 10;
-    };
-    module.DVEncodeParams.prototype.GetStreamType = function () {
-        return this.m_streamTypeMode;
-    };
-    module.DVEncodeParams.prototype.GetEncodeMode = function () {
-        return this.m_encodeMode;
-    };
-    module.DVEncodeParams.prototype.GetQuantBits = function () {
-        return this.m_quantBits;
-    };
-    module.DVEncodeParams.prototype.SetStreamType = function (streamTypeMode) {
-        this.m_streamTypeMode = streamTypeMode;
-    };
-    module.DVEncodeParams.prototype.SetEncodeMode = function (encodeMode) {
-        this.m_encodeMode = encodeMode;
-    };
-    module.DVEncodeParams.prototype.SetQuantBits = function (quantBits) {
-        this.m_quantBits = quantBits;
-    };
-    // DynamicVector class
-    module.DynamicVector = function () {
-        this.m_num = 0;
-        this.m_dim = 0;
-        this.m_stride = 0;
-        this.m_max = {};
-        this.m_min = {};
-        this.m_vectors = {};
-    };
-    module.DynamicVector.prototype.GetNVector = function () {
-        return this.m_num;
-    };
-    module.DynamicVector.prototype.GetDimVector = function () {
-        return this.m_dim;
-    };
-    module.DynamicVector.prototype.GetStride = function () {
-        return this.m_stride;
-    };
-    module.DynamicVector.prototype.GetMinArray = function () {
-        return this.m_min;
-    };
-    module.DynamicVector.prototype.GetMaxArray = function () {
-        return this.m_max;
-    };
-    module.DynamicVector.prototype.GetVectors = function () {
-        return this.m_vectors;
-    };
-    module.DynamicVector.prototype.GetMin = function (j) {
-        return this.m_min[j];
-    };
-    module.DynamicVector.prototype.GetMax = function (j) {
-        return this.m_max[j];
-    };
-    module.DynamicVector.prototype.SetNVector = function (num) {
-        this.m_num = num;
-    };
-    module.DynamicVector.prototype.SetDimVector = function (dim) {
-        this.m_dim = dim;
-    };
-    module.DynamicVector.prototype.SetStride = function (stride) {
-        this.m_stride = stride;
-    };
-    module.DynamicVector.prototype.SetMinArray = function (min) {
-        this.m_min = min;
-    };
-    module.DynamicVector.prototype.SetMaxArray = function (max) {
-        this.m_max = max;
-    };
-    module.DynamicVector.prototype.SetMin = function (j, min) {
-        this.m_min[j] = min;
-    };
-    module.DynamicVector.prototype.SetMax = function (j, max) {
-        this.m_max[j] = max;
-    };
-    module.DynamicVector.prototype.SetVectors = function (vectors) {
-        this.m_vectors = vectors;
-    };
-    // DynamicVectorDecoder class
-    module.DynamicVectorDecoder = function () {
-        this.m_streamSize = 0;
-        this.m_maxNumVectors = 0;
-        this.m_numVectors = 0;
-        this.m_dimVectors = 0;
-        this.m_quantVectors = {};
-        this.m_iterator = new module.Iterator();
-        this.m_streamType = local.O3DGC_STREAM_TYPE_UNKOWN;
-        this.m_params = new module.DVEncodeParams();
-    };
-    module.DynamicVectorDecoder.prototype.GetStreamType = function () {
-        return this.m_streamType;
-    };
-    module.DynamicVectorDecoder.prototype.GetIterator = function () {
-        return this.m_iterator;
-    };
-    module.DynamicVectorDecoder.prototype.SetStreamType = function (streamType) {
-        this.m_streamType = streamType;
-    };
-    module.DynamicVectorDecoder.prototype.SetIterator = function (iterator) {
-        this.m_iterator = iterator;
-    };
-    module.DynamicVectorDecoder.prototype.IUpdate = function (data, shift, size) {
-        var p, size1;
-        size1 = size - 1;
-        p = 2;
-        data[shift] -= data[shift + 1] >> 1;
-        while (p < size1) {
-            data[shift + p] -= (data[shift + p - 1] + data[shift + p + 1] + 2) >> 2;
-            p += 2;
-        }
-        if (p === size1) {
-            data[shift + p] -= data[shift + p - 1] >> 1;
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.IPredict = function (data, shift, size) {
-        var p, size1;
-        size1 = size - 1;
-        p = 1;
-        while (p < size1) {
-            data[shift + p] += (data[shift + p - 1] + data[shift + p + 1] + 1) >> 1;
-            p += 2;
-        }
-        if (p === size1) {
-            data[shift + p] += data[shift + p - 1];
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.Merge = function (data, shift, size) {
-        var i, h, a, b, tmp;
-        h = (size >> 1) + (size & 1);
-        a = h - 1;
-        b = h;
-        while (a > 0) {
-            for (i = a; i < b; i += 2) {
-                tmp = data[shift + i];
-                data[shift + i] = data[shift + i + 1];
-                data[shift + i + 1] = tmp;
-            }
-            --a;
-            ++b;
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.ITransform = function (data, shift, size) {
-        var n, even, k, i;
-        n = size;
-        even = 0;
-        k = 0;
-        even += ((n & 1) << k++) >>> 0;
-        while (n > 1) {
-            n = (n >> 1) + ((n & 1) >>> 0);
-            even += ((n & 1) << k++) >>> 0;
-        }
-        for (i = k - 2; i >= 0; --i) {
-            n = ((n << 1) >>> 0) - (((even >>> i) & 1)) >>> 0;
-            this.Merge(data, shift, n);
-            this.IUpdate(data, shift, n);
-            this.IPredict(data, shift, n);
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.IQuantize = function (floatArray,
-                                                       numFloatArray,
-                                                       dimFloatArray,
-                                                       stride,
-                                                       minFloatArray,
-                                                       maxFloatArray,
-                                                       nQBits) {
-        var quantVectors, r, idelta, size, d, v;
-        quantVectors = this.m_quantVectors;
-        size = numFloatArray * dimFloatArray;
-        for (d = 0; d < dimFloatArray; ++d) {
-            r = maxFloatArray[d] - minFloatArray[d];
-            if (r > 0.0) {
-                idelta = r / (((1 << nQBits) >>> 0) - 1);
-            } else {
-                idelta = 1.0;
-            }
-            for (v = 0; v < numFloatArray; ++v) {
-                floatArray[v * stride + d] = quantVectors[v + d * numFloatArray] * idelta + minFloatArray[d];
-            }
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.DecodeHeader = function (dynamicVector, bstream) {
-        var iterator, c0, start_code, streamType;
-        iterator = this.m_iterator;
-        c0 = iterator.m_count;
-        start_code = bstream.ReadUInt32(iterator, local.O3DGC_STREAM_TYPE_BINARY);
-        if (start_code !== local.O3DGC_DV_START_CODE) {
-            iterator.m_count = c0;
-            start_code = bstream.ReadUInt32(iterator, local.O3DGC_STREAM_TYPE_ASCII);
-            if (start_code !== local.O3DGC_DV_START_CODE) {
-                return module.O3DGC_ERROR_CORRUPTED_STREAM;
-            }
-            this.m_streamType = local.O3DGC_STREAM_TYPE_ASCII;
-        } else {
-            this.m_streamType = local.O3DGC_STREAM_TYPE_BINARY;
-        }
-        streamType = this.m_streamType;
-        this.m_streamSize = bstream.ReadUInt32(iterator, streamType);
-        this.m_params.SetEncodeMode(bstream.ReadUChar(iterator, streamType));
-        dynamicVector.SetNVector(bstream.ReadUInt32(iterator, streamType));
-        if (dynamicVector.GetNVector() > 0) {
-            dynamicVector.SetDimVector(bstream.ReadUInt32(iterator, streamType));
-            this.m_params.SetQuantBits(bstream.ReadUChar(iterator, streamType));
-        }
-        return module.O3DGC_OK;
-    };
-    module.DynamicVectorDecoder.prototype.DecodePlayload = function (dynamicVector, bstream) {
-        var size, iterator, streamType, ret, start, streamSize, dim, num, j, acd, bModel0, bModel1, exp_k, M, buffer, mModelValues, quantVectors, v, d;
-        iterator = this.m_iterator;
-        streamType = this.m_streamType;
-        ret = module.O3DGC_OK;
-        start = iterator.m_count;
-        streamSize = bstream.ReadUInt32(iterator, streamType);
-        dim = dynamicVector.GetDimVector();
-        num = dynamicVector.GetNVector();
-        size = dim * num;
-        for (j = 0; j < dynamicVector.GetDimVector(); ++j) {
-            dynamicVector.SetMin(j, bstream.ReadFloat32(iterator, streamType));
-            dynamicVector.SetMax(j, bstream.ReadFloat32(iterator, streamType));
-        }
-        acd = new module.ArithmeticDecoder();
-        bModel0 = new module.StaticBitModel();
-        bModel1 = new module.AdaptiveBitModel();
-        streamSize -= (iterator.m_count - start);
-        exp_k = 0;
-        M = 0;
-        if (streamType === local.O3DGC_STREAM_TYPE_BINARY) {
-            buffer = bstream.GetBuffer(iterator, streamSize);
-            iterator.m_count += streamSize;
-            acd.SetBuffer(streamSize, buffer);
-            acd.StartDecoder();
-            exp_k = acd.ExpGolombDecode(0, bModel0, bModel1);
-            M = acd.ExpGolombDecode(0, bModel0, bModel1);
-        }
-        mModelValues = new module.AdaptiveDataModel();
-        mModelValues.SetAlphabet(M + 2);
-        if (this.m_maxNumVectors < size) {
-            this.m_maxNumVectors = size;
-            this.m_quantVectors = new Int32Array(this.m_maxNumVectors);
-        }
-        quantVectors = this.m_quantVectors;
-        if (streamType === local.O3DGC_STREAM_TYPE_ASCII) {
-            for (v = 0; v < num; ++v) {
-                for (d = 0; d < dim; ++d) {
-                    quantVectors[d * num + v] = bstream.ReadIntASCII(iterator);
-                }
-            }
-        } else {
-            for (v = 0; v < num; ++v) {
-                for (d = 0; d < dim; ++d) {
-                    quantVectors[d * num + v] = acd.DecodeIntACEGC(mModelValues, bModel0, bModel1, exp_k, M);
-                }
-            }
-        }
-        for (d = 0; d < dim; ++d) {
-            this.ITransform(quantVectors, d * num, num);
-        }
-        this.IQuantize(dynamicVector.GetVectors(), num, dim,
-                       dynamicVector.GetStride(), dynamicVector.GetMinArray(),
-                       dynamicVector.GetMaxArray(), this.m_params.GetQuantBits());
-        return ret;
-    };
-
-    return module;
-})();
-
 
 //var THREE, TextDecoder, performance;
 /**
@@ -50288,7 +48228,7 @@ SEA3D.Stream.INTERPOLATION_TABLE =	[
 
 SEA3D.Stream.sizeOf = function ( kind ) {
 
-	if ( kind == 0 ) return 0;
+	if ( kind === 0 ) return 0;
 	else if ( kind >= 1 && kind <= 31 ) return 1;
 	else if ( kind >= 32 && kind <= 63 ) return 2;
 	else if ( kind >= 64 && kind <= 95 ) return 3;
@@ -50672,7 +48612,7 @@ SEA3D.Stream.prototype.readProperties = function ( sea3d ) {
 			type = this.readUByte();
 
 		types[ name ] = type;
-		props[ name ] = type == SEA3D.Stream.GROUP ? this.readProperties( sea3d ) : this.readToken( type, sea3d );
+		props[ name ] = type === SEA3D.Stream.GROUP ? this.readProperties( sea3d ) : this.readToken( type, sea3d );
 
 	}
 
@@ -51344,8 +49284,8 @@ SEA3D.Object3D = function ( name, data, sea3d ) {
 
 		var objectType = data.readUByte();
 
-		this.isStatic = ( objectType & 1 ) != 0;
-		this.visible = ( objectType & 2 ) == 0;
+		this.isStatic = ( objectType & 1 ) !== 0;
+		this.visible = ( objectType & 2 ) === 0;
 
 	}
 
@@ -51369,7 +49309,7 @@ SEA3D.Entity3D = function ( name, data, sea3d ) {
 
 		var lightType = data.readUByte();
 
-		this.castShadows = ( lightType & 1 ) == 0;
+		this.castShadows = ( lightType & 1 ) === 0;
 
 	}
 
@@ -51534,11 +49474,11 @@ SEA3D.Actions = function ( name, data, sea3d ) {
 
 			act.intrpl = data.readInterpolation();
 
-			if ( act.intrpl.indexOf( 'back.' ) == 0 ) {
+			if ( act.intrpl.indexOf( 'back.' ) === 0 ) {
 
 				act.intrplParam0 = data.readFloat();
 
-			} else if ( act.intrpl.indexOf( 'elastic.' ) == 0 ) {
+			} else if ( act.intrpl.indexOf( 'elastic.' ) === 0 ) {
 
 				act.intrplParam0 = data.readFloat();
 				act.intrplParam1 = data.readFloat();
@@ -51820,7 +49760,7 @@ SEA3D.Mesh = function ( name, data, sea3d ) {
 
 		var len = data.readUByte();
 
-		if ( len == 1 ) this.material[ 0 ] = sea3d.getObject( data.readUInt() );
+		if ( len === 1 ) this.material[ 0 ] = sea3d.getObject( data.readUInt() );
 		else {
 
 			var i = 0;
@@ -51963,8 +49903,8 @@ SEA3D.AnimationBase = function ( name, data, sea3d ) {
 				name: data.readUTF8Tiny(),
 				start: data.readUInt(),
 				count: data.readUInt(),
-				repeat: ( seqFlag & 1 ) != 0,
-				intrpl: ( seqFlag & 2 ) == 0
+				repeat: ( seqFlag & 1 ) !== 0,
+				intrpl: ( seqFlag & 2 ) === 0
 			};
 
 		}
@@ -51975,7 +49915,7 @@ SEA3D.AnimationBase = function ( name, data, sea3d ) {
 	this.numFrames = data.readUInt();
 
 	// no contains sequence
-	if ( this.sequence.length == 0 ) {
+	if ( this.sequence.length === 0 ) {
 
 		this.sequence[ 0 ] = { name: "root", start: 0, count: this.numFrames, repeat: true, intrpl: true };
 
@@ -52388,11 +50328,11 @@ SEA3D.Material = function ( name, data, sea3d ) {
 
 	this.doubleSided = ( this.attrib & 1 ) != 0;
 
-	this.receiveLights = ( this.attrib & 2 ) == 0;
-	this.receiveShadows = ( this.attrib & 4 ) == 0;
-	this.receiveFog = ( this.attrib & 8 ) == 0;
+	this.receiveLights = ( this.attrib & 2 ) === 0;
+	this.receiveShadows = ( this.attrib & 4 ) === 0;
+	this.receiveFog = ( this.attrib & 8 ) === 0;
 
-	this.repeat = ( this.attrib & 16 ) == 0;
+	this.repeat = ( this.attrib & 16 ) === 0;
 
 	if ( this.attrib & 32 )
 		this.alpha = data.readFloat();
@@ -52403,8 +50343,8 @@ SEA3D.Material = function ( name, data, sea3d ) {
 	if ( this.attrib & 128 )
 		this.animations = data.readAnimationList( sea3d );
 
-	this.depthWrite = ( this.attrib & 256 ) == 0;
-	this.depthTest = ( this.attrib & 512 ) == 0;
+	this.depthWrite = ( this.attrib & 256 ) === 0;
+	this.depthTest = ( this.attrib & 512 ) === 0;
 
 	this.premultipliedAlpha = ( this.attrib & 1024 ) != 0;
 
@@ -52476,7 +50416,7 @@ SEA3D.Material = function ( name, data, sea3d ) {
 					alpha: data.readFloat()
 				};
 
-				if ( kind == SEA3D.Material.FRESNEL_REFLECTION ) {
+				if ( kind === SEA3D.Material.FRESNEL_REFLECTION ) {
 
 					tech.power = data.readFloat();
 					tech.normal = data.readFloat();
@@ -52749,7 +50689,7 @@ SEA3D.Composite.prototype.getLayerByName = function ( name ) {
 
 	for ( var i = 0; i < this.layer.length; i ++ ) {
 
-		if ( this.layer[ i ].name == name ) {
+		if ( this.layer[ i ].name === name ) {
 
 			return this.layer[ i ];
 
@@ -52791,7 +50731,7 @@ SEA3D.Composite.LayerBitmap = function ( data, sea3d ) {
 	var attrib = data.readUShort();
 
 	this.channel = attrib & 1 ? data.readUByte() : 0;
-	this.repeat = attrib & 2 == 0;
+	this.repeat = attrib & 2 === 0;
 	this.offsetU = attrib & 4 ? data.readFloat() : 0;
 	this.offsetV = attrib & 8 ? data.readFloat() : 0;
 	this.scaleU = attrib & 16 ? data.readFloat() : 1;
@@ -52914,7 +50854,7 @@ SEA3D.PNG = function ( name, data, sea3d ) {
 	this.data = data;
 	this.sea3d = sea3d;
 
-	this.transparent = data.getByte( 25 ) == 0x06;
+	this.transparent = data.getByte( 25 ) === 0x06;
 
 };
 
@@ -52965,10 +50905,10 @@ SEA3D.MP3 = function ( name, data, sea3d ) {
 SEA3D.MP3.prototype.type = "mp3";
 
 //
-//	Texture Update
+//	Asset Update
 //
 
-SEA3D.TextureUpdate = function ( name, data, sea3d ) {
+SEA3D.AssetUpdate = function ( name, data, sea3d ) {
 
 	this.name = name;
 	this.data = data;
@@ -52979,7 +50919,7 @@ SEA3D.TextureUpdate = function ( name, data, sea3d ) {
 
 };
 
-SEA3D.TextureUpdate.prototype.type = "uTex";
+SEA3D.AssetUpdate.prototype.type = "upDt";
 
 //
 //	FILE FORMAT
@@ -53059,10 +50999,10 @@ SEA3D.File = function ( config ) {
 	this.addClass( SEA3D.JavaScriptMethod, true );
 	this.addClass( SEA3D.GLSL, true );
 
-	// Updaters
-	this.addClass( SEA3D.TextureUpdate, true );
+	// UPDATER
+	this.addClass( SEA3D.AssetUpdate, true );
 
-	// Extensions
+	// EXTENSION
 	var i = SEA3D.File.Extensions.length;
 
 	while ( i -- ) {
@@ -53247,7 +51187,7 @@ SEA3D.File.prototype.readSEAObject = function () {
 
 SEA3D.File.prototype.isDone = function () {
 
-	return this.position == this.length;
+	return this.position === this.length;
 
 };
 
@@ -53308,7 +51248,7 @@ SEA3D.File.prototype.parseObject = function () {
 
 		if ( ( obj.streaming || this.config.forceStreaming ) && this.typeRead[ type ] ) {
 
-			if ( obj.tag == undefined ) {
+			if ( obj.tag === undefined ) {
 
 				this.typeRead[ type ].call( this.scope, obj );
 
@@ -53318,7 +51258,7 @@ SEA3D.File.prototype.parseObject = function () {
 
 	}
 
-	if ( this.position == this.length ) {
+	if ( this.position === this.length ) {
 
 		var elapsedTime = this.timer.elapsedTime;
 		var message = elapsedTime + "ms, " + this.objects.length + " objects";
@@ -54696,7 +52636,7 @@ Object.assign( THREE.SEA3D.DomainManager.prototype, {
 
 		this.remove( e.domain );
 
-		if ( this.autoDisposeRootDomain && this.domains.length == 1 ) {
+		if ( this.autoDisposeRootDomain && this.domains.length === 1 ) {
 
 			this.dispose();
 
@@ -55193,7 +53133,7 @@ Object.assign( THREE.SEA3D.Animator.prototype, {
 
 		if ( ! animation ) throw new Error( 'Animation "' + name + '" not found.' );
 
-		if ( animation == this.currentAnimation ) {
+		if ( animation === this.currentAnimation ) {
 
 			if ( offset !== undefined || ! animation.repeat ) this.currentAnimationAction.time = offset !== undefined ? offset :
 				( this.currentAnimationAction.timeScale >= 0 ? 0 : this.currentAnimation.duration );
@@ -55324,7 +53264,7 @@ Object.assign( THREE.SEA3D.Animator.prototype, {
 
 	setRelative: function ( val ) {
 
-		if ( this.relative == val ) return;
+		if ( this.relative === val ) return;
 
 		this.stop();
 
@@ -55666,7 +53606,7 @@ THREE.SEA3D.SkinnedMesh.prototype = Object.assign( Object.create( THREE.SkinnedM
 
 		for ( var i = 0, bl = bones.length; i < bl; i ++ ) {
 
-			if ( name == bones[ i ].name )
+			if ( name === bones[ i ].name )
 				return bones[ i ];
 
 		}
@@ -56023,7 +53963,7 @@ THREE.SEA3D.Domain.prototype.getProperties = THREE.SEA3D.prototype.getProperties
 
 THREE.SEA3D.prototype.isPowerOfTwo = function ( num ) {
 
-	return num ? ( ( num & - num ) == num ) : false;
+	return num ? ( ( num & - num ) === num ) : false;
 
 };
 
@@ -56633,7 +54573,7 @@ THREE.SEA3D.prototype.readCubeMap = function ( sea ) {
 
 	var onLoaded = function () {
 
-		if ( ++ loaded == 6 ) {
+		if ( ++ loaded === 6 ) {
 
 			texture.needsUpdate = true;
 
@@ -56664,21 +54604,49 @@ THREE.SEA3D.prototype.readCubeMap = function ( sea ) {
 //	Updaters
 //
 
-THREE.SEA3D.prototype.readTextureUpdate = function ( sea ) {
+THREE.SEA3D.prototype.readGeometryUpdate = function ( geometry, bytes, sea ) {
 
-	var obj = this.file.objects[ sea.index ],
-		tex = obj.tag;
+	var Class = sea.sea3d.typeClass[ sea.type ],
+		seaUpdate = new Class( "", bytes, sea.sea3d );
+
+	seaUpdate.tag = geometry;
+
+	this.readGeometryBuffer( seaUpdate );
+
+};
+
+THREE.SEA3D.prototype.readTextureUpdate = function ( texture, bytes, type ) {
 
 	var image = new Image();
 
 	image.onload = function () {
 
-		tex.image = image;
-		tex.needsUpdate = true;
+		texture.image = image;
+		texture.needsUpdate = true;
 
 	};
 
-	image.src = this.createObjectURL( sea.bytes.buffer, "image/" + obj.type );
+	image.src = this.createObjectURL( bytes.buffer, "image/" + type );
+
+};
+
+THREE.SEA3D.prototype.readAssetUpdate = function ( sea ) {
+
+	var obj = this.file.objects[ sea.index ],
+		bytes = sea.bytes,
+		tag = obj.tag;
+
+	if (!tag) return;
+	
+	if ( tag.isBufferGeometry ) {
+
+		this.readGeometryUpdate( tag, bytes, obj );
+
+	} else if ( tag.isTexture ) {
+
+		this.readTextureUpdate( tag, bytes, obj.type );
+
+	}
 
 };
 
@@ -56752,7 +54720,7 @@ THREE.SEA3D.prototype.readCubeMapURL = function ( sea ) {
 
 	var texture, format = faces[ 0 ].substr( - 3 );
 
-	if ( format == "hdr" ) {
+	if ( format === "hdr" ) {
 
 		var usePMREM = THREE.PMREMGenerator != null;
 
@@ -56807,7 +54775,7 @@ THREE.SEA3D.prototype.getJSMList = function ( target, scripts ) {
 
 		var script = scripts[ i ];
 
-		if ( script.tag.type == SEA3D.JavaScriptMethod.prototype.type ) {
+		if ( script.tag.type === SEA3D.JavaScriptMethod.prototype.type ) {
 
 			scriptTarget.push( script );
 
@@ -57028,7 +54996,7 @@ THREE.SEA3D.prototype.materialTechnique =
 	techniques[ SEA3D.Material.LIGHT_MAP ] =
 	function ( mat, tech ) {
 
-		if ( tech.blendMode == "multiply" ) mat.aoMap = tech.texture.tag;
+		if ( tech.blendMode === "multiply" ) mat.aoMap = tech.texture.tag;
 		else mat.lightMap = tech.texture.tag;
 
 	};
@@ -58112,7 +56080,7 @@ THREE.SEA3D.prototype.setTypeRead = function () {
 	this.file.typeRead[ SEA3D.SoundPoint.prototype.type ] = this.readSoundPoint;
 	this.file.typeRead[ SEA3D.TextureURL.prototype.type ] = this.readTextureURL;
 	this.file.typeRead[ SEA3D.CubeMapURL.prototype.type ] = this.readCubeMapURL;
-	this.file.typeRead[ SEA3D.TextureUpdate.prototype.type ] = this.readTextureUpdate;
+	this.file.typeRead[ SEA3D.AssetUpdate.prototype.type ] = this.readAssetUpdate;
 	this.file.typeRead[ SEA3D.Morph.prototype.type ] = this.readMorph;
 	this.file.typeRead[ SEA3D.VertexAnimation.prototype.type ] = this.readVertexAnimation;
 	this.file.typeRead[ SEA3D.Actions.prototype.type ] = this.readActions;
@@ -59004,7 +56972,7 @@ THREE.SEA3D.EXTENSIONS_LOADER.push( { setTypeRead: function () {
 
 	// CONFIG
 
-	this.config.legacy = this.config.legacy == undefined ? true : this.config.legacy;
+	this.config.legacy = this.config.legacy !== undefined ? this.config.legacy : true;
 
 	this.file.typeRead[ SEA3D.Skeleton.prototype.type ] = this.readSkeleton;
 
@@ -61228,9 +59196,9 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         } else if( !o ) o = {};
 
-        o.x = o.x !== undefined ? o.x : 0;
-    	o.y = o.y !== undefined ? o.y : 0;
-    	o.z = o.z !== undefined ? o.z : 0;
+        o.x = o.x !== undefined ? o.x : this.target.x;
+    	o.y = o.y !== undefined ? o.y : this.target.y;
+    	o.z = o.z !== undefined ? o.z : this.target.z;
 
     	o.phi = o.phi !== undefined ? o.phi : 0;
     	o.theta = o.theta !== undefined ? o.theta : 0;
@@ -66163,6 +64131,22 @@ var pool = ( function () {
         data:{},
         buffer:{},// for sound
 
+
+        set: function ( name, res ){
+
+            if( pool.data[ name ] ){ console.error('data of ' + name + ' already existe !! '); return; }
+            pool.data[ name ] = res;
+
+        },
+
+        get: function ( name ){
+
+            if( !pool.data[ name ] ) console.error('data of ' + name + ' not find in pool !! ');
+            return pool.data[ name ];
+
+        },
+
+
         setDirectTexture: function () {
 
             if( textureLoader === null ) textureLoader = new THREE.TextureLoader();
@@ -66255,11 +64239,7 @@ var pool = ( function () {
 
         },
 
-        get: function ( name ){
-
-            return pool.data[name];
-
-        },
+        
 
         getResult : function(){
 
@@ -66290,11 +64270,7 @@ var pool = ( function () {
             }
 
         },
-
         
-
-        
-
         progress: function ( loaded, total ) {
 
         },
@@ -66308,10 +64284,13 @@ var pool = ( function () {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );
 
+            if( type === "json" ) xhr.overrideMimeType("application/json");
+
             switch( type ){
 
-                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
+                case 'sea': case 'z': case 'hex': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
                 case 'jpg': case 'png': xhr.responseType = 'blob'; break;
+                case 'bvh': case 'BVH': case 'glsl':  xhr.responseType = 'text'; break;
 
             }
             
@@ -66353,7 +64332,9 @@ var pool = ( function () {
                     var lll = new THREE.SEA3D();
 
                     lll.onComplete = function( e ) { 
-                        pool.data[name] = lll.meshes;
+                        //pool.data[name] = lll.meshes;
+
+                        self.set( name, lll.meshes );
                         self.next();
                     }
 
@@ -66366,14 +64347,15 @@ var pool = ( function () {
                     var img = new Image();
                     img.onload = function(e) {
                         URL.revokeObjectURL( img.src ); // Clean up after yourself.
-                        pool.data[name] = img;
+                        //pool.data[name] = img;
+                        self.set( name, img );
                         self.next();
                     };
 
                     img.src = URL.createObjectURL( response );
                     
-
                 break;
+
                 case 'mp3': case 'wav':
 
                     var bufferCopy = response.slice( 0 );
@@ -66384,36 +64366,35 @@ var pool = ( function () {
                     );
 
                 break;
-                case 'z':
 
-                    pool.data[name] = SEA3D.File.LZMAUncompress( response );
-                    self.next();
+                case 'z': case 'hex':
 
-                break;
-                case 'bvh': case 'BVH':
-
-                    pool.data[name] = response;
+                    //pool.data[name] = SEA3D.File.LZMAUncompress( response );
+                    self.set( name, SEA3D.File.LZMAUncompress( response ) );
                     self.next();
 
                 break;
 
-                case 'glsl':
+                case 'bvh': case 'BVH': case 'glsl':
 
-                    pool.data[name] = response;
+                    //pool.data[name] = response;
+                    self.set( name, response );
                     self.next();
 
                 break;
 
                 case 'json':
 
-                    pool.data[name] = JSON.parse( response );
+                    //pool.data[name] = JSON.parse( response );
+                    self.set( name, JSON.parse( response ) );
                     self.next();
 
                 break;
 
                 case 'wasm':
 
-                    pool.data[name] = new Uint8Array( response );
+                    //pool.data[name] = new Uint8Array( response );
+                    self.set( name, new Uint8Array( response ) );
                     self.next();
 
                 break;
@@ -66430,10 +64411,10 @@ var pool = ( function () {
             var reader = readers || new FileReader();
 
             if( type === 'png' || type === 'jpg' ) reader.readAsDataURL( blob );
-            else if( type === 'json' || type === 'glsl' ) reader.readAsText( blob );
+            else if( type === 'json' || type === 'glsl' || type === 'bvh' || type === 'BVH' ) reader.readAsText( blob );
             else reader.readAsArrayBuffer( blob );
 
-            reader.onload = function(e) {
+            reader.onload = function( e ) {
 
                 switch( type ){
  
@@ -66442,7 +64423,8 @@ var pool = ( function () {
                         var lll = new THREE.SEA3D();
 
                         lll.onComplete = function( e ) { 
-                            pool.data[name] = lll.meshes;
+                            //pool.data[name] = lll.meshes;
+                            self.set( name, lll.meshes );
                             self.next(); 
                         }
 
@@ -66459,27 +64441,22 @@ var pool = ( function () {
                     break;
                     case 'z':
 
-                        pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        //pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        self.set( name, SEA3D.File.LZMAUncompress( e.target.result ) );
                         self.next();
 
                     break;
-                    case 'bvh': case 'BVH':
+                    case 'bvh': case 'BVH': case 'glsl':
 
-                        pool.data[name] = e.target.result;
-                        self.next();
-
-                    break;
-
-                    case 'glsl':
-
-                        pool.data[name] = e.target.result;
+                        //pool.data[name] = e.target.result;
+                        self.set( name, e.target.result );
                         self.next();
 
                     break;
 
                     case 'json':
 
-                        pool.data[name] = JSON.parse( e.target.result );
+                        self.set( name, JSON.parse( e.target.result ) );
                         self.next();
 
                     break;
@@ -66495,9 +64472,9 @@ var pool = ( function () {
     return pool;
 
 })();
-function View () {
+//var view, demos, editor, unPause, user;
 
-    
+function View () {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
@@ -66533,6 +64510,7 @@ function View () {
 	this.isWithRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
+    this.delta = 0;
     this.fps = 0;
 	this.bg = 0x222322;//151515;
 	this.vs = { w:1, h:1, l:0, x:0, y:0 };
@@ -66612,7 +64590,7 @@ function View () {
 
     // 7 KEYBOARD & JOSTICK 
 
-    if(!this.isMobile) user.init();
+    if( !this.isMobile && user ) user.init();
 
 
     // 8 START RENDER
@@ -66631,8 +64609,10 @@ View.prototype = {
 
         var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
         canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto; image-rendering: pixelated;'
-        canvas.oncontextmenu = function(e){ e.preventDefault(); };
-        canvas.ondrop = function(e) { e.preventDefault(); };
+        if( !this.isMobile ){
+            document.oncontextmenu = function(e){ e.preventDefault(); };
+            canvas.ondrop = function(e) { e.preventDefault(); };
+        }
         document.body.appendChild( canvas );
 
         var options = { 
@@ -66687,6 +64667,10 @@ View.prototype = {
 
 	render: function ( stamp ) {
 
+        this.t[0] = stamp === undefined ? now() : stamp;
+        this.delta = ( this.t[0] - this.t[3] ) * 0.001;
+        this.t[3] = this.t[0];
+
         var _this = this;
 
         requestAnimationFrame(  function(s){ _this.render(s); } );
@@ -66696,9 +64680,9 @@ View.prototype = {
 
         if( this.needResize ) this.upResize();
 
-        THREE.SEA3D.AnimationHandler.update( 0.017 ); // sea3d model
+        THREE.SEA3D.AnimationHandler.update( this.delta ); // sea3d model
 
-        user.update(); // gamepad
+        if( user ) user.update(); // gamepad
 
         TWEEN.update(); // tweener
 
@@ -66721,7 +64705,7 @@ View.prototype = {
 
         // fps
 
-        this.t[0] = stamp === undefined ? now() : stamp;
+        
         if ( (this.t[0] - 1000) > this.t[1] ){ this.t[1] = this.t[0]; this.fps = this.t[2]; this.t[2] = 0; }; this.t[2]++;
 
 	},
@@ -66969,12 +64953,14 @@ View.prototype = {
 
 	needFocus: function () {
 
+        if( !editor ) return;
         this.canvas.addEventListener('mouseover', editor.unFocus, false );
 
     },
 
     haveFocus: function () {
 
+        if( !editor ) return;
         this.canvas.removeEventListener('mouseover', editor.unFocus, false );
 
     },
@@ -67142,6 +65128,7 @@ View.prototype = {
 
         this.grid = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
         this.grid.position.y = -0.001;
+        //this.grid.rotation.x = -Math.Pi*0.5;
         this.scene.add( this.grid );
 
     },
@@ -67525,6 +65512,7 @@ View.prototype = {
 
     addJoystick: function () {
 
+        if( !editor ) return;
         if( this.isWithJoystick ) return;
 
         editor.addJoystick();
@@ -67534,6 +65522,7 @@ View.prototype = {
 
     removeJoystick: function () {
 
+        if( !editor ) return;
         if( !this.isWithJoystick ) return;
 
         editor.removeJoystick();
@@ -67570,72 +65559,3 @@ View.prototype = {
 
 }
 
-/*
-THREE.Audio.prototype.stop = function () {
-
-    if ( this.hasPlaybackControl === false ) return;
-    if ( !this.isPlaying ) return;
-
-    //this.volume = this.gain.gain.value;
-  //  this.gain.gain.exponentialRampToValueAtTime( 0.0001, this.context.currentTime + 0.03 );
-  // this.source.stop( this.context.currentTime + 0.03 );
-
-    this.source.stop();
-    this.offset = 0;
-    this.isPlaying = false;
-    return this;
-
-};
-
-THREE.Audio.prototype.play = function () {
-
-    if ( this.isPlaying === true ) return;
-    if ( this.hasPlaybackControl === false ) return;
-
-    //this.setVolume( this.volume || 1 );
-
-    var source = this.context.createBufferSource();
-
-    source.buffer = this.buffer;
-    source.loop = this.loop;
-    source.onended = this.onEnded.bind( this );
-    //source.playbackRate.setValueAtTime( this.playbackRate, this.startTime );
-    source.playbackRate.value = this.playbackRate;
-    this.startTime = this.context.currentTime;
-    source.start( 0 );//this.startTime, this.offset );
-    this.isPlaying = true;
-    this.source = source;
-    return this.connect();
-
-};
-
-THREE.Audio.prototype.setPlaybackRate = function ( value ) {
-
-if ( this.hasPlaybackControl === false ) {
-
-        console.warn( 'THREE.Audio: this Audio has no playback control.' );
-        return;
-
-    }
-
-    this.playbackRate = value;
-
-    if ( this.isPlaying === true ) {
-
-        this.source.playbackRate.value = this.playbackRate;
-
-        //this.source.playbackRate.setValueAtTime( this.playbackRate, this.context.currentTime );
-
-    }
-
-    return this;
-
-}
-
-/*THREE.Audio.prototype.setVolume = function ( value ) {
-
-    this.volume = value;
-    this.gain.gain.setTargetAtTime( value, this.context.currentTime, 0.01 );
-    return this;
-
-};*/

@@ -38,6 +38,22 @@ var pool = ( function () {
         data:{},
         buffer:{},// for sound
 
+
+        set: function ( name, res ){
+
+            if( pool.data[ name ] ){ console.error('data of ' + name + ' already existe !! '); return; }
+            pool.data[ name ] = res;
+
+        },
+
+        get: function ( name ){
+
+            if( !pool.data[ name ] ) console.error('data of ' + name + ' not find in pool !! ');
+            return pool.data[ name ];
+
+        },
+
+
         setDirectTexture: function () {
 
             if( textureLoader === null ) textureLoader = new THREE.TextureLoader();
@@ -130,11 +146,7 @@ var pool = ( function () {
 
         },
 
-        get: function ( name ){
-
-            return pool.data[name];
-
-        },
+        
 
         getResult : function(){
 
@@ -165,11 +177,7 @@ var pool = ( function () {
             }
 
         },
-
         
-
-        
-
         progress: function ( loaded, total ) {
 
         },
@@ -183,10 +191,13 @@ var pool = ( function () {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', link, true );
 
+            if( type === "json" ) xhr.overrideMimeType("application/json");
+
             switch( type ){
 
-                case 'sea': case 'z': case 'bvh': case 'BVH': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
+                case 'sea': case 'z': case 'hex': case 'wasm': case 'mp3': case 'wav': xhr.responseType = "arraybuffer"; break;
                 case 'jpg': case 'png': xhr.responseType = 'blob'; break;
+                case 'bvh': case 'BVH': case 'glsl':  xhr.responseType = 'text'; break;
 
             }
             
@@ -228,7 +239,9 @@ var pool = ( function () {
                     var lll = new THREE.SEA3D();
 
                     lll.onComplete = function( e ) { 
-                        pool.data[name] = lll.meshes;
+                        //pool.data[name] = lll.meshes;
+
+                        self.set( name, lll.meshes );
                         self.next();
                     }
 
@@ -241,14 +254,15 @@ var pool = ( function () {
                     var img = new Image();
                     img.onload = function(e) {
                         URL.revokeObjectURL( img.src ); // Clean up after yourself.
-                        pool.data[name] = img;
+                        //pool.data[name] = img;
+                        self.set( name, img );
                         self.next();
                     };
 
                     img.src = URL.createObjectURL( response );
                     
-
                 break;
+
                 case 'mp3': case 'wav':
 
                     var bufferCopy = response.slice( 0 );
@@ -259,36 +273,35 @@ var pool = ( function () {
                     );
 
                 break;
-                case 'z':
 
-                    pool.data[name] = SEA3D.File.LZMAUncompress( response );
-                    self.next();
+                case 'z': case 'hex':
 
-                break;
-                case 'bvh': case 'BVH':
-
-                    pool.data[name] = response;
+                    //pool.data[name] = SEA3D.File.LZMAUncompress( response );
+                    self.set( name, SEA3D.File.LZMAUncompress( response ) );
                     self.next();
 
                 break;
 
-                case 'glsl':
+                case 'bvh': case 'BVH': case 'glsl':
 
-                    pool.data[name] = response;
+                    //pool.data[name] = response;
+                    self.set( name, response );
                     self.next();
 
                 break;
 
                 case 'json':
 
-                    pool.data[name] = JSON.parse( response );
+                    //pool.data[name] = JSON.parse( response );
+                    self.set( name, JSON.parse( response ) );
                     self.next();
 
                 break;
 
                 case 'wasm':
 
-                    pool.data[name] = new Uint8Array( response );
+                    //pool.data[name] = new Uint8Array( response );
+                    self.set( name, new Uint8Array( response ) );
                     self.next();
 
                 break;
@@ -305,10 +318,10 @@ var pool = ( function () {
             var reader = readers || new FileReader();
 
             if( type === 'png' || type === 'jpg' ) reader.readAsDataURL( blob );
-            else if( type === 'json' || type === 'glsl' ) reader.readAsText( blob );
+            else if( type === 'json' || type === 'glsl' || type === 'bvh' || type === 'BVH' ) reader.readAsText( blob );
             else reader.readAsArrayBuffer( blob );
 
-            reader.onload = function(e) {
+            reader.onload = function( e ) {
 
                 switch( type ){
  
@@ -317,7 +330,8 @@ var pool = ( function () {
                         var lll = new THREE.SEA3D();
 
                         lll.onComplete = function( e ) { 
-                            pool.data[name] = lll.meshes;
+                            //pool.data[name] = lll.meshes;
+                            self.set( name, lll.meshes );
                             self.next(); 
                         }
 
@@ -334,27 +348,22 @@ var pool = ( function () {
                     break;
                     case 'z':
 
-                        pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        //pool.data[name] = SEA3D.File.LZMAUncompress( e.target.result );
+                        self.set( name, SEA3D.File.LZMAUncompress( e.target.result ) );
                         self.next();
 
                     break;
-                    case 'bvh': case 'BVH':
+                    case 'bvh': case 'BVH': case 'glsl':
 
-                        pool.data[name] = e.target.result;
-                        self.next();
-
-                    break;
-
-                    case 'glsl':
-
-                        pool.data[name] = e.target.result;
+                        //pool.data[name] = e.target.result;
+                        self.set( name, e.target.result );
                         self.next();
 
                     break;
 
                     case 'json':
 
-                        pool.data[name] = JSON.parse( e.target.result );
+                        self.set( name, JSON.parse( e.target.result ) );
                         self.next();
 
                     break;
