@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Lab test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+
+<script src="./src/libs/three.js"></script>
+<script src="./src/libs/sea3d.js"></script>
+<script src="./src/libs/tween.js"></script>
+<script src="./src/libs/uil.js"></script>
+<script src="./src/shaders/shadowPCSS.js"></script>
+<script src="./src/math.js"></script>
+<script src="./src/pool.js"></script>
+<script src="./src/gui.js"></script>
+<script src="./src/pmrem/PMREMCubeUVPacker.js"></script>
+<script src="./src/pmrem/PMREMGenerator.js"></script>
+<script src="./src/controls/OrbitControls.js"></script>
+<script src="./src/controls/OrbitControlsExtra.js"></script>
+<script src="./src/objects/Lensflare.js"></script>
+<script src="./src/objects/Environement.js"></script>
+<script src="./src/View.js"></script>
+<script src="./src/editor.js"></script>
+</head>
+
+<body>
+<script>
+var user
+var editor;
+var view;
+
+var hour = 6.5;
+var option = {
+	hour: 6.5,
+}
+
+var s4;
+
+view = new View();
+
+view.init( start );
+//editor.init()
+
+
+function upTime(){
+
+	view.sky.timelap( 0.1 )
+	//view.sky.render()
+	
+}
+
+function start () {
+
+	var g = view.geo;
+	var m = view.mat;
+	
+	var s = new THREE.Mesh( g.sphere, m.basic );
+	s.scale.set(2,2,2);
+	s.position.set(0,2,0);
+	view.addMesh( s );
+
+	var s2 = new THREE.Mesh( g.box, m.basic );
+	s2.scale.set(4,4,4);
+	s2.position.set(-5,2,0);
+	view.addMesh( s2 );
+
+	var s3 = new THREE.Mesh( g.cylinder, m.basic );
+	s3.scale.set(2,4,2);
+	s3.position.set(5,2,0);
+	view.addMesh( s3 );
+
+
+	s4 = new THREE.Mesh( g.plane, m.ttest );
+	s4.scale.set(40,40,40);
+	//s4.position.set(0,0,0);
+	view.addMesh( s4 );
+
+	view.addSky({hour:hour});
+
+
+	var options = {
+
+        base:option,
+        function: applyOption,
+
+        hour: { min:0, max:24, precision:2, color:0xFFFF44 },
+
+    };
+
+	gui.init( document.body, options );
+
+	 // add option setting
+    
+
+//	view.updateExtra = function(){ view.sky.timelap( 0.001, 16 ) };
+
+	//setInterval( upTime, 1000 );
+
+}
+
+function applyOption () {
+
+    if( hour !== option.hour ){ hour = option.hour; view.updateSky({hour:hour}); }
+
+}
+
+function testMap (m){
+	//s4.material.color = 0xFFFFFF
+	s4.material.map = m;
+}
+</script>
+</body>
+</html>

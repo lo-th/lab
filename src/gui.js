@@ -19,9 +19,7 @@ gui = {
         ui = new UIL.Gui({ parent:parent, css:'left:0px; right: auto; ', size:240, color:'no', h:22, close:false });
 
         this.add( option );
-
-    	//ui = new UIL.Gui({ parent:parent, css:'right:0px; margin-right: -10px;', size:240, color:'no', h:20, close:false });
-        //ui.add('fps',  {});
+        
     },
 
     add: function ( o ){

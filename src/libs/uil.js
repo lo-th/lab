@@ -1325,6 +1325,10 @@
 
 	} );
 
+	/**
+	 * @author lth / https://github.com/lo-th
+	 */
+
 	function Proto ( o ) {
 
 	    o = o || {};
@@ -1999,7 +2003,8 @@
 
 	    	this.isDown = true;
 	        this.value = this.values[name-2];
-	        this.send();
+	        if( !this.isLoadButton ) this.send();
+	        //else this.fileSelect( e.target.files[0] );
 	    	return this.mousemove( e );
 	 
 	        // true;
@@ -2011,6 +2016,8 @@
 	        var up = false;
 
 	        var name = this.testZone( e );
+
+	       // console.log(name)
 
 	        if( name !== '' ){
 	            this.cursor('pointer');
@@ -2126,7 +2133,7 @@
 
 	    initDrager: function () {
 
-	        this.c[4] = this.dom( 'div', this.css.txt +' text-align:center; line-height:'+(this.h-8)+'px; border:1px dashed '+this.fontColor+'; top:2px;  height:'+(this.h-4)+'px; border-radius:'+this.r+'px; pointer-events:auto;' );// cursor:default;
+	        this.c[4] = this.dom( 'div', this.css.txt +' text-align:center; line-height:'+(this.h-8)+'px; border:1px dashed '+this.fontColor+'; top:2px;  height:'+(this.h-4)+'px; border-radius:'+this.radius+'px; pointer-events:auto;' );// cursor:default;
 	        this.c[4].textContent = 'DRAG';
 
 	        this.c[4].addEventListener( 'dragover', function(e){ this.dragover(e); }.bind(this), false );
@@ -2142,12 +2149,12 @@
 
 	    initLoader: function () {
 
-	        this.c[3] = this.dom( 'input', this.css.basic +'top:0px; opacity:0; height:'+(this.h)+'px;pointer-events:auto;' );// cursor:pointer;
+	        this.c[3] = this.dom( 'input', this.css.basic +'top:0px; opacity:0; height:'+(this.h)+'px; pointer-events:auto; cursor:pointer;' );//
 	        this.c[3].name = 'loader';
 	        this.c[3].type = "file";
 
 	        this.c[3].addEventListener( 'change', function(e){ this.fileSelect( e.target.files[0] ); }.bind(this), false );
-	        this.c[3].addEventListener( 'mousedown', function(e){  }.bind(this), false );
+	        //this.c[3].addEventListener( 'mousedown', function(e){  }.bind(this), false );
 
 	        //this.c[2].events = [  ];
 	        //this.c[3].events = [ 'change', 'mouseover', 'mousedown', 'mouseup', 'mouseout' ];
@@ -2159,7 +2166,7 @@
 	    fileSelect: function ( file ) {
 
 	        var dataUrl = [ 'png', 'jpg', 'mp4', 'webm', 'ogg' ];
-	        var dataBuf = [ 'sea', 'z', 'hex' ];
+	        var dataBuf = [ 'sea', 'z', 'hex', 'bvh', 'BVH' ];
 
 	        //if( ! e.target.files ) return;
 
@@ -5121,6 +5128,15 @@
 
 	} );
 
+	/*function autoType () {
+
+	    var a = arguments;
+	    var type = 'Slide';
+	    if( a[2].type ) type = a[2].type;
+	    return type;
+
+	};*/
+
 	function add () {
 
 	    var a = arguments; 
@@ -5175,6 +5191,10 @@
 	    
 
 	}
+
+	/**
+	 * @author lth / https://github.com/lo-th
+	 */
 
 	function Gui ( o ) {
 

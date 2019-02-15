@@ -54,6 +54,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
     initFollow: function ( mesh, o ) {
 
+        o = o || {};
+
         this.followTarget = mesh;
 
         
@@ -230,6 +232,12 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     	o.y = o.y !== undefined ? o.y : this.target.y;
     	o.z = o.z !== undefined ? o.z : this.target.z;
 
+        if(o.target){
+            o.x = o.target[0];
+            o.y = o.target[1];
+            o.z = o.target[2];
+        }
+
     	o.phi = o.phi !== undefined ? o.phi : 0;
     	o.theta = o.theta !== undefined ? o.theta : 0;
 
@@ -267,7 +275,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     	cam.s.makeSafe();
 
         this.target.set( o.x, o.y, o.z );
-        this.object.position.copy( this.target ).setFromSpherical( cam.s );
+        this.object.position.set( 0,0,0 ).setFromSpherical( cam.s ).add( this.target );
         this.object.lookAt( this.target );
 
         this.updateFollowGroup();

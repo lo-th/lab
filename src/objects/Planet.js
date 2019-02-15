@@ -14,13 +14,13 @@ function Planet( o, mat ) {
         height: o.height || 4,
     }
 
-    this.material = new THREE.MeshPhongMaterial({//new THREE.MeshStandardMaterial({ 
+    this.material = new THREE.MeshStandardMaterial({//new THREE.MeshPhongMaterial({// 
 
         normalScale: new THREE.Vector2(1,1),
         vertexColors: THREE.VertexColors, 
         name:'planet', 
-        shininess:40,
-        specular:0x333433,
+        //shininess:40,
+        //specular:0x333433,
         wireframe:false,
         shadowSide:false,
         envMap: view.getEnvMap()
@@ -38,6 +38,10 @@ function Planet( o, mat ) {
     this.material.normalMap.wrapS = THREE.RepeatWrapping;
     this.material.normalMap.wrapT = THREE.RepeatWrapping;
 
+    
+
+    
+
     this.makeGeometry();
 
     //this.update();
@@ -49,6 +53,8 @@ function Planet( o, mat ) {
 
     this.castShadow = true;
     this.receiveShadow = true;
+
+    view.getMat()[this.name] = this.material;
 
 };
 

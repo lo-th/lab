@@ -147,7 +147,7 @@ THREE.Lensflare = function () {
 	var mesh2 = new THREE.Mesh( geometry, material2 );
 
 	this.addElement = function ( element ) {
-
+		
 		elements.push( element );
 
 	};

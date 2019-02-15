@@ -175,6 +175,7 @@ var pool = ( function () {
             while(i--){
                 if( ar[i].name === meshName ) return ar[i];
             }
+            return null;
 
         },
         

@@ -587,6 +587,9 @@ editor = {
     demoSelect: function( e ){
 
         e.preventDefault();
+        
+        
+
         editor.hideBigMenu();
         editor.load('demos/' + e.target.name + '.js');
 

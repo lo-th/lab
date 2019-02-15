@@ -14,19 +14,19 @@
 
 <body>
 <script>
+
 var user;
 var editor;
 var view;
 var h = 6;
 
 view = new View();
-
 view.init( start );
 
 
 function upTime(){
 
-	h+=0.02;
+	h+=0.01;
 	if(h>24) h = 0;
     if(h<0) h = 24;
 	view.updateSky( { hour:h } );
@@ -52,7 +52,9 @@ function start () {
 
 	view.addSky();
 
-	setInterval( upTime, 60 );
+	//view.update = upTime;
+
+	//setInterval( upTime, 60 );
 
 }
 

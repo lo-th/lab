@@ -1,8 +1,9 @@
-function Terrain ( o ) {
+THREE.Terrain = function  ( o ) {
 
     o = o == undefined ? {} : o;
 
     
+    this.needsUpdate = false;
 
     this.callback = null;
     this.physicsUpdate = function(){};
@@ -21,11 +22,19 @@ function Terrain ( o ) {
 
     this.isWater = o.water || false;
 
+    this.isBorder = false;
+    this.wantBorder = o.border || false;
+
+    this.isBottom = false;
+    this.wantBottom = o.bottom || false;
+
     this.colorBase = this.isWater ? { r:0, g:0.7, b:1 } : { r:1, g:0.7, b:0 };
 
-    this.maxspeed = 1;
-    this.acc = 0.01;
-    this.dec = 0.01;
+    this.maxspeed = o.maxSpeed || 0.1;
+    this.acc = o.acc == undefined ? 0.01 : o.acc;
+    this.dec = o.dec == undefined ? 0.01 : o.dec;
+
+    this.deep = o.deep == undefined ? 0 : o.deep;
 
     this.ease = new THREE.Vector2();
 
@@ -72,24 +81,27 @@ function Terrain ( o ) {
         this.wn.anisotropy = 1;
     }
 
-    //this.material = new THREE.MeshStandardMaterial({ 
-    this.material = new THREE.MeshPhongMaterial({ 
+    this.material = new THREE.MeshStandardMaterial({ 
+    //this.material = new THREE.MeshPhongMaterial({ 
 
         vertexColors: THREE.VertexColors, 
         name:'terrain', 
 
-        shininess:30,
-        reflectivity:0.6,
-        specular : 0x161716,
+        //shininess:30,
+        //reflectivity:0.6,
+        //specular : 0x161716,
 
-        //metalness: this.isWater ? 0.8 : 0.4, 
-        //roughness: this.isWater ? 0.5 : 0.6, 
+        metalness: this.isWater ? 0.8 : 0.4, 
+        roughness: this.isWater ? 0.2 : 0.6, 
         wireframe:false, 
         envMap: view.getEnvMap(),
         normalMap:this.wn,
         normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
         shadowSide:false,
-        
+        transparent:this.isWater ? true : false,
+        opacity: this.isWater ? (o.opacity || 0.8) : 1,
+
+        side: this.isWater ? THREE.DoubleSide : THREE.FrontSide,
     });
 
 
@@ -244,27 +256,107 @@ function Terrain ( o ) {
 
 
 
+
+
     }
 
     //this.uniforms = uniforms;
-
-    this.update();
+    
 
     THREE.Mesh.call( this, this.geometry, this.material );
+
+    if( this.wantBorder ) this.addBorder( o );
+    if( this.wantBottom ) this.addBottom( o );
+
+    this.update();
 
     this.name = o.name === undefined ? 'terrain' : o.name;
     this.position.fromArray( o.pos );
 
 
-
     this.castShadow = false;
     this.receiveShadow = true;
 
+    view.getMat()[this.name] = this.material;
+
 };
 
-Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
+THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
-    constructor: Terrain,
+    constructor: THREE.Terrain,
+
+    addBottom: function ( o ){
+
+    	var geometry = new THREE.PlaneBufferGeometry( this.size[0], this.size[2], 1, 1 );
+        geometry.rotateX( Math.PI90 );
+
+        this.bottomMesh = new THREE.Mesh( geometry, this.material );
+
+        this.add( this.bottomMesh );
+
+        this.isBottom = true;
+    },
+
+    addBorder: function ( o ){
+
+    	this.borderMaterial = new THREE.MeshStandardMaterial({ 
+    		vertexColors: THREE.VertexColors, 
+    		metalness: this.isWater ? 0.8 : 0.4, 
+       		roughness: this.isWater ? 0.2 : 0.6, 
+       
+            envMap: view.getEnvMap(),
+            normalMap:this.wn,
+            normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
+            transparent:this.isWater ? true : false,
+            opacity: this.isWater ? (o.opacity || 0.8) : 1,
+    		shadowSide : false
+
+    	});
+
+    	view.getMat()[this.name+'border'] = this.borderMaterial;
+
+        var front = new THREE.PlaneGeometry( this.size[0], 2, this.sample[0] - 1, 1 );
+        var back = new THREE.PlaneGeometry( this.size[0], 2, this.sample[0] - 1, 1 );
+        var left = new THREE.PlaneGeometry( this.size[2], 2, this.sample[1] - 1, 1 );
+        var right = new THREE.PlaneGeometry( this.size[2], 2, this.sample[1] - 1, 1 );
+
+        front.translate( 0,1, this.size[2]*0.5);
+        back.rotateY( -Math.PI );
+        back.translate( 0,1, -this.size[2]*0.5);
+        left.rotateY( -Math.PI90 );
+        left.translate( -this.size[0]*0.5,1, 0);
+        right.rotateY( Math.PI90 );
+        right.translate( this.size[0]*0.5,1, 0);
+
+        var border = new THREE.Geometry();
+
+        border.merge( front );
+        border.merge( back );
+        border.merge( left );
+        border.merge( right );
+
+        border.mergeVertices();
+
+        this.borderGeometry = new THREE.BufferGeometry().fromGeometry( border );
+        this.borderVertices = this.borderGeometry.attributes.position.array;
+        this.lng2 = this.borderVertices.length / 3;
+        this.list = new Array( this.lng2 )
+        this.borderColors = new Float32Array( this.lng * 3 );
+        this.borderGeometry.addAttribute( 'color', new THREE.BufferAttribute( this.borderColors, 3 ) );
+        this.borderMesh = new THREE.Mesh( this.borderGeometry, this.borderMaterial );
+
+        var j = this.lng2, n, i;
+        while(j--){
+            n = j*3;
+            i = this.borderVertices[n+1] > 0 ? this.findPoint( this.borderVertices[n], this.borderVertices[n+2] ) : -1;
+            this.list[j] = i;
+
+        }
+
+        this.add( this.borderMesh );
+        this.isBorder = true;
+
+    },
 
     dispose: function () {
 
@@ -333,6 +425,18 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     },
 
+    findPoint: function( x, z ){
+
+        var i = this.lng, n;
+        while( i-- ){
+            n = i * 3;
+            if( this.vertices[ n ] === x && this.vertices[ n + 2 ] === z ) return i;
+        }
+
+        return -1;
+
+    },
+
     getReverseID: function () {
 
         this.invId = [];
@@ -390,7 +494,7 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             this.heightData[ id ] = result;
 
-            this.vertices[ n + 1 ] = c * this.size[ 1 ];
+            this.vertices[ n + 1 ] = (c * this.size[ 1 ]) + this.deep;
 
             if( this.isWater ){
 
@@ -409,7 +513,33 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         }
 
+        if( this.isBorder ){
+
+            var j = this.lng2, h;
+            while(j--){
+                n = j*3;
+                if(this.list[j]!==-1){
+                    h = this.height[ this.list[j] ];
+                    this.borderVertices[n+1] = (h * this.size[1]) + this.deep;//this.data.height;
+                    var ee = (0.5 + h+0.5);
+                    ee = ee > 1 ? 1 : ee;
+                    ee = ee < 0.5 ? 0.5 : ee;
+                    this.borderColors[n] = h * this.colorBase.r//ee;
+                    this.borderColors[n+1] = h * this.colorBase.g//ee*0.5;
+                    this.borderColors[n+2] = h * this.colorBase.b//ee*0.3;
+
+                } else{
+                    this.borderColors[n] = this.colorBase.r//0.5;
+                    this.borderColors[n+1] = this.colorBase.g//0.25;
+                    this.borderColors[n+2] = this.colorBase.b//0.15;
+                }
+            }
+
+        }
+
         this.physicsUpdate( this.name, this.heightData );
+
+        this.needsUpdate = true;
 
         if( wait === undefined ) this.updateGeometry();
 
@@ -420,6 +550,11 @@ Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         this.geometry.attributes.position.needsUpdate = true;
         this.geometry.attributes.color.needsUpdate = true;
         this.geometry.computeVertexNormals();
+
+        if(this.isBorder){
+        	this.borderGeometry.attributes.position.needsUpdate = true;
+            this.borderGeometry.attributes.color.needsUpdate = true;
+        }
 
     }
 
