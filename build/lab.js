@@ -66568,31 +66568,27 @@ View.prototype = {
 
     updateEnvMap: function (  ) {
 
+        var hdr = this.environement.isHdr;
         var mat;
         for( var m in this.mat ){
 
             mat = this.mat[m];
 
             if( mat.envMap !== undefined ){
-
-                if( this.environement.isHdr ){
-                    if( mat.type === 'MeshStandardMaterial' ){
-                        mat.envMap = this.envmap;
-                        //console.log('up')
-                        //mat.envMapIntensity = 1;
-                    } else {
-                        mat.envMap = null;
-                    }
-                } else {
-                    mat.envMap = this.envmap;
-                    //mat.envMapIntensity = 1;
-                }
-                
-                mat.needsUpdate = true
+                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
+                else mat.envMap =  hdr ? null : this.envmap;
+                mat.needsUpdate = true;
             }
+
         }
 
+        this.extraUpdateMat( this.envmap, hdr );
+
     },
+
+    extraUpdateMat: function ( env, hdr ) {
+
+    }, 
 
 
     //--------------------------------------
