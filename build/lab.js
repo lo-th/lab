@@ -65645,6 +65645,8 @@ function View () {
     this.mat = {};
     this.txt = {};
 
+    this.tmptxt = {};
+
 	// 1 CANVAS GL1 or GL2
 
     var options = this.getGL();
@@ -66206,8 +66208,8 @@ View.prototype = {
             movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', metalness:0.5, roughness:0.5 }),
             speed: this.makeMaterial({ color:0xff4040, name:'speed', metalness:0.5, roughness:0.5 }),
 
-            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.2, depthTest:true, depthWrite:false }),
-            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.2, depthTest:true, depthWrite:false }),
+            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
+            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.6, roughness:0.4 }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
             kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4, shininess:40, specular:0xFAF7F0 }, 'Phong' ),//0xD4AF37
@@ -66256,6 +66258,34 @@ View.prototype = {
         //map.wrapT = THREE.RepeatWrapping;
         map.flipY = false;
         this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
+
+    },
+
+    //-----------------------------
+    //
+    // TEXTURES
+    //
+    //-----------------------------
+
+    makeTexture: function ( name, o ) {
+
+    	o = o || {};
+
+    	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') )
+
+    	this.tmptxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
+
+    		if( o.flip !== undefined ) tx.flipY = o.flip;
+			if( o.repeat !== undefined ){ 
+				tx.repeat.set( o.repeat[0], o.repeat[1] );
+				if(o.repeat[0]>1) tx.wrapS = THREE.RepeatWrapping;
+				if(o.repeat[1]>1) tx.wrapT = THREE.RepeatWrapping;
+			}
+			if( o.anisotropy !== undefined ) tx.anisotropy = o.anisotropy;
+
+    	});
+
+    	return this.tmptxt[ n ];
 
     },
 

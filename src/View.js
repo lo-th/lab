@@ -56,6 +56,8 @@ function View () {
     this.mat = {};
     this.txt = {};
 
+    this.tmptxt = {};
+
 	// 1 CANVAS GL1 or GL2
 
     var options = this.getGL();
@@ -667,6 +669,34 @@ View.prototype = {
         //map.wrapT = THREE.RepeatWrapping;
         map.flipY = false;
         this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
+
+    },
+
+    //-----------------------------
+    //
+    // TEXTURES
+    //
+    //-----------------------------
+
+    makeTexture: function ( name, o ) {
+
+    	o = o || {};
+
+    	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') )
+
+    	this.tmptxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
+
+    		if( o.flip !== undefined ) tx.flipY = o.flip;
+			if( o.repeat !== undefined ){ 
+				tx.repeat.set( o.repeat[0], o.repeat[1] );
+				if(o.repeat[0]>1) tx.wrapS = THREE.RepeatWrapping;
+				if(o.repeat[1]>1) tx.wrapT = THREE.RepeatWrapping;
+			}
+			if( o.anisotropy !== undefined ) tx.anisotropy = o.anisotropy;
+
+    	});
+
+    	return this.tmptxt[ n ];
 
     },
 
