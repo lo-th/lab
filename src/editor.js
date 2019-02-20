@@ -822,9 +822,9 @@ editor = {
 
 
 
-        var full = true;
-        var hash = location.hash.substr( 1 );
-        if( hash === fileName ) full = false;
+        //var full = true;
+        //var hash = location.hash.substr( 1 );
+        //if( hash === fileName ) full = false;
 
         //callbackReset( full );
 
@@ -837,6 +837,10 @@ editor = {
 
     inject: function () {
 
+        var full = true;
+        var hash = location.hash.substr( 1 );
+        if( hash === fileName ) full = false;
+
         location.hash = fileName;
 
         var oScript = document.createElement("script");
@@ -848,7 +852,7 @@ editor = {
         if( isCodeInit ) menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
         title.innerHTML = fileName.charAt(0).toUpperCase() + fileName.substring(1).toLowerCase();
 
-        callback( fileName );
+        callback( fileName, full );
 
     },
 

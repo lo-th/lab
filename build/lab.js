@@ -65645,7 +65645,8 @@ function View () {
     this.mat = {};
     this.txt = {};
 
-    this.tmptxt = {};
+    this.tmpTxt = {};
+    this.tmpMat = {};
 
 	// 1 CANVAS GL1 or GL2
 
@@ -65845,7 +65846,7 @@ View.prototype = {
 
 	},
 
-	reset: function () {
+	reset: function ( full ) {
 
         this.controler.resetFollow();
 
@@ -65893,6 +65894,16 @@ View.prototype = {
         this.update = function () {};
         this.tmpCallback = function(){};
         this.byName = {};
+
+        if( full ){
+
+            for( var m in this.tmpTxt ){ this.tmpTxt[m].dispose(); this.tmpTxt[m] = undefined; }
+            for( var m in this.tmpMat ){ this.tmpMat[m].dispose(); this.tmpMat[m] = undefined; }
+
+            this.tmpMat = {};
+            this.tmpTxt = {};
+
+        }
 
     },
 
@@ -66135,6 +66146,7 @@ View.prototype = {
             sphere:     new THREE.SphereBufferGeometry( 1, 16, 12 ),
             highsphere: new THREE.SphereBufferGeometry( 1, 32, 24 ),
             cylinder:   new THREE.CylinderBufferGeometry( 1,1,1,12,1 ),
+            hardcylinder: new THREE.CylinderBufferGeometry( 1,1,1,12,1 ),
 
         }
 
@@ -66153,6 +66165,31 @@ View.prototype = {
     // MATERIALS
     //
     //-----------------------------
+
+    material: function ( option, type ){
+
+        var name = option.name;
+
+        if( this.tmpMat[ name ] ){
+
+            for( var o in option ){
+                if( o === 'color' ) this.tmpMat[ name ].color.setHex( option[o] );
+                else this.tmpMat[ name ][o] = option[o];
+            }
+
+            return this.tmpMat[ name ];
+        }
+
+        type = type || this.matType;
+
+        option.envMap = this.envmap;
+        option.shadowSide = false;
+
+        this.tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
+
+        return this.tmpMat[ name ];
+
+    },
 
     makeMaterial: function ( option, type ){
 
@@ -66197,6 +66234,7 @@ View.prototype = {
         this.mat = {
 
             ttest: new THREE.MeshBasicMaterial( { color: 0xffffff, depthTest:true, depthWrite:false } ),//this.makeMaterial({ color:0xFFFFFF, name:'basic', envMap:this.envmap, metalness:0, roughness:0 }),
+           
 
             contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', metalness:0.8, roughness:0.5 }),
             contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', metalness:0.8, roughness:0.5 }),
@@ -66267,13 +66305,15 @@ View.prototype = {
     //
     //-----------------------------
 
-    makeTexture: function ( name, o ) {
+    texture: function ( name, o ) {
 
     	o = o || {};
 
-    	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') )
+    	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') );
 
-    	this.tmptxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
+        if( this.tmpTxt[ n ] ) return this.tmpTxt[ n ];
+
+    	this.tmpTxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
 
     		if( o.flip !== undefined ) tx.flipY = o.flip;
 			if( o.repeat !== undefined ){ 
@@ -66285,7 +66325,7 @@ View.prototype = {
 
     	});
 
-    	return this.tmptxt[ n ];
+    	return this.tmpTxt[ n ];
 
     },
 
@@ -66600,9 +66640,24 @@ View.prototype = {
 
         var hdr = this.environement.isHdr;
         var mat;
+
+        // intern material
         for( var m in this.mat ){
 
             mat = this.mat[m];
+
+            if( mat.envMap !== undefined ){
+                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
+                else mat.envMap =  hdr ? null : this.envmap;
+                mat.needsUpdate = true;
+            }
+
+        }
+
+        // tmp material
+        for( var m in this.tmpMat ){
+
+            mat = this.tmpMat[m];
 
             if( mat.envMap !== undefined ){
                 if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
