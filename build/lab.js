@@ -66315,7 +66315,9 @@ View.prototype = {
 
     	this.tmpTxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
 
-    		if( o.flip !== undefined ) tx.flipY = o.flip;
+            tx.flipY = o.flip !== undefined ? o.flip : false;
+
+    		//if( o.flip !== undefined ) tx.flipY = o.flip;
 			if( o.repeat !== undefined ){ 
 				tx.repeat.set( o.repeat[0], o.repeat[1] );
 				if(o.repeat[0]>1) tx.wrapS = THREE.RepeatWrapping;
