@@ -12,6 +12,8 @@
     "src/geometries/GeometryTools.js",
     "src/geometries/CapsuleBufferGeometry.js",
     "src/geometries/ConvexGeometry.js",
+    "src/geometries/ConvexObjectBreaker.js",
+    "src/geometries/QuickHull.js",
     "src/geometries/Tubular.js",
     "src/objects/Planet.js",
     "src/objects/Terrain.js",
