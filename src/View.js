@@ -9,6 +9,7 @@ function View () {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
+    this.rayCallBack = function(){};
     this.tmpName = [];
 
     this.pause = false;
@@ -16,7 +17,7 @@ function View () {
 
     this.fog = null;
 
-    this.matType = 'Standard';//'Standard';
+    this.matType = 'Standard';
 
     this.lightDistance = 200;
     this.shadowMat = null;
@@ -33,6 +34,7 @@ function View () {
     this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
+    this.isSimpleRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
     this.delta = 0;
@@ -131,6 +133,8 @@ function View () {
 
     if( !this.isMobile && user ) user.init();
 
+    this.mouse = new THREE.Vector3();
+
 
     // 8 START RENDER
 
@@ -160,7 +164,7 @@ View.prototype = {
 
         var options = { 
             antialias: this.isMobile ? false : true, alpha: false, 
-            stencil:false, depth:true, precision:"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+            stencil:false, depth:true, precision: this.isMobile ? "mediump" :"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
         }
 
         if( forceV1 === undefined ){
@@ -353,7 +357,7 @@ View.prototype = {
 
             this.needResize = true;
 
-            if( editor ) editor.resizeMenu( v.w );
+           // if( editor ) editor.resizeMenu( v.w );
 
 		}
     },
@@ -511,6 +515,7 @@ View.prototype = {
 	getBody: function () { return this.bodys; },
     getHero: function () { return this.heros; },
 	getControls: function () { return this.controler; },
+    getMouse: function () { return this.mouse; },
 
 
 	needFocus: function () {
@@ -1111,47 +1116,65 @@ View.prototype = {
 
     },
 
-     //-----------------------------
+    //-----------------------------
     //
     // RAYCAST
     //
     //-----------------------------
 
-    activeRay: function ( callback ) {
+    simpleRay: function ( callback ) {
 
         this.isWithRay = true;
+        this.isSimpleRay = true;
+
+        this.fray = function(e){ this.rayTest(e); }.bind( this );
+        this.mDown = function(e){ this.mouse.z = 1; }.bind( this );
+        this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
+
+        this.canvas.addEventListener( 'mousemove', this.fray, false );
+        this.canvas.addEventListener( 'mousedown', this.mDown, false );
+        document.addEventListener( 'mouseup', this.mUp, false );
+
+        this.rayCallBack = callback;
+
+    },
+
+    activeRay: function ( callback ) {
 
         this.ray = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
 
-        //var g = new THREE.PlaneBufferGeometry( 100, 100 );
-        //g.rotateX( -Math.PI90 );
-        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0, depthTest:false, depthWrite:false  }));
         this.moveplane.scale.set(100, 1, 100);
         this.moveplane.castShadow = false;
         this.moveplane.receiveShadow = false;
         this.content.add( this.moveplane );
-        //moveplane.visible = false;
 
-        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({color:0xFF0000}));
+        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({ color:0xFF0000 }));
         this.scene.add( this.targetMouse );
 
-        this.canvas.addEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-
-        this.rayCallBack = callback;
+        this.simpleRay( callback );
+        this.isSimpleRay = false;
 
     },
 
     removeRay: function(){
 
         if( this.isWithRay ){
+
+
+            this.canvas.removeEventListener( 'mousemove', this.fray, false );
+            this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+            document.removeEventListener( 'mouseup', this.mUp, false );
+
+            this.rayCallBack = function(){};
+
+            if(!this.isSimpleRay){
+                this.content.remove( this.moveplane );
+                this.scene.remove( this.targetMouse );
+            }
+
             this.isWithRay = false;
-
-            this.canvas.removeEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-            this.rayCallBack = null;
-
-            this.content.remove( this.moveplane );
-            this.scene.remove( this.targetMouse );
+            this.isSimpleRay = false;
 
         }
 
@@ -1162,14 +1185,17 @@ View.prototype = {
         this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
         this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
 
-        this.ray.setFromCamera( this.mouse, this.camera );
-        var intersects = this.ray.intersectObjects( this.content.children, true );
-        if ( intersects.length) {
-            this.targetMouse.position.copy( intersects[0].point )
-            //paddel.position.copy( intersects[0].point.add(new THREE.Vector3( 0, 20, 0 )) );
-
-            this.rayCallBack( this.targetMouse );
+        if( this.isSimpleRay ){ 
+            this.rayCallBack( this.mouse, this.camera );
+        } else {
+            this.ray.setFromCamera( this.mouse, this.camera );
+            var intersects = this.ray.intersectObjects( this.content.children, true );
+            if ( intersects.length) {
+                this.targetMouse.position.copy( intersects[0].point );
+                this.rayCallBack( this.targetMouse );
+            }
         }
+
     },
 
     //--------------------------------------

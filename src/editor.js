@@ -12,11 +12,14 @@ var editor = ( function () {
 
 var styles;
 
-var fullSc, subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
+var fullSc, miniDebug, miniDebugS, subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
 var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
+
+var bottomRight, bottomLeft, extra01, extra02;
 
 
 var callback = function(){};
+var modeCallBack = function(){};
 var isSelfDrag = false;
 var isFocus = false;
 var errorLines = [];
@@ -66,6 +69,7 @@ var saveButton;
 editor = {
 
     isFullScreen: false,
+    extraMode:'',
 
     init: function ( Callback, withCode, color, Link ) {
 
@@ -98,31 +102,52 @@ editor = {
         // big menu
 
         bigmenu = document.createElement( 'div' );
-        bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px;  border-bottom:none;';
+        bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px; border-bottom:none;';
         document.body.appendChild( bigmenu );
 
         this.makeBigMenu();
+
+        bottomRight = document.createElement( 'div' );
+        bottomRight.style.cssText = unselectable + 'position:absolute; right:0; bottom:0;';
+        document.body.appendChild( bottomRight );
+
+        bottomLeft = document.createElement( 'div' );
+        bottomLeft.style.cssText = unselectable + 'position:absolute; left:0; bottom:0;';
+        document.body.appendChild( bottomLeft );
+
+        // mini debug
+
+        miniDebugS = document.createElement( 'div' );
+        miniDebugS.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:#000000; text-align:left; left:'+((space*2)+1)+'px';
+        bottomLeft.appendChild( miniDebugS );
+
+
+        miniDebug = document.createElement( 'div' );
+        miniDebug.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute;  bottom:'+space+'px; color:'+selectColor+'; text-align:left; left:'+(space*2)+'px';
+        bottomLeft.appendChild( miniDebug );
 
         // title
 
         title = document.createElement( 'div' );
         title.style.cssText = unselectable + 'position:absolute; font-size: 14px;  bottom: '+(space+14)+'px; color:#888988; text-shadow: 1px 1px #000000; text-align:right; right:'+(space+40)+'px';
-        document.body.appendChild( title );
+        bottomRight.appendChild( title );
 
         // subtitle
 
-        subtitle = document.createElement( 'div' );
-        subtitle.style.cssText = unselectable + 'font-size: 10px; position:absolute; bottom:'+(space)+'px; color:#787978; text-align:right; right:'+(space+40)+'px';
-        document.body.appendChild( subtitle );
-
         subtitleS = document.createElement( 'div' );
-        subtitleS.style.cssText = unselectable + 'font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:rgba(0,0,0,0.5); text-align:right; right:'+(space+40-1)+'px';
-        document.body.appendChild( subtitleS );
+        subtitleS.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute;  bottom:'+((space)-1)+'px; color:#000000; text-align:right; right:'+(space+40-1)+'px';
+        bottomRight.appendChild( subtitleS );
+
+        subtitle = document.createElement( 'div' );
+        subtitle.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute; bottom:'+space+'px; color:#787978; text-align:right; right:'+(space+40)+'px';
+        bottomRight.appendChild( subtitle );
+
+        
 
         fullSc = document.createElement( 'div' );
         fullSc.style.cssText = 'position:absolute; width:30px; height:30px; right:10px; bottom:10px; pointer-events:auto; cursor:pointer; '
         fullSc.innerHTML = editor.icon('scrIn', '#787978', 30, 30);
-        document.body.appendChild( fullSc );
+        bottomRight.appendChild( fullSc );
 
         fullSc.addEventListener('click', editor.toggleFullScreen, false );
         fullSc.addEventListener('mouseover', function(){ this.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', selectColor, 30, 30); }, false );
@@ -138,6 +163,41 @@ editor = {
         if( Link !== undefined ) this.setLink( Link );
 
         if( isWithCode ) this.show();
+
+    },
+
+    addExtraOption: function ( callback ) {
+
+        modeCallBack = callback;
+
+        extra01 = document.createElement( 'div' );
+        extra01.style.cssText = 'position:absolute; width:30px; height:30px; right:10px; bottom:50px; pointer-events:auto; cursor:pointer; '
+        extra01.innerHTML = editor.icon('shoot', '#383938', 30, 30);
+        bottomRight.appendChild( extra01 );
+
+        extra02 = document.createElement( 'div' );
+        extra02.style.cssText = 'position:absolute; width:30px; height:30px; right:10px; bottom:90px; pointer-events:auto; cursor:pointer; '
+        extra02.innerHTML = editor.icon('picker', '#383938', 30, 30);
+        bottomRight.appendChild( extra02 );
+
+        extra01.addEventListener('click', function(){ editor.toggleExtraMode( 'shoot' ) }, false );
+        extra01.addEventListener('mouseover', function(){ this.innerHTML = editor.icon('shoot',   selectColor, 30, 30); }, false );
+        extra01.addEventListener('mouseout', function(){ this.innerHTML = editor.icon('shoot',  editor.extraMode === 'shoot' ? '#787978' : '#383938', 30, 30); }, false );
+
+        extra02.addEventListener('click',  function(){ editor.toggleExtraMode( 'picker' ); }, false );
+        extra02.addEventListener('mouseover', function(){ this.innerHTML = editor.icon('picker', selectColor, 30, 30); }, false );
+        extra02.addEventListener('mouseout', function(){ this.innerHTML = editor.icon('picker',  editor.extraMode === 'picker' ? '#787978' : '#383938', 30, 30); }, false );
+
+    },
+
+    toggleExtraMode: function ( mode ) {
+
+        if( mode !== editor.extraMode ) editor.extraMode = mode;
+        else editor.extraMode = '';
+        extra01.innerHTML = editor.icon('shoot',  editor.extraMode === 'shoot' ? '#787978' : '#383938', 30, 30);
+        extra02.innerHTML = editor.icon('picker',  editor.extraMode === 'picker' ? '#787978' : '#383938', 30, 30);
+
+        modeCallBack( editor.extraMode );
 
     },
 
@@ -161,6 +221,16 @@ editor = {
             case 'scrOut':
             t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 30 1 L 1 1 1 30 30 30 30 1 M 3 3 L 28 3 28 28 3 28 3 3 M 9 17 L 7 17 7 22 12 22 12 20 9 20 9 17 M 12 11 L 12 9 7 9 7 14 9 14 9 11 12 11 M 22 14 L 24 14 24 9 19 9 19 11 22 11 22 14 M 24 17 L 22 17 22 20 19 20 19 22 24 22 24 17 Z'/>";
             t[1]+="<path fill='"+color+"' stroke='none' d='M 29 0 L 0 0 0 29 29 29 29 0 M 27 27 L 2 27 2 2 27 2 27 27 M 8 16 L 6 16 6 21 11 21 11 19 8 19 8 16 M 11 10 L 11 8 6 8 6 13 8 13 8 10 11 10 M 21 16 L 21 19 18 19 18 21 23 21 23 16 21 16 M 21 10 L 21 13 23 13 23 8 18 8 18 10 21 10 Z'/>";
+            break;
+
+            case 'shoot':
+            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 12.1 11.1 Q 11.9 11.55 10.7 11.9 9.5 12.2 10.4 13.15 12.45 14.3 12 14.8 11.55 15 11.15 15.4 10.15 16.4 10.15 17.85 10.15 19.3 11.15 20.3 12.15 21.3 13.6 21.3 L 17.3 21.3 Q 21.1 21.1 21.45 16.25 21.85 14.05 19.7 14.65 17.35 15.5 16.5 14.35 16.6 14.3 16.65 14.2 17.5 13.4 17.5 12.25 17.5 11.05 16.65 10.25 15.85 9.45 14.7 9.45 13.5 9.45 12.7 10.25 12.35 10.6 12.15 11.1 L 12.1 11.1 M 3 18 L 3 24 7 28 13 28 13 26 8 26 5 23 5 18 3 18 M 13 5 L 13 3 7 3 3 7 3 13 5 13 5 8 8 5 13 5 M 28 18 L 26 18 26 23 23 26 18 26 18 28 24 28 28 24 28 18 M 23 5 L 26 8 26 13 28 13 28 7 24 3 18 3 18 5 23 5 M 14.5 25 L 14.5 30 16.5 30 16.5 25 14.5 25 M 1 14.5 L 1 16.5 6 16.5 6 14.5 1 14.5 M 16.5 6 L 16.5 1 14.5 1 14.5 6 16.5 6 M 30 14.5 L 25 14.5 25 16.5 30 16.5 30 14.5 Z'/>";
+            t[1]+="<path fill='"+color+"' stroke='none' d='M 11.1 10.05 L 11.1 10.1 Q 10.9 10.57 9.7 10.85 8.5 11.2 9.4 12.15 11.48 13.3 10.95 13.75 10.53 14 10.15 14.4 9.15 15.4 9.15 16.85 9.15 18.3 10.15 19.3 11.15 20.3 12.6 20.3 L 16.3 20.3 Q 20.1 20.1 20.45 15.25 20.8625 13 18.7 13.65 16.36 14.5 15.5 13.35 15.57 13.27 15.65 13.2 16.5 12.4 16.5 11.25 16.5 10.05 15.65 9.25 14.85 8.45 13.7 8.45 12.5 8.45 11.7 9.25 11.33 9.61 11.1 10.05 M 2 17 L 2 23 6 27 12 27 12 25 7 25 4 22 4 17 2 17 M 12 4 L 12 2 6 2 2 6 2 12 4 12 4 7 7 4 12 4 M 27 17 L 25 17 25 22 22 25 17 25 17 27 23 27 27 23 27 17 M 22 4 L 25 7 25 12 27 12 27 6 23 2 17 2 17 4 22 4 M 5 15.5 L 5 13.5 0 13.5 0 15.5 5 15.5 M 15.5 24 L 13.5 24 13.5 29 15.5 29 15.5 24 M 15.5 5 L 15.5 0 13.5 0 13.5 5 15.5 5 M 24 13.5 L 24 15.5 29 15.5 29 13.5 24 13.5 Z'/>";
+            break;
+
+            case 'picker':
+            t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 7.15 14.25 L 5.75 12.85 2.95 15.65 4.35 17.05 7.15 14.25 M 5 9 L 1 9 1 11 5 11 5 9 M 4.35 2.95 L 2.95 4.35 5.75 7.15 7.15 5.75 4.35 2.95 M 14.25 7.15 L 17.05 4.35 15.65 2.95 12.85 5.75 14.25 7.15 M 11 5 L 11 1 9 1 9 5 11 5 M 22.9 19.9 L 28 17 10 10 17 28 19.9 22.9 26 29 29 26 22.9 19.9 M 19 20 L 17 24 13 13 24 17 20 19 27 26 26 27 19 20 Z'/>";
+            t[1]+="<path fill='"+color+"' stroke='none' d='M 3.35 16.05 L 6.15 13.25 4.75 11.85 1.95 14.65 3.35 16.05 M 4 10 L 4 8 0 8 0 10 4 10 M 3.35 1.95 L 1.95 3.35 4.75 6.15 6.15 4.75 3.35 1.95 M 8 4 L 10 4 10 0 8 0 8 4 M 16.05 3.35 L 14.65 1.95 11.85 4.75 13.25 6.15 16.05 3.35 M 21.9 18.9 L 27 16 9 9 16 27 18.9 21.9 25 28 28 25 21.9 18.9 M 18 19 L 16 23 12 12 23 16 19 18 26 25 25 26 18 19 Z'/>";
             break;
         }
         t[2] = "</g></svg>";
@@ -373,11 +443,11 @@ editor = {
 
     },
 
-    resizeMenu: function ( w ) {
+    /*resizeMenu: function ( w ) {
 
-        if( bigmenu ) bigmenu.style.width = w +'px';
+        //if( bigmenu ) bigmenu.style.width = w +'px';
 
-    },
+    },*/
 
     resize: function ( e ) {
 
@@ -397,11 +467,14 @@ editor = {
         if( view ) view.setLeft( left, right );
 
         if(joystickLeft!==null){ joystickLeft.s[0].left = left +'px';joystickLeft.needZone()}
+
+        bottomLeft.style.left = left +'px';
+        bottomRight.style.right = right +'px';
         
         bigmenu.style.left = left +'px';
-        title.style.left = left +'px';
-        subtitle.style.left = left +'px';
-        subtitleS.style.left = ( left + 1 ) +'px';
+        //title.style.left = left +'px';
+        //subtitle.style.left = left +'px';
+        //subtitleS.style.left = ( left + 1 ) +'px';
         github.style.right = right + 'px';
 
         if( isUiInit ){
@@ -422,6 +495,13 @@ editor = {
         
     },
 
+    log: function ( str ) { 
+
+        miniDebug.textContent  = str;
+        miniDebugS.textContent  = str;
+
+    },
+
     tell: function ( str ) { 
 
         subtitle.textContent  = str;
@@ -433,7 +513,7 @@ editor = {
 
     makeBigMenu: function(){
 
-        bigmenu.style.width = window.innerWidth - left +'px';
+        //bigmenu.style.width = window.innerWidth - left +'px';
 
         var m = [ 'DEMO', 'CODE', 'UI', 'PAUSE' ];
 

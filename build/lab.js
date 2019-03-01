@@ -188,7 +188,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	} );
 
-	var REVISION = '102dev';
+	var REVISION = '102';
 	var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2 };
 	var CullFaceNone = 0;
 	var CullFaceBack = 1;
@@ -17696,7 +17696,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				combine: material.combine,
 
-				vertexTangents: material.vertexTangents,
+				vertexTangents: ( material.normalMap && material.vertexTangents ),
 				vertexColors: material.vertexColors,
 
 				fog: !! fog,
@@ -21543,17 +21543,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		 *   var fullHeight = h * 2;
 		 *
 		 *   --A--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 0, h * 0, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 0, h * 0, w, h );
 		 *   --B--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 1, h * 0, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 1, h * 0, w, h );
 		 *   --C--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 2, h * 0, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 2, h * 0, w, h );
 		 *   --D--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 0, h * 1, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 0, h * 1, w, h );
 		 *   --E--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 1, h * 1, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 1, h * 1, w, h );
 		 *   --F--
-		 *   camera.setOffset( fullWidth, fullHeight, w * 2, h * 1, w, h );
+		 *   camera.setViewOffset( fullWidth, fullHeight, w * 2, h * 1, w, h );
 		 *
 		 *   Note there is no reason monitors have to be the same size or in a grid.
 		 */
@@ -21961,9 +21961,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var userHeight = frameOfReferenceType === 'stage' ? 1.6 : 0;
 
-			if ( device === null ) {
+			if ( isPresenting() === false ) {
 
 				camera.position.set( 0, userHeight, 0 );
+				camera.rotation.set( 0, 0, 0 );
+
 				return camera;
 
 			}
@@ -22016,8 +22018,6 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			}
 
 			poseObject.updateMatrixWorld();
-
-			if ( device.isPresenting === false ) return camera;
 
 			//
 
@@ -22214,6 +22214,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		function onSessionEnd() {
 
 			renderer.setFramebuffer( null );
+			renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830
 			animation.stop();
 
 		}
@@ -23093,7 +23094,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		this.renderBufferDirect = function ( camera, fog, geometry, material, object, group ) {
 
-			var frontFaceCW = ( object.isMesh && object.normalMatrix.determinant() < 0 );
+			var frontFaceCW = ( object.isMesh && object.matrixWorld.determinant() < 0 );
 
 			state.setMaterial( material, frontFaceCW );
 
@@ -25123,23 +25124,27 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
-	FogExp2.prototype.isFogExp2 = true;
+	Object.assign( FogExp2.prototype, {
 
-	FogExp2.prototype.clone = function () {
+		isFogExp2: true,
 
-		return new FogExp2( this.color, this.density );
+		clone: function () {
 
-	};
+			return new FogExp2( this.color, this.density );
 
-	FogExp2.prototype.toJSON = function ( /* meta */ ) {
+		},
 
-		return {
-			type: 'FogExp2',
-			color: this.color.getHex(),
-			density: this.density
-		};
+		toJSON: function ( /* meta */ ) {
 
-	};
+			return {
+				type: 'FogExp2',
+				color: this.color.getHex(),
+				density: this.density
+			};
+
+		}
+
+	} );
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
@@ -25157,24 +25162,28 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
-	Fog.prototype.isFog = true;
+	Object.assign( Fog.prototype, {
 
-	Fog.prototype.clone = function () {
+		isFog: true,
 
-		return new Fog( this.color, this.near, this.far );
+		clone: function () {
 
-	};
+			return new Fog( this.color, this.near, this.far );
 
-	Fog.prototype.toJSON = function ( /* meta */ ) {
+		},
 
-		return {
-			type: 'Fog',
-			color: this.color.getHex(),
-			near: this.near,
-			far: this.far
-		};
+		toJSON: function ( /* meta */ ) {
 
-	};
+			return {
+				type: 'Fog',
+				color: this.color.getHex(),
+				near: this.near,
+				far: this.far
+			};
+
+		}
+
+	} );
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
@@ -47570,6 +47579,27 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	//
 
+	Object.defineProperties( WebGLRenderTargetCube.prototype, {
+
+		activeCubeFace: {
+			set: function ( /* value */ ) {
+
+				console.warn( 'THREE.WebGLRenderTargetCube: .activeCubeFace has been removed. It is now the second parameter of WebGLRenderer.setRenderTarget().' );
+
+			}
+		},
+		activeMipMapLevel: {
+			set: function ( /* value */ ) {
+
+				console.warn( 'THREE.WebGLRenderTargetCube: .activeMipMapLevel has been removed. It is now the third parameter of WebGLRenderer.setRenderTarget().' );
+
+			}
+		}
+
+	} );
+
+	//
+
 	Object.defineProperties( WebGLRenderTarget.prototype, {
 
 		wrapS: {
@@ -67515,6 +67545,7 @@ function View () {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
+    this.rayCallBack = function(){};
     this.tmpName = [];
 
     this.pause = false;
@@ -67522,7 +67553,7 @@ function View () {
 
     this.fog = null;
 
-    this.matType = 'Standard';//'Standard';
+    this.matType = 'Standard';
 
     this.lightDistance = 200;
     this.shadowMat = null;
@@ -67539,6 +67570,7 @@ function View () {
     this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
+    this.isSimpleRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
     this.delta = 0;
@@ -67637,6 +67669,8 @@ function View () {
 
     if( !this.isMobile && user ) user.init();
 
+    this.mouse = new THREE.Vector3();
+
 
     // 8 START RENDER
 
@@ -67666,7 +67700,7 @@ View.prototype = {
 
         var options = { 
             antialias: this.isMobile ? false : true, alpha: false, 
-            stencil:false, depth:true, precision:"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+            stencil:false, depth:true, precision: this.isMobile ? "mediump" :"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
         }
 
         if( forceV1 === undefined ){
@@ -67859,7 +67893,7 @@ View.prototype = {
 
             this.needResize = true;
 
-            if( editor ) editor.resizeMenu( v.w );
+           // if( editor ) editor.resizeMenu( v.w );
 
 		}
     },
@@ -68017,6 +68051,7 @@ View.prototype = {
 	getBody: function () { return this.bodys; },
     getHero: function () { return this.heros; },
 	getControls: function () { return this.controler; },
+    getMouse: function () { return this.mouse; },
 
 
 	needFocus: function () {
@@ -68617,47 +68652,65 @@ View.prototype = {
 
     },
 
-     //-----------------------------
+    //-----------------------------
     //
     // RAYCAST
     //
     //-----------------------------
 
-    activeRay: function ( callback ) {
+    simpleRay: function ( callback ) {
 
         this.isWithRay = true;
+        this.isSimpleRay = true;
+
+        this.fray = function(e){ this.rayTest(e); }.bind( this );
+        this.mDown = function(e){ this.mouse.z = 1; }.bind( this );
+        this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
+
+        this.canvas.addEventListener( 'mousemove', this.fray, false );
+        this.canvas.addEventListener( 'mousedown', this.mDown, false );
+        document.addEventListener( 'mouseup', this.mUp, false );
+
+        this.rayCallBack = callback;
+
+    },
+
+    activeRay: function ( callback ) {
 
         this.ray = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
 
-        //var g = new THREE.PlaneBufferGeometry( 100, 100 );
-        //g.rotateX( -Math.PI90 );
-        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0 }));
+        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0, depthTest:false, depthWrite:false  }));
         this.moveplane.scale.set(100, 1, 100);
         this.moveplane.castShadow = false;
         this.moveplane.receiveShadow = false;
         this.content.add( this.moveplane );
-        //moveplane.visible = false;
 
-        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({color:0xFF0000}));
+        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({ color:0xFF0000 }));
         this.scene.add( this.targetMouse );
 
-        this.canvas.addEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-
-        this.rayCallBack = callback;
+        this.simpleRay( callback );
+        this.isSimpleRay = false;
 
     },
 
     removeRay: function(){
 
         if( this.isWithRay ){
+
+
+            this.canvas.removeEventListener( 'mousemove', this.fray, false );
+            this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+            document.removeEventListener( 'mouseup', this.mUp, false );
+
+            this.rayCallBack = function(){};
+
+            if(!this.isSimpleRay){
+                this.content.remove( this.moveplane );
+                this.scene.remove( this.targetMouse );
+            }
+
             this.isWithRay = false;
-
-            this.canvas.removeEventListener( 'mousemove', function(e){ this.rayTest(e); }.bind(this), false );
-            this.rayCallBack = null;
-
-            this.content.remove( this.moveplane );
-            this.scene.remove( this.targetMouse );
+            this.isSimpleRay = false;
 
         }
 
@@ -68668,14 +68721,17 @@ View.prototype = {
         this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
         this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
 
-        this.ray.setFromCamera( this.mouse, this.camera );
-        var intersects = this.ray.intersectObjects( this.content.children, true );
-        if ( intersects.length) {
-            this.targetMouse.position.copy( intersects[0].point )
-            //paddel.position.copy( intersects[0].point.add(new THREE.Vector3( 0, 20, 0 )) );
-
-            this.rayCallBack( this.targetMouse );
+        if( this.isSimpleRay ){ 
+            this.rayCallBack( this.mouse, this.camera );
+        } else {
+            this.ray.setFromCamera( this.mouse, this.camera );
+            var intersects = this.ray.intersectObjects( this.content.children, true );
+            if ( intersects.length) {
+                this.targetMouse.position.copy( intersects[0].point );
+                this.rayCallBack( this.targetMouse );
+            }
         }
+
     },
 
     //--------------------------------------
