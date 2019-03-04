@@ -52,10 +52,10 @@ function Environement ( view ) {
     this.bg = false;
     this.tmpBg = false;
 
-    this.q = 2;
-	var q = this.q;
+    this.q = this.view.isMobile ? 2 : 4;
+	this.resolution = 128*this.q;
 
-	this.resolution = 256*q;
+    
 
 
 
@@ -70,8 +70,8 @@ function Environement ( view ) {
 		cloud_covr: .3,
 		cloud_dens: 40,
 
-		sample:64*q,//128,
-		iteration:4*q,//8,
+		sample:32*this.q,
+		iteration:2*this.q,
 
 		inclination: 45,
 		azimuth: 90,
@@ -87,6 +87,8 @@ function Environement ( view ) {
 
 	}
 
+    //console.log(this.resolution, this.setting.sample)
+
 	this.astralDistance = 1;
 
 	this.material = new THREE.ShaderMaterial({});
@@ -101,7 +103,7 @@ function Environement ( view ) {
     
 
     this.scene = new THREE.Scene();
-	this.sphere = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 64, 64 ), this.material );
+	this.sphere = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 32, 32 ), this.material );
 	this.scene.add( this.sphere );
 	
 	var options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
