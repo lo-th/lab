@@ -34,7 +34,6 @@ function View () {
     this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
-    this.isSimpleRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
     this.delta = 0;
@@ -60,6 +59,8 @@ function View () {
 
     this.tmpTxt = {};
     this.tmpMat = {};
+
+
 
 	// 1 CANVAS GL1 or GL2
 
@@ -134,7 +135,9 @@ function View () {
     if( !this.isMobile && user ) user.init();
 
     this.mouse = new THREE.Vector3();
+    this.offset = new THREE.Vector3();
 
+    
 
     // 8 START RENDER
 
@@ -514,8 +517,11 @@ View.prototype = {
     getScene: function () { return this.scene; },
 	getBody: function () { return this.bodys; },
     getHero: function () { return this.heros; },
+
 	getControls: function () { return this.controler; },
+    getCamera: function () { return this.camera; },
     getMouse: function () { return this.mouse; },
+    //getOffset: function () { return this.offset; },
 
 
 	needFocus: function () {
@@ -597,6 +603,17 @@ View.prototype = {
         }
 
         type = type || this.matType;
+
+        if( type !== 'Phong' ){
+            delete( option.shininess ); 
+            delete( option.specular );
+        }
+
+        if( type !== 'Standard' ){
+            option.reflectivity = option.metalness || 0.5;
+            delete( option.metalness ); 
+            delete( option.roughness );
+        }
 
         option.envMap = this.envmap;
         option.shadowSide = false;
@@ -1122,13 +1139,29 @@ View.prototype = {
     //
     //-----------------------------
 
-    simpleRay: function ( callback ) {
+    activeRay: function ( callback ) {
 
-        this.isWithRay = true;
-        this.isSimpleRay = true;
+        if( this.isWithRay ) return;
+
+        this.ray = new THREE.Raycaster();
+
+        this.dragPlane = new THREE.Mesh( 
+            new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
+            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0, depthTest:false, depthWrite:false })
+        );
+
+        /*this.dragPlane = new THREE.Mesh( 
+            new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ),  
+            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0.3, wireframe:true, depthTest:false, depthWrite:false })
+        );*/
+
+        this.dragPlane.castShadow = false;
+        this.dragPlane.receiveShadow = false;
+        this.setDragPlane( null, 100 );
+        this.scene.add( this.dragPlane );
 
         this.fray = function(e){ this.rayTest(e); }.bind( this );
-        this.mDown = function(e){ this.mouse.z = 1; }.bind( this );
+        this.mDown = function(e){ this.rayTest(e); this.mouse.z = 1; }.bind( this );
         this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
 
         this.canvas.addEventListener( 'mousemove', this.fray, false );
@@ -1136,64 +1169,53 @@ View.prototype = {
         document.addEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = callback;
-
-    },
-
-    activeRay: function ( callback ) {
-
-        this.ray = new THREE.Raycaster();
-
-        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0, depthTest:false, depthWrite:false  }));
-        this.moveplane.scale.set(100, 1, 100);
-        this.moveplane.castShadow = false;
-        this.moveplane.receiveShadow = false;
-        this.content.add( this.moveplane );
-
-        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({ color:0xFF0000 }));
-        this.scene.add( this.targetMouse );
-
-        this.simpleRay( callback );
-        this.isSimpleRay = false;
+        this.isWithRay = true;
 
     },
 
     removeRay: function(){
 
-        if( this.isWithRay ){
+        if( !this.isWithRay ) return;
 
+        this.canvas.removeEventListener( 'mousemove', this.fray, false );
+        this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+        document.removeEventListener( 'mouseup', this.mUp, false );
 
-            this.canvas.removeEventListener( 'mousemove', this.fray, false );
-            this.canvas.removeEventListener( 'mousedown', this.mDown, false );
-            document.removeEventListener( 'mouseup', this.mUp, false );
+        this.rayCallBack = function(){};
 
-            this.rayCallBack = function(){};
+        this.scene.remove( this.dragPlane );
 
-            if(!this.isSimpleRay){
-                this.content.remove( this.moveplane );
-                this.scene.remove( this.targetMouse );
-            }
-
-            this.isWithRay = false;
-            this.isSimpleRay = false;
-
-        }
+        this.isWithRay = false;
+        this.offset.set( 0,0,0 );
 
     },
 
     rayTest: function ( e ) {
 
-        this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
+        this.mouse.x = ( (e.clientX - this.vs.x )/ this.vs.w ) * 2 - 1;
         this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
 
-        if( this.isSimpleRay ){ 
-            this.rayCallBack( this.mouse, this.camera );
+        this.ray.setFromCamera( this.mouse, this.camera );
+        //var intersects = this.ray.intersectObjects( this.content.children, true );
+        var intersects = this.ray.intersectObject( this.dragPlane );
+        if ( intersects.length ){ 
+            this.offset.copy( intersects[0].point );
+            this.rayCallBack( this.offset );
+        }
+
+    },
+
+    setDragPlane: function ( pos, size ) {
+
+        size = size || 200;
+        this.dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
+        if( pos ){
+            this.dragPlane.position.fromArray( pos );
+            this.dragPlane.rotation.set( 0, this.controler.getAzimuthalAngle(), 0 );
+            //this.dragPlane.lookAt( this.camera.position );
         } else {
-            this.ray.setFromCamera( this.mouse, this.camera );
-            var intersects = this.ray.intersectObjects( this.content.children, true );
-            if ( intersects.length) {
-                this.targetMouse.position.copy( intersects[0].point );
-                this.rayCallBack( this.targetMouse );
-            }
+            this.dragPlane.position.set( 0, 0, 0 );
+            this.dragPlane.rotation.set( -Math.PI90, 0, 0 );
         }
 
     },

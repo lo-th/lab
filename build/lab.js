@@ -11783,35 +11783,59 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		computeBoundingBox: function () {
 
-			if ( this.boundingBox === null ) {
+			var box = new Box3();
 
-				this.boundingBox = new Box3();
+			return function computeBoundingBox() {
 
-			}
+				if ( this.boundingBox === null ) {
 
-			var position = this.attributes.position;
+					this.boundingBox = new Box3();
 
-			if ( position !== undefined ) {
+				}
 
-				this.boundingBox.setFromBufferAttribute( position );
+				var position = this.attributes.position;
+				var morphAttributesPosition = this.morphAttributes.position;
 
-			} else {
+				if ( position !== undefined ) {
 
-				this.boundingBox.makeEmpty();
+					this.boundingBox.setFromBufferAttribute( position );
 
-			}
+					// process morph attributes if present
 
-			if ( isNaN( this.boundingBox.min.x ) || isNaN( this.boundingBox.min.y ) || isNaN( this.boundingBox.min.z ) ) {
+					if ( morphAttributesPosition ) {
 
-				console.error( 'THREE.BufferGeometry.computeBoundingBox: Computed min/max have NaN values. The "position" attribute is likely to have NaN values.', this );
+						for ( var i = 0, il = morphAttributesPosition.length; i < il; i ++ ) {
 
-			}
+							var morphAttribute = morphAttributesPosition[ i ];
+							box.setFromBufferAttribute( morphAttribute );
 
-		},
+							this.boundingBox.expandByPoint( box.min );
+							this.boundingBox.expandByPoint( box.max );
+
+						}
+
+					}
+
+				} else {
+
+					this.boundingBox.makeEmpty();
+
+				}
+
+				if ( isNaN( this.boundingBox.min.x ) || isNaN( this.boundingBox.min.y ) || isNaN( this.boundingBox.min.z ) ) {
+
+					console.error( 'THREE.BufferGeometry.computeBoundingBox: Computed min/max have NaN values. The "position" attribute is likely to have NaN values.', this );
+
+				}
+
+			};
+
+		}(),
 
 		computeBoundingSphere: function () {
 
 			var box = new Box3();
+			var boxMorphTargets = new Box3();
 			var vector = new Vector3();
 
 			return function computeBoundingSphere() {
@@ -11823,25 +11847,64 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				var position = this.attributes.position;
+				var morphAttributesPosition = this.morphAttributes.position;
 
 				if ( position ) {
+
+					// first, find the center of the bounding sphere
 
 					var center = this.boundingSphere.center;
 
 					box.setFromBufferAttribute( position );
+
+					// process morph attributes if present
+
+					if ( morphAttributesPosition ) {
+
+						for ( var i = 0, il = morphAttributesPosition.length; i < il; i ++ ) {
+
+							var morphAttribute = morphAttributesPosition[ i ];
+							boxMorphTargets.setFromBufferAttribute( morphAttribute );
+
+							box.expandByPoint( boxMorphTargets.min );
+							box.expandByPoint( boxMorphTargets.max );
+
+						}
+
+					}
+
 					box.getCenter( center );
 
-					// hoping to find a boundingSphere with a radius smaller than the
+					// second, try to find a boundingSphere with a radius smaller than the
 					// boundingSphere of the boundingBox: sqrt(3) smaller in the best case
 
 					var maxRadiusSq = 0;
 
 					for ( var i = 0, il = position.count; i < il; i ++ ) {
 
-						vector.x = position.getX( i );
-						vector.y = position.getY( i );
-						vector.z = position.getZ( i );
+						vector.fromBufferAttribute( position, i );
+
 						maxRadiusSq = Math.max( maxRadiusSq, center.distanceToSquared( vector ) );
+
+					}
+
+					// process morph attributes if present
+
+					if ( morphAttributesPosition ) {
+
+						for ( var i = 0, il = morphAttributesPosition.length; i < il; i ++ ) {
+
+							var morphAttribute = morphAttributesPosition[ i ];
+
+							for ( var j = 0, jl = morphAttribute.count; j < jl; j ++ ) {
+
+								vector.fromBufferAttribute( morphAttribute, i );
+
+								maxRadiusSq = Math.max( maxRadiusSq, center.distanceToSquared( vector ) );
+
+							}
+
+						}
 
 					}
 
@@ -14753,6 +14816,18 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			var background = scene.background;
 
+			// Ignore background in AR
+			// TODO: Reconsider this.
+
+			var vr = renderer.vr;
+			var session = vr.getSession && vr.getSession();
+
+			if ( session && session.environmentBlendMode === 'additive' ) {
+
+				background = null;
+
+			}
+
 			if ( background === null ) {
 
 				setClear( clearColor, clearAlpha );
@@ -15849,6 +15924,30 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	} );
 
 	/**
+	 * @author Takahiro https://github.com/takahirox
+	 */
+
+	function DataTexture2DArray( data, width, height, depth ) {
+
+		Texture.call( this, null );
+
+		this.image = { data: data, width: width, height: height, depth: depth };
+
+		this.magFilter = NearestFilter;
+		this.minFilter = NearestFilter;
+
+		this.wrapR = ClampToEdgeWrapping;
+
+		this.generateMipmaps = false;
+		this.flipY = false;
+
+	}
+
+	DataTexture2DArray.prototype = Object.create( Texture.prototype );
+	DataTexture2DArray.prototype.constructor = DataTexture2DArray;
+	DataTexture2DArray.prototype.isDataTexture2DArray = true;
+
+	/**
 	 * @author Artur Trzesiok
 	 */
 
@@ -15932,6 +16031,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	 */
 
 	var emptyTexture = new Texture();
+	var emptyTexture2dArray = new DataTexture2DArray();
 	var emptyTexture3d = new DataTexture3D();
 	var emptyCubeTexture = new CubeTexture();
 
@@ -16268,6 +16368,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 	}
 
+	function setValueT2DArray1( gl, v, renderer ) {
+
+		var cache = this.cache;
+		var unit = renderer.allocTextureUnit();
+
+		if ( cache[ 0 ] !== unit ) {
+
+			gl.uniform1i( this.addr, unit );
+			cache[ 0 ] = unit;
+
+		}
+
+		renderer.setTexture2DArray( v || emptyTexture2dArray, unit );
+
+	}
+
 	function setValueT3D1( gl, v, renderer ) {
 
 		var cache = this.cache;
@@ -16354,8 +16470,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			case 0x8b5c: return setValue4fm; // _MAT4
 
 			case 0x8b5e: case 0x8d66: return setValueT1; // SAMPLER_2D, SAMPLER_EXTERNAL_OES
-			case 0x8B5F: return setValueT3D1; // SAMPLER_3D
+			case 0x8b5f: return setValueT3D1; // SAMPLER_3D
 			case 0x8b60: return setValueT6; // SAMPLER_CUBE
+			case 0x8DC1: return setValueT2DArray1; // SAMPLER_2D_ARRAY
 
 			case 0x1404: case 0x8b56: return setValue1i; // INT, BOOL
 			case 0x8b53: case 0x8b57: return setValue2iv; // _VEC2
@@ -20141,7 +20258,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 				// only perform resize for certain image types
 
-				if ( image instanceof ImageBitmap || image instanceof HTMLImageElement || image instanceof HTMLCanvasElement ) {
+				if ( ( typeof HTMLImageElement !== 'undefined' && image instanceof HTMLImageElement ) ||
+					( typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement ) ||
+					( typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap ) ) {
 
 					var floor = needsPowerOfTwo ? _Math.floorPowerOfTwo : Math.floor;
 
@@ -20162,7 +20281,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 					console.warn( 'THREE.WebGLRenderer: Texture has been resized from (' + image.width + 'x' + image.height + ') to (' + width + 'x' + height + ').' );
 
-					return useOffscreenCanvas ? canvas.transferToImageBitmap() : canvas;
+					return canvas;
 
 				} else {
 
@@ -20396,6 +20515,22 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}
 
+		function setTexture2DArray( texture, slot ) {
+
+			var textureProperties = properties.get( texture );
+
+			if ( texture.version > 0 && textureProperties.__version !== texture.version ) {
+
+				uploadTexture( textureProperties, texture, slot );
+				return;
+
+			}
+
+			state.activeTexture( 33984 + slot );
+			state.bindTexture( 35866, textureProperties.__webglTexture );
+
+		}
+
 		function setTexture3D( texture, slot ) {
 
 			var textureProperties = properties.get( texture );
@@ -20548,7 +20683,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				_gl.texParameteri( textureType, 10242, utils.convert( texture.wrapS ) );
 				_gl.texParameteri( textureType, 10243, utils.convert( texture.wrapT ) );
 
-				if ( textureType === 32879 ) {
+				if ( textureType === 32879 || textureType === 35866 ) {
 
 					_gl.texParameteri( textureType, 32882, utils.convert( texture.wrapR ) );
 
@@ -20562,7 +20697,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				_gl.texParameteri( textureType, 10242, 33071 );
 				_gl.texParameteri( textureType, 10243, 33071 );
 
-				if ( textureType === 32879 ) {
+				if ( textureType === 32879 || textureType === 35866 ) {
 
 					_gl.texParameteri( textureType, 32882, 33071 );
 
@@ -20621,7 +20756,10 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		function uploadTexture( textureProperties, texture, slot ) {
 
-			var textureType = ( texture.isDataTexture3D ) ? 32879 : 3553;
+			var textureType = 3553;
+
+			if ( texture.isDataTexture2DArray ) textureType = 35866;
+			if ( texture.isDataTexture3D ) textureType = 32879;
 
 			initTexture( textureProperties, texture );
 
@@ -20752,6 +20890,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 				}
 
 				textureProperties.__maxMipLevel = mipmaps.length - 1;
+
+			} else if ( texture.isDataTexture2DArray ) {
+
+				state.texImage3D( 35866, 0, glInternalFormat, image.width, image.height, image.depth, 0, glFormat, glType, image.data );
+				textureProperties.__maxMipLevel = 0;
 
 			} else if ( texture.isDataTexture3D ) {
 
@@ -21151,6 +21294,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		}
 
 		this.setTexture2D = setTexture2D;
+		this.setTexture2DArray = setTexture2DArray;
 		this.setTexture3D = setTexture3D;
 		this.setTextureCube = setTextureCube;
 		this.setTextureCubeDynamic = setTextureCubeDynamic;
@@ -22424,7 +22568,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 		this.getStandingMatrix = function () {
 
 			console.warn( 'THREE.WebXRManager: getStandingMatrix() is no longer needed.' );
-			return new THREE.Matrix4();
+			return new Matrix4();
 
 		};
 
@@ -23664,7 +23808,11 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 						var geometry = objects.update( object );
 						var material = object.material;
 
-						currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
+						if ( material.visible ) {
+
+							currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
+
+						}
 
 					}
 
@@ -24850,16 +24998,17 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}() );
 
-		this.setTexture3D = ( function () {
+		this.setTexture2DArray = function ( texture, slot ) {
 
-			// backwards compatibility: peel texture.texture
-			return function setTexture3D( texture, slot ) {
+			textures.setTexture2DArray( texture, slot );
 
-				textures.setTexture3D( texture, slot );
+		};
 
-			};
+		this.setTexture3D = function ( texture, slot ) {
 
-		}() );
+			textures.setTexture3D( texture, slot );
+
+		};
 
 		this.setTexture = ( function () {
 
@@ -24994,7 +25143,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 			if ( isCube ) {
 
 				var textureProperties = properties.get( renderTarget.texture );
-				_gl.framebufferTexture2D( 36160, 36064, 34069 + activeCubeFace || 0, textureProperties.__webglTexture, activeMipMapLevel || 0 );
+				_gl.framebufferTexture2D( 36160, 36064, 34069 + ( activeCubeFace || 0 ), textureProperties.__webglTexture, activeMipMapLevel || 0 );
 
 			}
 
@@ -26476,20 +26625,9 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		}() ),
 
-		copy: function ( source ) {
-
-			Object3D.prototype.copy.call( this, source );
-
-			this.geometry.copy( source.geometry );
-			this.material.copy( source.material );
-
-			return this;
-
-		},
-
 		clone: function () {
 
-			return new this.constructor().copy( this );
+			return new this.constructor( this.geometry, this.material ).copy( this );
 
 		}
 
@@ -34585,7 +34723,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 		},
 
-		parse: function ( json, onLoad ) {
+		parse: function ( json ) {
 
 			var animations = [];
 
@@ -34597,7 +34735,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			}
 
-			onLoad( animations );
+			return animations;
 
 		},
 
@@ -39103,7 +39241,16 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 
 			} ).then( function ( blob ) {
 
-				return createImageBitmap( blob, scope.options );
+				if ( scope.options === undefined ) {
+
+					// Workaround for FireFox. It causes an error if you pass options.
+					return createImageBitmap( blob );
+
+				} else {
+
+					return createImageBitmap( blob, scope.options );
+
+				}
 
 			} ).then( function ( imageBitmap ) {
 
@@ -47972,6 +48119,7 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 	exports.Group = Group;
 	exports.VideoTexture = VideoTexture;
 	exports.DataTexture = DataTexture;
+	exports.DataTexture2DArray = DataTexture2DArray;
 	exports.DataTexture3D = DataTexture3D;
 	exports.CompressedTexture = CompressedTexture;
 	exports.CubeTexture = CubeTexture;
@@ -67571,7 +67719,6 @@ function View () {
     this.isWithFog = false;
     this.isWithSphereLight = false;//this.isMobile ? false : true;
 	this.isWithRay = false;
-    this.isSimpleRay = false;
 	this.needResize = false;
 	this.t = [0,0,0,0];
     this.delta = 0;
@@ -67597,6 +67744,8 @@ function View () {
 
     this.tmpTxt = {};
     this.tmpMat = {};
+
+
 
 	// 1 CANVAS GL1 or GL2
 
@@ -67671,7 +67820,9 @@ function View () {
     if( !this.isMobile && user ) user.init();
 
     this.mouse = new THREE.Vector3();
+    this.offset = new THREE.Vector3();
 
+    
 
     // 8 START RENDER
 
@@ -68051,8 +68202,11 @@ View.prototype = {
     getScene: function () { return this.scene; },
 	getBody: function () { return this.bodys; },
     getHero: function () { return this.heros; },
+
 	getControls: function () { return this.controler; },
+    getCamera: function () { return this.camera; },
     getMouse: function () { return this.mouse; },
+    //getOffset: function () { return this.offset; },
 
 
 	needFocus: function () {
@@ -68134,6 +68288,17 @@ View.prototype = {
         }
 
         type = type || this.matType;
+
+        if( type !== 'Phong' ){
+            delete( option.shininess ); 
+            delete( option.specular );
+        }
+
+        if( type !== 'Standard' ){
+            option.reflectivity = option.metalness || 0.5;
+            delete( option.metalness ); 
+            delete( option.roughness );
+        }
 
         option.envMap = this.envmap;
         option.shadowSide = false;
@@ -68659,13 +68824,29 @@ View.prototype = {
     //
     //-----------------------------
 
-    simpleRay: function ( callback ) {
+    activeRay: function ( callback ) {
 
-        this.isWithRay = true;
-        this.isSimpleRay = true;
+        if( this.isWithRay ) return;
+
+        this.ray = new THREE.Raycaster();
+
+        this.dragPlane = new THREE.Mesh( 
+            new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
+            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0, depthTest:false, depthWrite:false })
+        );
+
+        /*this.dragPlane = new THREE.Mesh( 
+            new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ),  
+            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0.3, wireframe:true, depthTest:false, depthWrite:false })
+        );*/
+
+        this.dragPlane.castShadow = false;
+        this.dragPlane.receiveShadow = false;
+        this.setDragPlane( null, 100 );
+        this.scene.add( this.dragPlane );
 
         this.fray = function(e){ this.rayTest(e); }.bind( this );
-        this.mDown = function(e){ this.mouse.z = 1; }.bind( this );
+        this.mDown = function(e){ this.rayTest(e); this.mouse.z = 1; }.bind( this );
         this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
 
         this.canvas.addEventListener( 'mousemove', this.fray, false );
@@ -68673,64 +68854,53 @@ View.prototype = {
         document.addEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = callback;
-
-    },
-
-    activeRay: function ( callback ) {
-
-        this.ray = new THREE.Raycaster();
-
-        this.moveplane = new THREE.Mesh( this.geo.plane,  new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0, depthTest:false, depthWrite:false  }));
-        this.moveplane.scale.set(100, 1, 100);
-        this.moveplane.castShadow = false;
-        this.moveplane.receiveShadow = false;
-        this.content.add( this.moveplane );
-
-        this.targetMouse = new THREE.Mesh( this.geo['box'] ,  new THREE.MeshBasicMaterial({ color:0xFF0000 }));
-        this.scene.add( this.targetMouse );
-
-        this.simpleRay( callback );
-        this.isSimpleRay = false;
+        this.isWithRay = true;
 
     },
 
     removeRay: function(){
 
-        if( this.isWithRay ){
+        if( !this.isWithRay ) return;
 
+        this.canvas.removeEventListener( 'mousemove', this.fray, false );
+        this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+        document.removeEventListener( 'mouseup', this.mUp, false );
 
-            this.canvas.removeEventListener( 'mousemove', this.fray, false );
-            this.canvas.removeEventListener( 'mousedown', this.mDown, false );
-            document.removeEventListener( 'mouseup', this.mUp, false );
+        this.rayCallBack = function(){};
 
-            this.rayCallBack = function(){};
+        this.scene.remove( this.dragPlane );
 
-            if(!this.isSimpleRay){
-                this.content.remove( this.moveplane );
-                this.scene.remove( this.targetMouse );
-            }
-
-            this.isWithRay = false;
-            this.isSimpleRay = false;
-
-        }
+        this.isWithRay = false;
+        this.offset.set( 0,0,0 );
 
     },
 
     rayTest: function ( e ) {
 
-        this.mouse.x = ( (e.clientX- this.vs.x )/ this.vs.w ) * 2 - 1;
+        this.mouse.x = ( (e.clientX - this.vs.x )/ this.vs.w ) * 2 - 1;
         this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
 
-        if( this.isSimpleRay ){ 
-            this.rayCallBack( this.mouse, this.camera );
+        this.ray.setFromCamera( this.mouse, this.camera );
+        //var intersects = this.ray.intersectObjects( this.content.children, true );
+        var intersects = this.ray.intersectObject( this.dragPlane );
+        if ( intersects.length ){ 
+            this.offset.copy( intersects[0].point );
+            this.rayCallBack( this.offset );
+        }
+
+    },
+
+    setDragPlane: function ( pos, size ) {
+
+        size = size || 200;
+        this.dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
+        if( pos ){
+            this.dragPlane.position.fromArray( pos );
+            this.dragPlane.rotation.set( 0, this.controler.getAzimuthalAngle(), 0 );
+            //this.dragPlane.lookAt( this.camera.position );
         } else {
-            this.ray.setFromCamera( this.mouse, this.camera );
-            var intersects = this.ray.intersectObjects( this.content.children, true );
-            if ( intersects.length) {
-                this.targetMouse.position.copy( intersects[0].point );
-                this.rayCallBack( this.targetMouse );
-            }
+            this.dragPlane.position.set( 0, 0, 0 );
+            this.dragPlane.rotation.set( -Math.PI90, 0, 0 );
         }
 
     },
