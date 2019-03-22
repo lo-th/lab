@@ -1139,21 +1139,16 @@ View.prototype = {
     //
     //-----------------------------
 
-    activeRay: function ( callback ) {
+    activeRay: function ( callback, debug ) {
 
         if( this.isWithRay ) return;
 
         this.ray = new THREE.Raycaster();
 
         this.dragPlane = new THREE.Mesh( 
-            new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
-            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0, depthTest:false, depthWrite:false })
+            debug ?  new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ) : new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
+            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:debug ? 0.3 : 0, depthTest:false, depthWrite:false, wireframe: debug ? true : false })
         );
-
-        /*this.dragPlane = new THREE.Mesh( 
-            new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ),  
-            new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:0.3, wireframe:true, depthTest:false, depthWrite:false })
-        );*/
 
         this.dragPlane.castShadow = false;
         this.dragPlane.receiveShadow = false;
@@ -1173,7 +1168,7 @@ View.prototype = {
 
     },
 
-    removeRay: function(){
+    removeRay: function () {
 
         if( !this.isWithRay ) return;
 
