@@ -21469,7 +21469,7 @@ editor = {
         // big menu
 
         bigmenu = document.createElement( 'div' );
-        bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px; border-bottom:none;';
+        bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px; border-bottom:none; overflow:hidden;';
         document.body.appendChild( bigmenu );
 
         this.makeBigMenu();
@@ -21810,11 +21810,11 @@ editor = {
 
     },
 
-    /*resizeMenu: function ( w ) {
+    resizeMenu: function ( w ) {
 
-        //if( bigmenu ) bigmenu.style.width = w +'px';
+        bigmenu.style.width = w +'px';
 
-    },*/
+    },
 
     resize: function ( e ) {
 
@@ -21833,12 +21833,14 @@ editor = {
 
         if( view ) view.setLeft( left, right );
 
-        if(joystickLeft!==null){ joystickLeft.s[0].left = left +'px';joystickLeft.needZone()}
+        if(joystickLeft!==null){ joystickLeft.s[0].left = left +'px'; joystickLeft.needZone() }
 
         bottomLeft.style.left = left +'px';
         bottomRight.style.right = right +'px';
         
         bigmenu.style.left = left +'px';
+
+        console.log('resize')
         //title.style.left = left +'px';
         //subtitle.style.left = left +'px';
         //subtitleS.style.left = ( left + 1 ) +'px';

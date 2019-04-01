@@ -19,6 +19,8 @@ function View () {
 
     this.matType = 'Standard';
 
+    this.refEditor = null;
+
     this.lightDistance = 200;
     this.shadowMat = null;
     this.shadowGround = null;
@@ -346,6 +348,12 @@ View.prototype = {
 
     },
 
+    setRefEditor: function ( ed ) {
+
+        this.refEditor = ed;
+
+    },
+
 	resize: function ( e ) {
 
 		//this.needResize = false;
@@ -360,7 +368,7 @@ View.prototype = {
 
             this.needResize = true;
 
-           // if( editor ) editor.resizeMenu( v.w );
+            if( this.refEditor ) this.refEditor.resizeMenu( v.w );
 
 		}
     },
