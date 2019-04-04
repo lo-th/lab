@@ -21840,7 +21840,6 @@ editor = {
         
         bigmenu.style.left = left +'px';
 
-        console.log('resize')
         //title.style.left = left +'px';
         //subtitle.style.left = left +'px';
         //subtitleS.style.left = ( left + 1 ) +'px';
@@ -22376,7 +22375,7 @@ editor = {
         o = o || {}
         user.setSameAxis( o.sameAxis !== undefined ? o.sameAxis : false );
 
-        console.log(o)
+        //console.log(o)
 
         joystickLeft = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:left+'px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
         //joystickLeft = UIL.add('joystickLeft', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
