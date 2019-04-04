@@ -22366,14 +22366,18 @@ editor = {
 
     joyMove: function ( t ) {
 
-        //console.log(t)
-
         user.key[0] = t[0];
         user.key[1] = t[1];
 
     },
 
-    addJoystick: function(){
+    addJoystick: function( o ){
+
+        o = o || {}
+        user.setSameAxis( o.sameAxis !== undefined ? o.sameAxis : false );
+
+        console.log(o)
+
         joystickLeft = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:left+'px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
         //joystickLeft = UIL.add('joystickLeft', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 

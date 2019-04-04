@@ -1266,12 +1266,12 @@ View.prototype = {
     //--------------------------------------
 
 
-    addJoystick: function () {
+    addJoystick: function ( o ) {
 
         if( !editor ) return;
         if( this.isWithJoystick ) return;
 
-        editor.addJoystick();
+        editor.addJoystick( o );
         this.isWithJoystick = true;
 
     },

@@ -66292,6 +66292,7 @@ var user = ( function () {
     var gamepad;
     var useGamepad = false;
     var isInit = false;
+    var isSameAxis = false;
 
     user = {
 
@@ -66317,11 +66318,18 @@ var user = ( function () {
             if(!isInit) return;
 
 
+
+
             gamepad.update();
 
             if( gamepad.ready ){ 
                 if( !useGamepad ) useGamepad = true;
                 gamepad.getValue(0);
+            }
+
+            if( isSameAxis ){
+                user.key[ 2 ] = user.key[ 0 ];
+                user.key[ 3 ] = user.key[ 1 ];
             }
 
             user.axeL[ 0 ] = user.key[ 0 ];
@@ -66335,6 +66343,12 @@ var user = ( function () {
 
         },
 
+        setSameAxis: function ( v ){
+
+            isSameAxis = v;
+
+        },
+
 
         keyDown: function ( e ) {
 
@@ -66344,29 +66358,46 @@ var user = ( function () {
 
             //if( editor.getFocus() ) return;
             e = e || window.event;
-            switch ( e.which ) {
-                // axe L
-                case 65: case 81: key[0] = -1;break;//key[0]<=-1 ? -1:key[0]-= 0.1; break; // left, A, Q
-                case 68:          key[0] = 1;  break; // right, D
-                case 87: case 90: key[1] = -1; break; // up, W, Z
-                case 83:          key[1] = 1;  break; // down, S
-                // axe R
-                case 37:          key[2] = -1; break; // left
-                case 39:          key[2] = 1;  break; // right
-                case 38:          key[3] = -1; break; // up
-                case 40:          key[3] = 1;  break; // down
-                
 
-                case 32:          key[4] = 1; break; // space
-                case 17: case 67: key[5] = 1; break; // ctrl, C
-                case 69:          key[5] = 1; break; // E
-                
-                case 16:          key[7] = 1; break; // shift
+            if( isSameAxis ){
 
+                switch ( e.which ) {
+                    // axe L
+                    case 65: case 81: case 37: key[0] = -1; break;//key[0]<=-1 ? -1:key[0]-= 0.1; break; // left, A, Q
+                    case 68:  case 39:         key[0] = 1;  break; // right, D
+                    case 87: case 90:  case 38: key[1] = -1; break; // up, W, Z
+                    case 83: case 40:          key[1] = 1;  break; // down, S
 
-                
+                    case 32:          key[4] = 1; break; // space
+                    case 17: case 67: key[5] = 1; break; // ctrl, C
+                    case 69:          key[5] = 1; break; // E
+                    
+                    case 16:          key[7] = 1; break; // shift
+                    //case 71:          view.hideGrid(); break; // G
+                }
 
-                //case 71:          view.hideGrid(); break; // G
+            } else {
+
+                switch ( e.which ) {
+                    // axe L
+                    case 65: case 81: key[0] = -1; break;//key[0]<=-1 ? -1:key[0]-= 0.1; break; // left, A, Q
+                    case 68:          key[0] = 1;  break; // right, D
+                    case 87: case 90: key[1] = -1; break; // up, W, Z
+                    case 83:          key[1] = 1;  break; // down, S
+                    // axe R
+                    case 37:          key[2] = -1; break; // left
+                    case 39:          key[2] = 1;  break; // right
+                    case 38:          key[3] = -1; break; // up
+                    case 40:          key[3] = 1;  break; // down
+                    
+
+                    case 32:          key[4] = 1; break; // space
+                    case 17: case 67: key[5] = 1; break; // ctrl, C
+                    case 69:          key[5] = 1; break; // E
+                    
+                    case 16:          key[7] = 1; break; // shift
+                    //case 71:          view.hideGrid(); break; // G
+                }
             }
 
             gamepad.reset();
@@ -66390,27 +66421,46 @@ var user = ( function () {
 
             //if( editor.getFocus() ) return;
             e = e || window.event;
-            switch( e.which ) {
-                
-                // axe L
-                case 65: case 81: key[0] = key[0]<0 ? 0:key[0]; break; // left, A, Q
-                case 68:          key[0] = key[0]>0 ? 0:key[0]; break; // right, D
-                case 87: case 90: key[1] = key[1]<0 ? 0:key[1]; break; // up, W, Z
-                case 83:          key[1] = key[1]>0 ? 0:key[1]; break; // down, S
-                // axe R
-                case 37:          key[2] = key[2]<0 ? 0:key[2]; break; // left
-                case 39:          key[2] = key[2]>0 ? 0:key[2]; break; // right
-                case 38:          key[3] = key[3]<0 ? 0:key[3]; break; // up
-                case 40:          key[3] = key[3]>0 ? 0:key[3]; break; // down
 
+            if( isSameAxis ){
 
-                case 32:          key[4] = 0; break; // space
-                case 17: case 67: key[5] = 0; break; // ctrl, C
-                case 69:          key[5] = 0; break; // E
-                
-                case 16:          key[7] = 0; break; // shift
+                switch ( e.which ) {
+                     // axe L
+                    case 65: case 81: case 37: key[0] = key[0]<0 ? 0:key[0]; break; // left, A, Q
+                    case 68: case 39:         key[0] = key[0]>0 ? 0:key[0]; break; // right, D
+                    case 87: case 90: case 38:key[1] = key[1]<0 ? 0:key[1]; break; // up, W, Z
+                    case 83: case 40:         key[1] = key[1]>0 ? 0:key[1]; break; // down, S
 
-                
+                    case 32:          key[4] = 0; break; // space
+                    case 17: case 67: key[5] = 0; break; // ctrl, C
+                    case 69:          key[5] = 0; break; // E
+                    
+                    case 16:          key[7] = 0; break; // shift
+                }
+
+            } else {
+
+                switch( e.which ) {
+                    
+                    // axe L
+                    case 65: case 81: key[0] = key[0]<0 ? 0:key[0]; break; // left, A, Q
+                    case 68:          key[0] = key[0]>0 ? 0:key[0]; break; // right, D
+                    case 87: case 90: key[1] = key[1]<0 ? 0:key[1]; break; // up, W, Z
+                    case 83:          key[1] = key[1]>0 ? 0:key[1]; break; // down, S
+                    // axe R
+                    case 37:          key[2] = key[2]<0 ? 0:key[2]; break; // left
+                    case 39:          key[2] = key[2]>0 ? 0:key[2]; break; // right
+                    case 38:          key[3] = key[3]<0 ? 0:key[3]; break; // up
+                    case 40:          key[3] = key[3]>0 ? 0:key[3]; break; // down
+
+                    case 32:          key[4] = 0; break; // space
+                    case 17: case 67: key[5] = 0; break; // ctrl, C
+                    case 69:          key[5] = 0; break; // E
+                    
+                    case 16:          key[7] = 0; break; // shift
+
+                    
+                }
             }
 
             //if(!useGamepad)useGamepad = true;
@@ -68942,12 +68992,12 @@ View.prototype = {
     //--------------------------------------
 
 
-    addJoystick: function () {
+    addJoystick: function ( o ) {
 
         if( !editor ) return;
         if( this.isWithJoystick ) return;
 
-        editor.addJoystick();
+        editor.addJoystick( o );
         this.isWithJoystick = true;
 
     },
