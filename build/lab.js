@@ -67996,6 +67996,8 @@ View.prototype = {
 
         this.controler.resetFollow();
 
+        this.setShadowRange();
+
         //this.removeAudio();
 
         this.isNeedUpdate = false;
@@ -68716,9 +68718,10 @@ View.prototype = {
         this.scene.add( this.shadowGround );
 
         var d = 150;
-        var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
+        //var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         //this.followGroup.add( this.camShadow );
-        this.sun.shadow = new THREE.LightShadow( camShadow );
+        this.sun.shadow = new THREE.LightShadow( this.camShadow );
 
         this.sun.shadow.mapSize.width = 2048;
         this.sun.shadow.mapSize.height = 2048;
@@ -68728,7 +68731,26 @@ View.prototype = {
 
         //for( var m in this.mat ) this.mat[m].shadowSide = false;
 
-        //this.followGroup.add( new THREE.CameraHelper( this.sun.shadow.camera ));
+        //this.campHelper = new THREE.CameraHelper( this.camShadow )
+        //this.followGroup.add( this.campHelper );
+
+    },
+
+    setShadowRange: function ( d, near, far ) {
+
+        if( !this.isWithShadow ) return;
+
+        var cam = this.camShadow;
+        d = ( d !== undefined ) ? d : 150;
+        cam.left = - d;
+        cam.right =  d;
+        cam.top =  d;
+        cam.bottom = - d;
+        cam.near = ( near !== undefined ) ? near : 100;
+        cam.far = ( far !== undefined ) ? far : 300;
+
+        this.camShadow.updateProjectionMatrix();
+        //this.campHelper.update();
 
     },
 
