@@ -68718,8 +68718,8 @@ View.prototype = {
         this.scene.add( this.shadowGround );
 
         var d = 150;
-        this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
-        //var camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        //this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
+        this.camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         //this.followGroup.add( this.camShadow );
         this.sun.shadow = new THREE.LightShadow( this.camShadow );
 
@@ -68742,10 +68742,14 @@ View.prototype = {
 
         var cam = this.camShadow;
         d = ( d !== undefined ) ? d : 150;
-        cam.left = - d;
-        cam.right =  d;
+        cam.left =  d;
+        cam.right = - d;
         cam.top =  d;
         cam.bottom = - d;
+        /*cam.left = - d;
+        cam.right =  d;
+        cam.top =  d;
+        cam.bottom = - d;*/
         cam.near = ( near !== undefined ) ? near : 100;
         cam.far = ( far !== undefined ) ? far : 300;
 
