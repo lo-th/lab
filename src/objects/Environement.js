@@ -152,7 +152,11 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
         this.tmpBg = o.bg !== undefined ? o.bg : true;
         this.isHdr = o.hdr !== undefined ? o.hdr : false;
-        this.setting.hour = o.hour !== undefined ? o.hour : 12;
+        //this.setting.hour = o.hour !== undefined ? o.hour : 12;
+
+        for ( var name in o ) {
+            if ( this.setting[ name ] !== undefined ) this.setting[ name ] = o[ name ];
+        }
 
         this.viewBg = o.visible !== undefined ? o.visible : true;
 
