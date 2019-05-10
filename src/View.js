@@ -31,6 +31,7 @@ function View () {
     this.isWithJoystick = false;
 	this.isNeedUpdate = false;
 	this.isWithShadow = false;
+    this.isShadowDebug = false;
     this.isWithSky = false;
     this.isWithLight = false;
     this.isWithFog = false;
@@ -197,8 +198,7 @@ View.prototype = {
 
     init: function ( Callback, noObj ) {
 
-
-
+        this.shaderHack();
         this.initGeometry();
         //this.initEnvMap();
         this.initMaterial();
@@ -309,6 +309,7 @@ View.prototype = {
         this.removeSky();
         this.removeFog();
         this.resetLight();
+        this.removeShadowDebug();
         //this.resetMaterial();
         this.removeJoystick();
         
@@ -626,9 +627,15 @@ View.prototype = {
         }
 
         option.envMap = this.envmap;
-        option.shadowSide = false;
+        option.shadowSide = option.shadowSide || false;
 
         this.tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
+
+        /*if( type === 'Standard' ){
+            this.tmpMat[ name ].onBeforeCompile = function ( shader ) {
+
+            }
+        }*/
 
         return this.tmpMat[ name ];
 
@@ -999,18 +1006,17 @@ View.prototype = {
 
         this.sun.shadow.mapSize.width = 2048;
         this.sun.shadow.mapSize.height = 2048;
-        this.sun.shadow.bias = 0.001;
+        this.sun.shadow.bias = 0.00001;
         //this.sun.shadow.bias = 0.0001;
         this.sun.castShadow = true;
 
         //for( var m in this.mat ) this.mat[m].shadowSide = false;
 
-        //this.campHelper = new THREE.CameraHelper( this.camShadow )
-        //this.followGroup.add( this.campHelper );
+        //
 
     },
 
-    setShadowRange: function ( d, near, far ) {
+    setShadowRange: function ( d, near, far, debug ) {
 
         if( !this.isWithShadow ) return;
 
@@ -1028,9 +1034,36 @@ View.prototype = {
         cam.far = ( far !== undefined ) ? far : 300;
 
         this.camShadow.updateProjectionMatrix();
-        //this.campHelper.update();
+
+        if( debug ){
+            this.addShadowDebug();
+        }
+
+        //
 
     },
+
+    addShadowDebug: function () {
+
+        if( this.isShadowDebug ) {
+            this.campHelper.update();
+        } else {
+            this.campHelper = new THREE.CameraHelper( this.camShadow )
+            this.followGroup.add( this.campHelper );
+            this.isShadowDebug = true;
+        }
+
+    },
+
+    removeShadowDebug: function () {
+
+        if( !this.isShadowDebug ) return;
+        this.followGroup.remove( this.campHelper );
+        this.isShadowDebug = false;
+
+    },
+
+    
 
     //-----------------------------
     //
@@ -1374,6 +1407,29 @@ View.prototype = {
         //audio.volume = 1;
         audio.setBuffer( pool.buffer[name] );
         return audio;
+
+    },
+
+    shaderHack: function (){
+
+        THREE.ShaderChunk.aomap_fragment = [
+            '#ifdef USE_AOMAP',
+            '    float ambientOcclusion = ( texture2D( aoMap, vUv ).r - 1.0 ) * aoMapIntensity + 1.0;',
+            '    reflectedLight.indirectDiffuse *= ambientOcclusion;',
+            '    #if defined( USE_ENVMAP ) && defined( PHYSICAL )',
+            '        float dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );',
+            '        reflectedLight.indirectSpecular *= computeSpecularOcclusion( dotNV, ambientOcclusion, material.specularRoughness );',
+            '   #endif',
+            '#endif',
+        ].join("\n");
+
+
+        console.log('Shader hack')
+
+
+
+
+
 
     }
 

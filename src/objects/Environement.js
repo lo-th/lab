@@ -14,6 +14,8 @@ function Environement ( view ) {
 	this.isAutoSky = false;
 	this.isBasicSky = false;
 
+    this.viewBg = true;
+
 	this.view = view;
 
     // textures Loader
@@ -152,11 +154,15 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
         this.isHdr = o.hdr !== undefined ? o.hdr : false;
         this.setting.hour = o.hour !== undefined ? o.hour : 12;
 
+        this.viewBg = o.visible !== undefined ? o.visible : true;
+
         if( o.url !== undefined ){
             this.load( o.url );
         } else {
             this.initAutoSky();
         }
+
+        //if( o.visible !== undefined ) 
 
     },
 
@@ -253,6 +259,8 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
         //this.needsUpdate = true;
 
         this.render();
+
+        //this.showBackground( this.viewBg )
 
     },
 
@@ -512,7 +520,9 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
 		//this.getColor();
 
-        view.scene.background = this.tmpBg ? this.camera.renderTarget : null;
+        //view.scene.background = this.tmpBg ? this.camera.renderTarget : null;
+
+        this.showBackground( this.viewBg );
 
 		view.updateEnvMap();
 

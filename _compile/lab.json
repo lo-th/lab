@@ -26,5 +26,6 @@
     "src/SimplexNoise.js",
     "src/math.js",
     "src/pool.js",
+    "src/SkinnedMesh_Add.js",
     "src/View.js"
 ]
