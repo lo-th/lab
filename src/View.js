@@ -1113,9 +1113,11 @@ View.prototype = {
 
     addSky: function ( o ) {
 
+        o = o || {};
+
         //if( this.isWithSky ) return;
         if( !this.isWithLight ) this.addLights();
-        if( o.hdr && this.isMobile ) o.hdr = false;
+        //if( o.hdr && this.isMobile ) o.hdr = false;
 
         this.environement.setSky( o );
 
