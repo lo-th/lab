@@ -18,7 +18,7 @@
 var user;
 var editor;
 var view;
-var h = 6;
+var h = 9;
 
 view = new View();
 view.init( start );
@@ -50,7 +50,7 @@ function start () {
 	s3.position.set(5,2,0);
 	view.addMesh( s3 );
 
-	view.addSky();
+	view.addSky({hour:h, hdr:true});
 
 	//view.update = upTime;
 
