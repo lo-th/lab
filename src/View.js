@@ -168,9 +168,14 @@ View.prototype = {
         }
         document.body.appendChild( canvas );
 
-        var options = { 
+        /*var options = { 
             antialias: this.isMobile ? false : true, alpha: false, 
             stencil:false, depth:true, precision: this.isMobile ? "mediump" :"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+        }*/
+
+        var options = { 
+            antialias: this.isMobile ? false : true, alpha: false, 
+            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
         }
 
         if( forceV1 === undefined ){
