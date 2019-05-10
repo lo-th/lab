@@ -353,12 +353,12 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     showBackground: function ( b ) {
 
-        if( b !== this.bg ){
+        //if( b !== this.bg ){
 
             this.bg = b;
             this.view.scene.background = this.bg ? this.camera.renderTarget : null;
 
-        }
+        //}
 
     },
 
