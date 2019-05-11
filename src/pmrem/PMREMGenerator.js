@@ -193,7 +193,7 @@ THREE.PMREMGenerator = ( function () {
 				}\n\
 				vec3 ImportanceSamplePhong(vec2 uv, mat3 vecSpace, float specPow) {\n\
 					float phi = uv.y * 2.0 * PI;\n\
-					float cosTheta = pow(1.0 - uv.x, 1.0 / (specPow + 1.0));\n\
+					float cosTheta = pow( abs(1.0 - uv.x), 1.0 / (specPow + 1.0));\n\
 					float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\n\
 					vec3 sampleDir = vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);\n\
 					return vecSpace * sampleDir;\n\

@@ -632,7 +632,8 @@ View.prototype = {
         }
 
         option.envMap = this.envmap;
-        option.shadowSide = option.shadowSide || false;
+        
+        option.shadowSide = option.shadowSide || null;
 
         this.tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
 

@@ -91,7 +91,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 		return spherical;
 
 	};
-	
+
 	this.getState = function () {
 
 		return state;
