@@ -59852,6 +59852,9 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         old: new THREE.Vector3(),
         oldObj: new THREE.Vector3(),
 
+        offset: new THREE.Vector3(),
+        decal:[0,0,0],
+
         isDecal:false,
 
 	}
@@ -59887,7 +59890,6 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         this.followTarget = mesh;
 
-        
         this.cam.height = o.height !== undefined ? o.height : 0.6;
         this.cam.d.set(0,this.cam.height,0);
 
@@ -59898,8 +59900,14 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         this.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
         this.cam.speed = o.speed !== undefined ? o.speed : 10;
 
+        this.cam.decal = o.decal !== undefined ? o.decal : [0,0,0];
+
+        this.cam.offset.fromArray( this.cam.decal );
+
         var sph = this.getSpherical();
         sph.radius = this.cam.distance;
+
+        //this.cam.distance = sph.radius;
 
         this.stopMoveCam();
         
@@ -59920,6 +59928,10 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var cam = this.cam;
 
         var p = this.followTarget.position;
+        //p.add(this.cam.offset);
+
+        //this.target.copy( p ).add(this.cam.offset);
+
         var dist = p.distanceTo( cam.old );
 
         //console.log(dist)
@@ -59931,7 +59943,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var sph = this.getSpherical();
         var state = this.getState();
 
-        if(cam.isDecal){
+        if( cam.isDecal ){
+
             this.followGroup.position.sub(cam.old);
             //console.log(cam.old)
             var yy = this.object.position.y;
@@ -59939,12 +59952,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
             this.object.position.y = yy;
             this.target.copy( p ).add(cam.d);
             this.object.lookAt( this.target ); 
+
         }
-
-
-
-        
-        
 
         //this.enabled = false;
         cam.isFollow = true;
@@ -59958,9 +59967,9 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var phi = ( (90-cam.phi) * THREE.Math.DEG2RAD );
         
 
-        var radius = cam.distance;
+        var radius = sph.radius;//cam.distance;
 
-        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; sph.radius = radius; }
+        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; /*sph.radius = radius;*/ }
         else if( state === -1 ) { sph.phi = phi; sph.theta = theta; } 
 
         cam.s.set( radius, phi, theta );
@@ -59970,26 +59979,21 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         
         cam.tmp.setFromSpherical( cam.s );
 
-        
+        cam.v.copy( p ).add(this.cam.offset).add( cam.d );
+        cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
+        cam.v.sub( this.object.position );
+        cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
 
-
-            cam.v.copy( p ).add( cam.d );
-            cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
-            cam.v.sub( this.object.position );
-            cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
-
-        
-
+    
         var v = cam.v;
 
         if (v.x > cam.speed || v.x < -cam.speed) v.x = v.x < 1 ? -cam.speed : cam.speed;
         if (v.y > cam.speed || v.y < -cam.speed) v.y = v.y < 1 ? -cam.speed : cam.speed;
         if (v.z > cam.speed || v.z < -cam.speed) v.z = v.z < 1 ? -cam.speed : cam.speed;
         
-
         //if(!cam.isDecal) 
-            this.object.position.add( cam.v );
-        this.target.copy( p ).add(cam.d);
+        this.object.position.add( cam.v );
+        this.target.copy( p ).add(this.cam.offset).add(cam.d);
         this.object.lookAt( this.target );
 
         //cam.distance = sph.radius
@@ -59998,7 +60002,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         cam.old.copy( p );
 
-        if(cam.isDecal) cam.isDecal = false
+        if( cam.isDecal ) cam.isDecal = false
         //cam.oldObj.copy( this.object.position );
 
     },
@@ -68583,17 +68587,25 @@ View.prototype = {
         this.updateExtra();
         this.update();
 
+
 		if( this.isNeedUpdate ){
 
             // if physics change 
 
+            this.isNeedUpdate = false;
+
+
+           // this.update();
             this.updateIntern();
+            
             this.controler.follow();
             
             
-			this.isNeedUpdate = false;
+			
 
 		}
+
+
 
 		this.renderer.render( this.scene, this.camera );
 

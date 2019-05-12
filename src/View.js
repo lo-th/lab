@@ -250,17 +250,25 @@ View.prototype = {
         this.updateExtra();
         this.update();
 
+
 		if( this.isNeedUpdate ){
 
             // if physics change 
 
+            this.isNeedUpdate = false;
+
+
+           // this.update();
             this.updateIntern();
+            
             this.controler.follow();
             
             
-			this.isNeedUpdate = false;
+			
 
 		}
+
+
 
 		this.renderer.render( this.scene, this.camera );
 
