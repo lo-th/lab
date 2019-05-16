@@ -31,6 +31,8 @@ THREE.Tubular = function ( pp, tubularSegments, radius, radialSegments, closed, 
 
         this.positions = [];
 
+
+
         var start = new THREE.Vector3().fromArray(pp.start);
         var end = new THREE.Vector3().fromArray(pp.end);
         var mid = end.clone().sub(start);
@@ -45,6 +47,7 @@ THREE.Tubular = function ( pp, tubularSegments, radius, radialSegments, closed, 
         }
 
         this.positions.push( end );
+
         
 
     }
@@ -146,7 +149,9 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
     var N = this.frames.normals[ i ];
     var B = this.frames.binormals[ i ];
 
-    //var N = new THREE.Vector3( 0, 0, -1 );
+    //var B = new THREE.Vector3( 0, 1, 0 );
+
+    //console.log(N, B)
 
     //var T = this.frames.tangents[ i ];//this.path.getTangentAt( point );
     //var N = T.clone().applyAxisAngle( new THREE.Vector3(1,0,0), Math.PI/2 ).normalize();
@@ -154,14 +159,21 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
     // generate normals and vertices for the current segment
 
+    var left = true, side = 1;
+
     for ( var j = 0; j <= this.radialSegments; j ++ ) {
 
         var v = ( j / this.radialSegments ) * Math.PI * 2;
+        if(this.radialSegments===1){
+            v = 0;
+        }
 
         n2 = j * 3;
 
         var sin =   Math.sin( v );
         var cos = - Math.cos( v );
+
+        
 
         //sin = this.unwarpRad(sin);
         //cos = this.unwarpRad(cos);
@@ -173,9 +185,29 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
         // normal
 
-        this.normal.x = ( cos * N.x + sin * B.x );
-        this.normal.y = ( cos * N.y + sin * B.y );
-        this.normal.z = ( cos * N.z + sin * B.z );
+        
+
+        /*if(this.radialSegments===1){
+            if(left){this.normal.set(0,0,1); left = false}
+            else {this.normal.set(0,0,-1); left = true}
+        }*/
+
+
+        if(this.radialSegments===1){
+            if(left){side=0.5; left = false}
+            else {side=-0.5; left = true}
+
+            this.normal.copy(N).negate().projectOnPlane(new THREE.Vector3(0,1,0))
+
+
+
+        } else{
+            this.normal.x = ( cos * N.x + sin * B.x );
+            this.normal.y = ( cos * N.y + sin * B.y );
+            this.normal.z = ( cos * N.z + sin * B.z );
+        }
+
+        
 
         //this.normal.multiplyScalar(scale);
 
@@ -207,15 +239,36 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
         // vertex
 
-        this.vertices[n + n2] =  P.x + this.radius * this.normal.x;
-        this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y;
-        this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z;
+        this.vertices[n + n2] =  P.x + this.radius * this.normal.x * side;
+        this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y * side;
+        this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z * side;
+
+        /*if(this.radialSegments===1){
+            this.vertices[n + n2] =  P.x + this.radius * this.normal.x * side;
+            this.vertices[n + n2 +1] =  P.y //+ this.radius  * side;
+            this.vertices[n + n2 +2] =  P.z //+ this.radius  * side;
+        }*/
+
+
+
+        /*if(this.radialSegments===1){
+            this.vertices[n + n2] =  P.x + this.radius * 0.5;
+            this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y;
+            this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z;
+        }*/
 
         // color
 
         this.colors[n + n2] = Math.abs(this.normal.x);
         this.colors[n + n2 +1] = Math.abs(this.normal.y);
         this.colors[n + n2 +2] = Math.abs(this.normal.z);
+
+        if(this.radialSegments===1){
+
+            this.normals[n + n2] =  0;
+            this.normals[n + n2 +1] =  1;
+            this.normals[n + n2 +2] =  0;
+        }
         //} //else {
             //console.log(n+n2)
         //}

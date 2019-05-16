@@ -9,9 +9,7 @@ THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
     if( !this.anim ) this.resetAnim();
 
     var animation = this.currentAnimation;
-
     if( !animation ) { this.resetAnim(); return; }
-
     this.anim.name = animation.name;
     this.anim.time = animation.clip.frameTime;
     var r = 1 / this.anim.time;
@@ -20,19 +18,13 @@ THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
 
 };
 
-THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, max ) {
-
+THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, maxFrame ) {
 
 	var animation = this.currentAnimation;
 	if( !animation ) { return; }
 	var name = animation.name;
-	var time = animation.duration/max;//clip.frameTime;
-	//var ratio = 1 / time;
-    this.unPauseAll()
-	this.play( name, 0, f*time )
-	this.pauseAll()
-
-	//console.log(name, animation)
-
+	var ftime = animation.duration/maxFrame;
+	this.play( name, 0, f*ftime, 1 )
+	this.pauseAll();
 
 };

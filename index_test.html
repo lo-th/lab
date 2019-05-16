@@ -24,6 +24,7 @@
 <script src="./src/objects/Environement.js"></script>
 <script src="./src/View.js"></script>
 <script src="./src/editor.js"></script>
+<script src="./src/geometries/Tubular.js"></script>
 </head>
 
 <body>
@@ -32,9 +33,9 @@ var user
 var editor;
 var view;
 
-var hour = 6.5;
+var hour = 12;
 var option = {
-	hour: 6.5,
+	hour: 12,
 }
 
 var s4;
@@ -54,7 +55,62 @@ function upTime(){
 
 function start () {
 
-	var g = view.geo;
+	var profile = [
+
+	]
+
+	var tube = new THREE.Tubular({start:[-200,0,0], end:[200,0,0], numSegment:10,  }, 100, 13, 1, false )
+	var map = new THREE.TextureLoader().load( 'assets/textures/road/road_c.jpg' );
+	map.wrapS = map.wrapT = THREE.RepeatWrapping;
+	map.repeat = new THREE.Vector2( 1, 30 );
+
+	var normal = new THREE.TextureLoader().load( 'assets/textures/road/road_n.jpg' );
+	normal.wrapS = normal.wrapT = THREE.RepeatWrapping;
+	normal.repeat = new THREE.Vector2( 1, 30 );
+
+	var material = view.material({
+		name:'road',
+        roughness: 0.8,
+        metalness: 0.3,
+        map: map,
+        normalMap:normal,
+        normalScale:new THREE.Vector2( 2, 2 ), 
+      //  wireframe:true,
+      //side:THREE.BackSide
+    });
+
+    
+
+
+
+
+
+	view.scene.add( new THREE.Mesh( tube, material ))
+
+
+	
+
+	var j = tube.positions.length;
+	//console.log(tube.rotations)
+	while ( j -- ) {
+		tube.positions[j].y = Math.rand(-20,20)
+		tube.positions[j].z = Math.rand(-50,50)
+
+		tube.rotations[j].setFromAxisAngle(new THREE.Vector3(1,0,0), 0 )
+	}
+
+	var tube2 = new THREE.Tubular(tube.positions, 100, 2, 3, false )
+
+	//tube.positions[1].copy( tube.positions[0] )
+
+	tube.updatePath();
+
+	view.scene.add( new THREE.Mesh( tube2, material ))
+
+
+
+view.moveCam({ theta:0, phi:30, distance:200, target:[0,1,0] })
+	/*var g = view.geo;
 	var m = view.mat;
 	
 	var s = new THREE.Mesh( g.sphere, m.basic );
@@ -76,7 +132,7 @@ function start () {
 	s4 = new THREE.Mesh( g.plane, m.ttest );
 	s4.scale.set(40,40,40);
 	//s4.position.set(0,0,0);
-	view.addMesh( s4 );
+	view.addMesh( s4 );*/
 
 	view.addSky({hour:hour});
 

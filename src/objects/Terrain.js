@@ -2,6 +2,11 @@ THREE.Terrain = function  ( o ) {
 
     o = o == undefined ? {} : o;
 
+    // terrain, water, road
+    this.ttype = o.terrainType || 'terrain';
+
+
+
     
     this.needsUpdate = false;
 
@@ -455,6 +460,7 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
     update: function ( wait ) {
 
+
         if( this.isWater ){ 
             this.wn.offset.x+=0.002;
             this.wn.offset.y+=0.001;
@@ -466,6 +472,7 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
         var v = this.pp;
         var cc = [1,1,1];
         var i = this.lng, n, x, z,  c, l=0, id, result;
+        var oldz, oldh, ccY;
 
         while( i-- ){
 
@@ -474,6 +481,8 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             z = Math.floor( i * this.ratio );
 
             v.set( x + ( this.local.x*this.rx ), this.local.y, z + ( this.local.z*this.rz ) );
+
+
 
             c = Math.noise( v, this.data );
 
@@ -487,6 +496,23 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             c = c>1 ? 1:c;
             c = c<0 ? 0:c;
             
+            
+
+
+            if( this.ttype === 'road' ) {
+
+                if(oldz === z){
+                    if(x===1 || x===2 || x===29 || x===30) c = oldh + 0.1;
+                    else c = oldh;
+                } else { 
+                    oldz = z;
+                    oldh = c;
+
+                }
+
+                //console.log(x)
+            }
+
             this.height[ i ] = c;
 
             id = this.isReverse ? this.invId[i] : i;
@@ -494,7 +520,13 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
             this.heightData[ id ] = result;
 
-            this.vertices[ n + 1 ] = (c * this.size[ 1 ]) + this.deep;
+            ccY = (c * this.size[ 1 ]) + this.deep;
+
+            //this.vertices[ n + 1 ] = 
+
+            
+
+            this.vertices[ n + 1 ] = ccY;
 
             if( this.isWater ){
 
@@ -509,9 +541,16 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             this.colors[ n ] = cc[0];
             this.colors[ n + 1 ] = cc[1];
             this.colors[ n + 2 ] = cc[2];
+
+            //oldx = x;
             
 
         }
+
+        /*if( this.ttype === 'road' ) {
+            i = this.lng
+                console.log(z)
+        }*/
 
         if( this.isBorder ){
 

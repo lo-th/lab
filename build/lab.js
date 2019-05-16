@@ -63997,6 +63997,8 @@ THREE.Tubular = function ( pp, tubularSegments, radius, radialSegments, closed, 
 
         this.positions = [];
 
+
+
         var start = new THREE.Vector3().fromArray(pp.start);
         var end = new THREE.Vector3().fromArray(pp.end);
         var mid = end.clone().sub(start);
@@ -64011,6 +64013,7 @@ THREE.Tubular = function ( pp, tubularSegments, radius, radialSegments, closed, 
         }
 
         this.positions.push( end );
+
         
 
     }
@@ -64112,7 +64115,9 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
     var N = this.frames.normals[ i ];
     var B = this.frames.binormals[ i ];
 
-    //var N = new THREE.Vector3( 0, 0, -1 );
+    //var B = new THREE.Vector3( 0, 1, 0 );
+
+    //console.log(N, B)
 
     //var T = this.frames.tangents[ i ];//this.path.getTangentAt( point );
     //var N = T.clone().applyAxisAngle( new THREE.Vector3(1,0,0), Math.PI/2 ).normalize();
@@ -64120,14 +64125,21 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
     // generate normals and vertices for the current segment
 
+    var left = true, side = 1;
+
     for ( var j = 0; j <= this.radialSegments; j ++ ) {
 
         var v = ( j / this.radialSegments ) * Math.PI * 2;
+        if(this.radialSegments===1){
+            v = 0;
+        }
 
         n2 = j * 3;
 
         var sin =   Math.sin( v );
         var cos = - Math.cos( v );
+
+        
 
         //sin = this.unwarpRad(sin);
         //cos = this.unwarpRad(cos);
@@ -64139,9 +64151,29 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
         // normal
 
-        this.normal.x = ( cos * N.x + sin * B.x );
-        this.normal.y = ( cos * N.y + sin * B.y );
-        this.normal.z = ( cos * N.z + sin * B.z );
+        
+
+        /*if(this.radialSegments===1){
+            if(left){this.normal.set(0,0,1); left = false}
+            else {this.normal.set(0,0,-1); left = true}
+        }*/
+
+
+        if(this.radialSegments===1){
+            if(left){side=0.5; left = false}
+            else {side=-0.5; left = true}
+
+            this.normal.copy(N).negate().projectOnPlane(new THREE.Vector3(0,1,0))
+
+
+
+        } else{
+            this.normal.x = ( cos * N.x + sin * B.x );
+            this.normal.y = ( cos * N.y + sin * B.y );
+            this.normal.z = ( cos * N.z + sin * B.z );
+        }
+
+        
 
         //this.normal.multiplyScalar(scale);
 
@@ -64173,15 +64205,36 @@ THREE.Tubular.prototype.generateSegment = function ( i ) {
 
         // vertex
 
-        this.vertices[n + n2] =  P.x + this.radius * this.normal.x;
-        this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y;
-        this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z;
+        this.vertices[n + n2] =  P.x + this.radius * this.normal.x * side;
+        this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y * side;
+        this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z * side;
+
+        /*if(this.radialSegments===1){
+            this.vertices[n + n2] =  P.x + this.radius * this.normal.x * side;
+            this.vertices[n + n2 +1] =  P.y //+ this.radius  * side;
+            this.vertices[n + n2 +2] =  P.z //+ this.radius  * side;
+        }*/
+
+
+
+        /*if(this.radialSegments===1){
+            this.vertices[n + n2] =  P.x + this.radius * 0.5;
+            this.vertices[n + n2 +1] =  P.y + this.radius * this.normal.y;
+            this.vertices[n + n2 +2] =  P.z + this.radius * this.normal.z;
+        }*/
 
         // color
 
         this.colors[n + n2] = Math.abs(this.normal.x);
         this.colors[n + n2 +1] = Math.abs(this.normal.y);
         this.colors[n + n2 +2] = Math.abs(this.normal.z);
+
+        if(this.radialSegments===1){
+
+            this.normals[n + n2] =  0;
+            this.normals[n + n2 +1] =  1;
+            this.normals[n + n2 +2] =  0;
+        }
         //} //else {
             //console.log(n+n2)
         //}
@@ -64692,6 +64745,11 @@ THREE.Terrain = function  ( o ) {
 
     o = o == undefined ? {} : o;
 
+    // terrain, water, road
+    this.ttype = o.terrainType || 'terrain';
+
+
+
     
     this.needsUpdate = false;
 
@@ -65145,6 +65203,7 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
     update: function ( wait ) {
 
+
         if( this.isWater ){ 
             this.wn.offset.x+=0.002;
             this.wn.offset.y+=0.001;
@@ -65156,6 +65215,7 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
         var v = this.pp;
         var cc = [1,1,1];
         var i = this.lng, n, x, z,  c, l=0, id, result;
+        var oldz, oldh, ccY;
 
         while( i-- ){
 
@@ -65164,6 +65224,8 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             z = Math.floor( i * this.ratio );
 
             v.set( x + ( this.local.x*this.rx ), this.local.y, z + ( this.local.z*this.rz ) );
+
+
 
             c = Math.noise( v, this.data );
 
@@ -65177,6 +65239,23 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             c = c>1 ? 1:c;
             c = c<0 ? 0:c;
             
+            
+
+
+            if( this.ttype === 'road' ) {
+
+                if(oldz === z){
+                    if(x===1 || x===2 || x===29 || x===30) c = oldh + 0.1;
+                    else c = oldh;
+                } else { 
+                    oldz = z;
+                    oldh = c;
+
+                }
+
+                //console.log(x)
+            }
+
             this.height[ i ] = c;
 
             id = this.isReverse ? this.invId[i] : i;
@@ -65184,7 +65263,13 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
             this.heightData[ id ] = result;
 
-            this.vertices[ n + 1 ] = (c * this.size[ 1 ]) + this.deep;
+            ccY = (c * this.size[ 1 ]) + this.deep;
+
+            //this.vertices[ n + 1 ] = 
+
+            
+
+            this.vertices[ n + 1 ] = ccY;
 
             if( this.isWater ){
 
@@ -65199,9 +65284,16 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
             this.colors[ n ] = cc[0];
             this.colors[ n + 1 ] = cc[1];
             this.colors[ n + 2 ] = cc[2];
+
+            //oldx = x;
             
 
         }
+
+        /*if( this.ttype === 'road' ) {
+            i = this.lng
+                console.log(z)
+        }*/
 
         if( this.isBorder ){
 
@@ -68308,9 +68400,7 @@ THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
     if( !this.anim ) this.resetAnim();
 
     var animation = this.currentAnimation;
-
     if( !animation ) { this.resetAnim(); return; }
-
     this.anim.name = animation.name;
     this.anim.time = animation.clip.frameTime;
     var r = 1 / this.anim.time;
@@ -68319,20 +68409,14 @@ THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
 
 };
 
-THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, max ) {
-
+THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, maxFrame ) {
 
 	var animation = this.currentAnimation;
 	if( !animation ) { return; }
 	var name = animation.name;
-	var time = animation.duration/max;//clip.frameTime;
-	//var ratio = 1 / time;
-    this.unPauseAll()
-	this.play( name, 0, f*time )
-	this.pauseAll()
-
-	//console.log(name, animation)
-
+	var ftime = animation.duration/maxFrame;
+	this.play( name, 0, f*ftime, 1 )
+	this.pauseAll();
 
 };
 /**   _  _____ _   _   
