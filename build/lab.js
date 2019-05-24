@@ -61385,6 +61385,73 @@ THREE.RGBELoader.prototype.setType = function ( value ) {
 
 
 /**
+ * @author lo.th / https://github.com/lo-th
+ */
+
+
+THREE.ShaderLoader = function ShaderLoader( manager ) {
+
+	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+	this.loader = new THREE.FileLoader( this.manager );
+	this.loader.setResponseType('text');
+	this.shader = {};
+
+}
+
+THREE.ShaderLoader.prototype = {
+
+	constructor: THREE.ShaderLoader,
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		this.urls = [];
+		if ( typeof url === 'string' || url instanceof String ) this.urls.push( url );
+        else this.urls = this.urls.concat( url );
+
+        this.onLoad = onLoad || function(){};
+        this.onProgress = onProgress;
+        this.onError = onError;
+
+		this.loadOne();
+
+	},
+
+	loadOne: function () {
+
+		var url = this.urls[0];
+		var name = url.substring( url.lastIndexOf('/')+1, url.lastIndexOf('.') );
+
+		var scope = this;
+
+		this.loader.setPath( scope.path );
+		this.loader.load( url, function ( text ) {
+
+			scope.shader[ name ] = text;
+			scope.next();
+
+		}, scope.onProgress, scope.onError );
+
+	},
+
+	next: function () {
+
+		this.urls.shift();
+
+		if( this.urls.length === 0 ) this.onLoad();
+		else this.loadOne();
+
+	},
+
+	setPath: function ( value ) {
+
+		this.path = value;
+		return this;
+
+	},
+
+};
+
+/**
  * @author Prashant Sharma / spidersharma03
  * @author Ben Houston / bhouston, https://clara.io
  *
@@ -64856,13 +64923,10 @@ Planet.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 });
 THREE.Terrain = function  ( o ) {
 
-    o = o == undefined ? {} : o;
+    o = o === undefined ? {} : o;
 
     // terrain, water, road
     this.ttype = o.terrainType || 'terrain';
-
-
-
     
     this.needsUpdate = false;
 
@@ -64904,7 +64968,7 @@ THREE.Terrain = function  ( o ) {
     this.complexity2 = o.complexity2 == undefined ? null : o.complexity2;
 
     this.local = new THREE.Vector3();
-    if(o.local) this.local.fromArray( o.local );
+    if( o.local ) this.local.fromArray( o.local );
 
     this.pp = new THREE.Vector3();
 
@@ -64952,13 +65016,13 @@ THREE.Terrain = function  ( o ) {
         //reflectivity:0.6,
         //specular : 0x161716,
 
-        metalness: this.isWater ? 0.8 : 0.4, 
+        metalness: this.isWater ? 0.8 : 0.2, 
         roughness: this.isWater ? 0.2 : 0.6, 
         wireframe:false, 
         envMap: view.getEnvMap(),
         normalMap:this.wn,
-        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
-        shadowSide:false,
+        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(-1,-1),
+        //shadowSide:false,
         transparent:this.isWater ? true : false,
         opacity: this.isWater ? (o.opacity || 0.8) : 1,
 
@@ -65059,16 +65123,19 @@ THREE.Terrain = function  ( o ) {
 
         this.mapsLink = [];
         this.maps = [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
-        for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
+        //for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
 
-        pool.load ( this.mapsLink, null, true, true );
+           // console.log( this.mapsLink )
+
+        //pool.load ( this.mapsLink, null, true, true );
 
         var textures = {}
         var name, txt;
         for( var i in this.maps ){
 
             name = this.maps[i];
-            txt = pool.getResult()[name];
+            //txt = pool.getResult()[name];
+            txt = view.loadTexture('terrain/'+name+'.jpg')
             txt.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
             txt.wrapS = txt.wrapT = THREE.RepeatWrapping;
             txt.anisotropy = 8;
@@ -65076,20 +65143,22 @@ THREE.Terrain = function  ( o ) {
 
         }
 
-        this.material.map = textures.sand;
-        this.material.normalMap = textures.sand_n;
+        this.material.map = textures[this.maps[0]];
+        this.material.normalMap = textures[this.maps[0]+'_n'];
+
+        var self = this;
 
         this.material.onBeforeCompile = function ( shader ) {
 
             var uniforms = shader.uniforms;
 
             //uniforms['map'] = { value: textures.sand };
-            uniforms['map1'] = { value: textures.grass };
-            uniforms['map2'] = { value: textures.rock };
+            uniforms['map1'] = { value: textures[self.maps[1]] };
+            uniforms['map2'] = { value: textures[self.maps[2]] };
 
             //uniforms['normalMap'] = { value: textures.sand_n };
-            uniforms['normalMap1'] = { value: textures.grass_n };
-            uniforms['normalMap2'] = { value: textures.rock_n };
+            uniforms['normalMap1'] = { value: textures[self.maps[1]+'_n'] };
+            uniforms['normalMap2'] = { value: textures[self.maps[2]+'_n'] };
 
 
             var vertex = shader.vertexShader;
@@ -65112,7 +65181,7 @@ THREE.Terrain = function  ( o ) {
             shader.uniforms = uniforms;
             shader.fragmentShader = fragment;
 
-            return shader;
+            //return shader;
         }
 
 
@@ -65132,7 +65201,7 @@ THREE.Terrain = function  ( o ) {
     this.update();
 
     this.name = o.name === undefined ? 'terrain' : o.name;
-    this.position.fromArray( o.pos );
+    if( o.pos ) this.position.fromArray( o.pos );
 
 
     this.castShadow = false;
@@ -65844,6 +65913,7 @@ THREE.Lensflare.Geometry = ( function () {
 function Environement ( view ) {
 
     this.mapReady = 0;
+    this.shaderReady = false;
     this.callback = function (){};
 
 
@@ -65861,6 +65931,21 @@ function Environement ( view ) {
     this.noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.mapReady++; this.callback(); }.bind(this)  );
     this.nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.mapReady++; this.callback(); }.bind(this)  );
     //this.view.envmap = this.basicEnvmap;
+
+    // shader Loader
+    this.shader = new THREE.ShaderLoader();
+    this.shader.path = './assets/shaders/';
+    this.shader.load(['sky_v.vs', 'sky_f.fs', 'basic_sky_f.fs'], function () { 
+        
+        BasicSky.vertexShader = this.shader.shader.sky_v;
+        BasicSky.fragmentShader = this.shader.shader.basic_sky_f;
+        SuperSkyShader.vertexShader = this.shader.shader.sky_v;
+        SuperSkyShader.fragmentShader = this.shader.shader.sky_f;
+
+        this.shaderReady = true; 
+        this.callback();
+
+    }.bind(this) );
 
 	this.isHdr = false;
 
@@ -65884,6 +65969,7 @@ function Environement ( view ) {
         ground:new THREE.Color(0,0,0),
         sky:new THREE.Color(0,0,0),
         fog:new THREE.Color(0,0,0),
+        fogbase:new THREE.Color(0,0,0),
     };
 
     
@@ -65894,9 +65980,6 @@ function Environement ( view ) {
 	this.resolution = 128*this.q;
 
     
-
-
-
 	this.setting = {
 
 		distance: 10000,
@@ -65921,7 +66004,7 @@ function Environement ( view ) {
 
 		cloudColor: 0xFFFFFF,
 		groundColor: 0x3b4c5a,
-		fogColor: 0xff0000,
+		fogColor: 0x9fabb2,
 
 	}
 
@@ -65950,12 +66033,12 @@ function Environement ( view ) {
 	this.camera = new THREE.CubeCamera( 0.1, 1, this.resolution, options );
 	this.scene.add( this.camera );
 
+    //this.initColorTest();
+
 	
 
 	THREE.Group.call( this );
 	this.view.followGroup.add( this );
-
-
 
 }
 
@@ -66087,7 +66170,15 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     	if( !this.isBasicSky ){
 
+            if( !this.shaderReady ){
+                this.callback = this.initBasicSky;
+                return;
+            } else {
+                this.callback = function (){};
+            }
+
     		this.material.dispose();
+
 	    	this.material = new THREE.ShaderMaterial( BasicSky );
 	    	this.sphere.material = this.material;
 	    	this.isBasicSky = true;
@@ -66110,7 +66201,7 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
             //console.log(this.mapReady)
 
-            if( this.mapReady !== 3 ){
+            if( this.mapReady !== 3 || !this.shaderReady ){
                 this.callback = this.initAutoSky;
                 return;
             } else {
@@ -66160,8 +66251,14 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 		    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
 		    uniforms.groundColor.value = new THREE.Color( setting.groundColor );
 		    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
-		    uniforms.fogColor.value = new THREE.Color( setting.fogColor );
+
+            var fogColor = new THREE.Color( setting.fogColor );
+		    uniforms.fogColor.value = fogColor;
 		    uniforms.fog.value = setting.fog;
+            this.view.setFogColor( fogColor );
+
+            this.colors.fogbase.copy( fogColor );
+            this.colors.fog.copy( fogColor );
 		    
 		    uniforms.nSample.value = setting.sample;
 		    uniforms.iteration.value = setting.iteration;
@@ -66170,7 +66267,11 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
             setting.timelap = setting.hour;
             uniforms.timelap.value = setting.timelap;
 
+            
+
             this.material = new THREE.ShaderMaterial( SuperSkyShader );
+
+            
             //this.material.uniforms.timelap.value = s.timelap;
 
             //console.log(this.material.uniforms) 
@@ -66328,6 +66429,8 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
        // this.sun.material.color.copy( this.colors.sun );
        // this.moon.material.color.copy( this.colors.moon );
 
+        
+
         // light
 
         this.view.sun.position.copy( this.sunPosition ).multiplyScalar( this.view.lightDistance );
@@ -66337,7 +66440,11 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
         this.view.sun.color.copy( this.colors.sun );
         this.view.sun.intensity = this.colors.sun.r + (this.colors.sun.r*0.3);
         this.view.moon.color.copy( this.colors.moon );
-        this.view.moon.intensity = this.colors.moon.r - (this.colors.moon.r*0.3);
+        this.view.moon.intensity = this.colors.moon.r - (this.colors.moon.r*0.6);
+
+        var fg = this.colors.moon.r * 0.6;
+        this.colors.fog.setRGB( this.colors.fogbase.r-fg, this.colors.fogbase.g-fg, this.colors.fogbase.b-fg );
+        this.view.setFogColor( this.colors.fog );
 
 		this.material.uniforms.timelap.value = s.timelap;
 		this.material.uniforms.fog.value = s.fog;
@@ -66353,12 +66460,17 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
         var view = this.view;
 
+
+
 		this.camera.update( view.renderer, this.scene );
+
+       // 
+       //this.getColor();
 			
 		//if( view.envmap ) view.envmap.dispose();
 		view.envmap = this.isHdr ? this.convertToHdr() : this.camera.renderTarget.texture;
 
-		//this.getColor();
+		
 
         //view.scene.background = this.tmpBg ? this.camera.renderTarget : null;
 
@@ -66393,18 +66505,27 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
     	//if( !this.view.isWithSphereLight ) return;
 
     	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
-        this.vMid = new THREE.Vector3( 1,0.1,0 );
+        this.vMid = new THREE.Vector3( 0,0,1 );
         this.vUp = new THREE.Vector3( 0,1,0 );
         this.vDown = new THREE.Vector3( 0,-1,0 );
         var x = 0.1;
-        this.camPixel = new THREE.OrthographicCamera( -x, x, x, -x, 0.5, 2 );
+        this.camPixel = new THREE.OrthographicCamera( -x, x, x, -x, 0.1, 1 );
         this.scene.add( this.camPixel );
 
     },
 
     getColor: function () {
 
-    	if( this.view.isWithFog ) {
+        var currentRenderTarget = this.view.renderer.getRenderTarget();
+
+        var rgb = this.view.isGl2 ? Math.inv255 : 1;
+        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+
+        //var read = new Float32Array( 4 );
+        //view.renderer.readRenderTargetPixels( hdrCubeRenderTarget, 0, 128, 1, 1, read );
+        //this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+    	/*if( this.view.isWithFog ) {
 
 
 	    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
@@ -66418,33 +66539,44 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
 	        //console.log(this.colors.fog.getHexString())
 
-	        this.view.fog.color.copy( this.colors.fog );
-	    }
+	        //this.view.fog.color.copy( this.colors.fog );
+            this.view.setFogColor( this.colors.fog );
+	    }*/
 
-        if( this.view.isWithSphereLight ) {
+        //if( this.view.isWithSphereLight ) {
 
-	        this.camPixel.lookAt( this.vUp );
-	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+            //this.view.renderer.clear();
 
+	        /*this.camPixel.lookAt( this.vUp );
+            this.view.renderer.setRenderTarget( this.pixelRender );
+	        this.view.renderer.render( this.scene, this.camPixel );
 	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
 	        this.colors.sky.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
 
 	        this.camPixel.lookAt( this.vDown );
-	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
-
+	        this.view.renderer.render( this.scene, this.camPixel );
 	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-	        this.colors.ground.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+	        this.colors.ground.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );*/
+
+            this.camPixel.lookAt( this.vUp );
+            this.view.renderer.setRenderTarget( this.pixelRender );
+            this.view.renderer.render( this.scene, this.camPixel );
+            this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+            this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+            this.view.setFogColor( this.colors.fog );
 
 	        
-	        /*
-            this.view.sphereLight.color.copy( this.colors.sky );
-	        this.view.sphereLight.groundColor.copy( this.colors.ground );
-	        this.view.sphereLight.intensity = 0.6;
-            */
+          //  this.view.sphereLight.color.copy( this.colors.sky );
+	       // this.view.sphereLight.groundColor.copy( this.colors.ground );
+	        //this.view.sphereLight.intensity = 0.6;
+           
 
 	        //this.view.ambient.color.copy( this.colors.ground );
 
-	    }
+	    //}
+
+        this.view.renderer.setRenderTarget( currentRenderTarget );
 
     },
 
@@ -66503,7 +66635,12 @@ var BasicSky = {
         isHdr: { value: 1 },
         rev: { value: 0 },
     },
-    vertexShader: [
+
+    //vertexShader: this.shader.shader.sky_v,
+    //fragmentShader: this.shader.shader.basic_sky_f,
+
+
+    /*vertexShader: [
     'varying vec2 vUv;',
     'void main() {',
         'vUv = uv;',
@@ -66551,7 +66688,7 @@ var BasicSky = {
         'vec4 color = isHdr == 1 ? c : toHDR( c );',
         'gl_FragColor = decode == 1 ? RGBEToLinear( color ) : color;',
     '}'
-    ].join("\n"),
+    ].join("\n"),*/
     depthTest: false,
     depthWrite: false,
     side: THREE.BackSide,
@@ -66586,7 +66723,9 @@ var SuperSkyShader = {
 
 	},
 
-	vertexShader:[
+    
+
+	/*vertexShader:[
 	    'varying vec2 vUv;',
 		'varying vec3 worldPosition;',
 		'void main(){',
@@ -66856,7 +66995,7 @@ var SuperSkyShader = {
 		'	gl_FragColor = LinearToRGBE( final );',
 
 		'}'
-	].join( '\n' ),
+	].join( '\n' ),*/
 
 	depthWrite: false,
 	depthTest: false,
@@ -68749,6 +68888,9 @@ View.prototype = {
         this.environement.defaultSky()
 
         if( !noObj ) this.loadObject( 'basic', Callback );
+        else{
+            if( Callback !== undefined ) Callback();
+        }
 
     },
 
@@ -69421,27 +69563,31 @@ View.prototype = {
 
     addFog: function ( o ) {
         
-        if(this.isWithFog) return;
+        if( this.isWithFog ) return;
+
         o = o || {};
-        if(o.exp) this.fog = new THREE.FogExp2( o.color || 0x3b4c5a, o.exp );
-        else this.fog = new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
 
+        this.fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
         this.scene.fog = this.fog;
-
         this.isWithFog = true;
+
+    },
+
+    setFogColor: function ( color ) {
+        
+        if( !this.isWithFog ) return;
+        this.fog.color = color;
 
     },
 
     removeFog: function () {
         
-        if(!this.isWithFog) return;
+        if( !this.isWithFog ) return;
         this.fog = null;
         this.scene.fog = null;
         this.isWithFog = false;
 
     },
-
-
 
     //-----------------------------
     //

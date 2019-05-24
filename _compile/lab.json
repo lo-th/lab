@@ -7,6 +7,7 @@
     "src/controls/OrbitControlsExtra.js",
     "src/loaders/BVHLoader.js",
     "src/loaders/RGBELoader.js",
+    "src/loaders/ShaderLoader.js",
     "src/pmrem/PMREMCubeUVPacker.js",
     "src/pmrem/PMREMGenerator.js",
     "src/geometries/GeometryTools.js",

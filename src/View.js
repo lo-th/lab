@@ -215,6 +215,9 @@ View.prototype = {
         this.environement.defaultSky()
 
         if( !noObj ) this.loadObject( 'basic', Callback );
+        else{
+            if( Callback !== undefined ) Callback();
+        }
 
     },
 
@@ -887,27 +890,31 @@ View.prototype = {
 
     addFog: function ( o ) {
         
-        if(this.isWithFog) return;
+        if( this.isWithFog ) return;
+
         o = o || {};
-        if(o.exp) this.fog = new THREE.FogExp2( o.color || 0x3b4c5a, o.exp );
-        else this.fog = new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
 
+        this.fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
         this.scene.fog = this.fog;
-
         this.isWithFog = true;
+
+    },
+
+    setFogColor: function ( color ) {
+        
+        if( !this.isWithFog ) return;
+        this.fog.color = color;
 
     },
 
     removeFog: function () {
         
-        if(!this.isWithFog) return;
+        if( !this.isWithFog ) return;
         this.fog = null;
         this.scene.fog = null;
         this.isWithFog = false;
 
     },
-
-
 
     //-----------------------------
     //

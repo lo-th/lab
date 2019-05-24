@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Lab terrain</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+
+<script src="./src/libs/three.js"></script>
+<script src="./src/libs/sea3d.js"></script>
+<script src="./src/libs/tween.js"></script>
+<script src="./src/libs/uil.js"></script>
+<script src="./src/shaders/shadowPCSS.js"></script>
+<script src="./src/math.js"></script>
+<script src="./src/SimplexNoise.js"></script>
+<script src="./src/pool.js"></script>
+<script src="./src/gui.js"></script>
+<script src="./src/pmrem/PMREMCubeUVPacker.js"></script>
+<script src="./src/pmrem/PMREMGenerator.js"></script>
+<script src="./src/controls/OrbitControls.js"></script>
+<script src="./src/controls/OrbitControlsExtra.js"></script>
+<script src="./src/objects/Lensflare.js"></script>
+<script src="./src/loaders/ShaderLoader.js"></script>
+<script src="./src/objects/Environement.js"></script>
+<script src="./src/objects/Terrain.js"></script>
+<script src="./src/objects/Instance.js"></script>
+<script src="./src/View.js"></script>
+<script src="./src/editor.js"></script>
+</head>
+
+<body>
+<script>
+var user
+var editor;
+var view;
+
+var terra;
+
+var hour = 6;
+var option = {
+	hour: 6,
+}
+
+
+view = new View();
+view.init( start, true );
+
+function start () {
+
+	view.hideGrid();
+
+	view.addFog({ exp:0.0025 });
+
+	view.moveCam({ theta:0, phi:10, distance:100, target:[0,1,0] })
+
+	view.addSky({ hour:hour, hdr:true });
+
+	var options = {
+
+        base:option,
+        function: applyOption,
+        hour: { min:0, max:24, precision:2, color:0xFFFF44 },
+
+    };
+
+	gui.init( document.body, options );
+	gui.resize(400);
+
+	
+
+	addTerrain();
+
+	view.load ( [ 'tree.sea' ], addInstance, true, true );
+}
+
+function addTerrain () {
+
+	terra = new THREE.Terrain({
+
+		uv:150,
+        pos : [ 0, -10, 0 ], // terrain position
+        size : [ 1200, 50, 1200 ], // terrain size in meter
+        sample : [ 512, 512 ], // number of subdivision
+        frequency : [0.016,0.05,0.2], // frequency of noise
+        level : [ 1, 0.2, 0.05 ], // influence of octave
+        expo: 2,
+
+	});
+
+	view.scene.add( terra );
+
+}
+
+function addInstance () {
+
+	var tree1 = view.getMesh( 'tree', 'tree1' );
+	var tree2 = view.getMesh( 'tree', 'tree2' );
+	var tree3 = view.getMesh( 'tree', 'tree3' );
+
+	var pos = [];
+	var scale = [];
+	var rot = [];
+
+	var n, j, num = 1000;
+	var x, z, s;
+
+	var mat = new THREE.MeshLambertMaterial({ map: view.texture( 'tree.png'),alphaTest:0.3, side:THREE.DoubleSide });
+
+	for (var i=0; i < 3; i++ ){
+
+		pos = [];
+		scale = [];
+		rot = [];
+
+		for ( j=0; j < num; j++ ){
+
+			n = j*3;
+			x = Math.rand(-600, 600);
+			z = Math.rand(-600, 600);
+			pos.push( x, terra.getHeight(x, z), z );
+
+			s = Math.rand(2, 5);
+
+			scale.push(s,s,s);
+
+		}
+
+		g = tree1.geometry;
+		if(i==1) g = tree2.geometry;
+		if(i==2) g = tree3.geometry;
+
+		var inst1 = new THREE.Instance({
+			geometry: g,
+			material: mat,
+			num:num,
+
+			pos: pos,
+			scale: scale,
+
+
+		});
+
+
+		view.scene.add( inst1 );
+	}
+
+	
+
+
+
+}
+
+function applyOption () {
+
+    if( hour !== option.hour ){ hour = option.hour; view.updateSky({hour:hour}); }
+
+}
+
+</script>
+</body>
+</html>

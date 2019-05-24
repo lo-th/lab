@@ -1,12 +1,9 @@
 THREE.Terrain = function  ( o ) {
 
-    o = o == undefined ? {} : o;
+    o = o === undefined ? {} : o;
 
     // terrain, water, road
     this.ttype = o.terrainType || 'terrain';
-
-
-
     
     this.needsUpdate = false;
 
@@ -48,7 +45,7 @@ THREE.Terrain = function  ( o ) {
     this.complexity2 = o.complexity2 == undefined ? null : o.complexity2;
 
     this.local = new THREE.Vector3();
-    if(o.local) this.local.fromArray( o.local );
+    if( o.local ) this.local.fromArray( o.local );
 
     this.pp = new THREE.Vector3();
 
@@ -96,13 +93,13 @@ THREE.Terrain = function  ( o ) {
         //reflectivity:0.6,
         //specular : 0x161716,
 
-        metalness: this.isWater ? 0.8 : 0.4, 
+        metalness: this.isWater ? 0.8 : 0.2, 
         roughness: this.isWater ? 0.2 : 0.6, 
         wireframe:false, 
         envMap: view.getEnvMap(),
         normalMap:this.wn,
-        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
-        shadowSide:false,
+        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(-1,-1),
+        //shadowSide:false,
         transparent:this.isWater ? true : false,
         opacity: this.isWater ? (o.opacity || 0.8) : 1,
 
@@ -203,16 +200,19 @@ THREE.Terrain = function  ( o ) {
 
         this.mapsLink = [];
         this.maps = [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
-        for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
+        //for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
 
-        pool.load ( this.mapsLink, null, true, true );
+           // console.log( this.mapsLink )
+
+        //pool.load ( this.mapsLink, null, true, true );
 
         var textures = {}
         var name, txt;
         for( var i in this.maps ){
 
             name = this.maps[i];
-            txt = pool.getResult()[name];
+            //txt = pool.getResult()[name];
+            txt = view.loadTexture('terrain/'+name+'.jpg')
             txt.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
             txt.wrapS = txt.wrapT = THREE.RepeatWrapping;
             txt.anisotropy = 8;
@@ -220,20 +220,22 @@ THREE.Terrain = function  ( o ) {
 
         }
 
-        this.material.map = textures.sand;
-        this.material.normalMap = textures.sand_n;
+        this.material.map = textures[this.maps[0]];
+        this.material.normalMap = textures[this.maps[0]+'_n'];
+
+        var self = this;
 
         this.material.onBeforeCompile = function ( shader ) {
 
             var uniforms = shader.uniforms;
 
             //uniforms['map'] = { value: textures.sand };
-            uniforms['map1'] = { value: textures.grass };
-            uniforms['map2'] = { value: textures.rock };
+            uniforms['map1'] = { value: textures[self.maps[1]] };
+            uniforms['map2'] = { value: textures[self.maps[2]] };
 
             //uniforms['normalMap'] = { value: textures.sand_n };
-            uniforms['normalMap1'] = { value: textures.grass_n };
-            uniforms['normalMap2'] = { value: textures.rock_n };
+            uniforms['normalMap1'] = { value: textures[self.maps[1]+'_n'] };
+            uniforms['normalMap2'] = { value: textures[self.maps[2]+'_n'] };
 
 
             var vertex = shader.vertexShader;
@@ -256,7 +258,7 @@ THREE.Terrain = function  ( o ) {
             shader.uniforms = uniforms;
             shader.fragmentShader = fragment;
 
-            return shader;
+            //return shader;
         }
 
 
@@ -276,7 +278,7 @@ THREE.Terrain = function  ( o ) {
     this.update();
 
     this.name = o.name === undefined ? 'terrain' : o.name;
-    this.position.fromArray( o.pos );
+    if( o.pos ) this.position.fromArray( o.pos );
 
 
     this.castShadow = false;
