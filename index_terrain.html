@@ -58,7 +58,8 @@ function start () {
 	view.addSky({ hour:hour, hdr:true });
 
 	var options = {
-
+		
+		withFps:true,
         base:option,
         function: applyOption,
         hour: { min:0, max:24, precision:2, color:0xFFFF44 },
