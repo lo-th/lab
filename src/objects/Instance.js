@@ -12,7 +12,7 @@ THREE.Instance = function  ( o ) {
 
 	this.castShadow = false;
 	this.receiveShadow = false;
-	this.frustumCulled = true;
+	this.frustumCulled = false;
 	//this.customDepthMaterial = this.materialDepth;
 
 
