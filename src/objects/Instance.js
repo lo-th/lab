@@ -10,9 +10,9 @@ THREE.Instance = function  ( o ) {
 
 	THREE.Mesh.call( this, this.geometry, this.material );
 
-	this.castShadow = true;
-	this.receiveShadow = true;
-	this.frustumCulled = false;
+	this.castShadow = false;
+	this.receiveShadow = false;
+	this.frustumCulled = true;
 	//this.customDepthMaterial = this.materialDepth;
 
 
@@ -24,68 +24,73 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 
     setGeometry: function ( o ) {
 
+    	if(this.geometry!==undefined) this.geometry.dispose();
+
     	var bufferGeometry = o.geometry || new THREE.BoxBufferGeometry( 2, 2, 2 );
 
 		this.geometry = new THREE.InstancedBufferGeometry();
 		this.geometry.maxInstancedCount = this.num;
-		
-		//this.geometry.attributes.position = bufferGeometry.attributes.position;
-		//this.geometry.attributes.uv = bufferGeometry.attributes.uv;
 
-		Object.keys(bufferGeometry.attributes).forEach(attributeName=>{
+		for ( var k in bufferGeometry.attributes ){
+			this.geometry.attributes[k] = bufferGeometry.attributes[k];
+		}
+
+		/*Object.keys(bufferGeometry.attributes).forEach(attributeName=>{
 		  this.geometry.attributes[attributeName] = bufferGeometry.attributes[attributeName]
-		})
+		})*/
+
 		this.geometry.index = bufferGeometry.index;
 
 		this.offsets = new Float32Array( this.num * 3 );
 		this.scales = new Float32Array( this.num * 3 );
 		this.orientations = new Float32Array( this.num * 4 );
 
-
 		var q = new THREE.Quaternion();
+		var e = new THREE.Euler();
+		var torad = THREE.Math.DEG2RAD;
 		
 		for ( var i = 0; i < this.num; i ++ ) {
 
 			var n = 3 * i;
 			var n4 = 4 * i;
-			if(o.pos){
 
+			// position
+
+			if(o.pos){
 				this.offsets[n] = o.pos[n];
 			    this.offsets[n+1] = o.pos[n+1];
 			    this.offsets[n+2] = o.pos[n+2];
-
 			}else{
-
 				this.offsets[n] = Math.rand(-200, 200);
 			    this.offsets[n+1] = Math.rand(-20, 20);
 			    this.offsets[n+2] = Math.rand(-200, 200);
-
 			}
 
-			
+			// rotation
 
+			if(o.rot){
+				q.setFromEuler( e.set(o.rot[n]*torad, o.rot[n+1]*torad, o.rot[n+2]*torad ) )
+			} else {
+				q.set( 0, 0, 0, 1 );
+			}
 			
-			q.set( Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1 );
-			q.set( 0, Math.random() * 2 - 1, 0, 1);
 			q.normalize();
 			this.orientations[n4] = q.x;
 			this.orientations[n4+1] = q.y;
 			this.orientations[n4+2] = q.z;
 			this.orientations[n4+3] = q.w;
 
-			if(o.scale){
+			// scale
 
+			if(o.scale){
 				this.scales[n] = o.scale[n];
 			    this.scales[n+1] = o.scale[n+1];
 			    this.scales[n+2] = o.scale[n+2];
-
 			} else {
 				this.scales[n] = 1;
 			    this.scales[n+1] = 1;
 			    this.scales[n+2] = 1;
 			}
-
-			
 
 		}
 
@@ -94,9 +99,11 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 		this.scaleAttribute = new THREE.InstancedBufferAttribute( this.scales, 3 );//.setDynamic( true );
 		this.orientationAttribute = new THREE.InstancedBufferAttribute( this.orientations, 4 );
 
+		/*
 		this.offsetAttribute.dynamic = true
 		this.scaleAttribute.dynamic = true
 		this.orientationAttribute.dynamic = true
+		*/
 		
 		this.geometry.addAttribute( 'offset', this.offsetAttribute );
 		this.geometry.addAttribute( 'scales', this.scaleAttribute );

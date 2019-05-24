@@ -121,6 +121,8 @@ function addInstance () {
 			z = Math.rand(-600, 600);
 			pos.push( x, terra.getHeight(x, z), z );
 
+			rot.push( Math.rand(-10, 10), Math.rand(-180, 180), Math.rand(-10, 10) );
+
 			s = Math.rand(2, 5);
 
 			scale.push(s,s,s);
@@ -137,8 +139,8 @@ function addInstance () {
 			num:num,
 
 			pos: pos,
+			rot: rot,
 			scale: scale,
-
 
 		});
 
