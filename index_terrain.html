@@ -36,8 +36,11 @@ var user
 var editor;
 var view;
 
+var debug = false;
+
 var terra;
 var instances = [];
+var treeMaterial, debugMaterial;
 
 var hour = 6;
 var numT = 3000;
@@ -74,9 +77,19 @@ function start () {
 
 	gui.init( document.body, options );
 	option.demo = 3000;
-	gui.resize(260);
+	gui.resize( 260 );
+
 
 	addTerrain();
+
+	//treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
+	treeMaterial = new THREE.MeshLambertMaterial({ map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide });
+
+	debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
+	debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
+	debugGeo.translate(0,0.5,0);
+
+	
 
 	view.load ( [ 'tree.sea' ], populate, true, true );
 }
@@ -117,10 +130,10 @@ function addInstance ( num ) {
 	var scale = [];
 	var rot = [];
 
-	var i, n, j, inst, s, p;
+	var i, n, j, inst, s, p, t;
 	var num = num !== undefined ? num/3 : 1000;
 
-	var mat = new THREE.MeshLambertMaterial({ map: view.texture( 'tree.png'),alphaTest:0.3, side:THREE.DoubleSide });
+	//
 
 	for ( i = 0; i < 3; i++ ){
 
@@ -140,18 +153,24 @@ function addInstance ( num ) {
 
 			s = Math.rand(2, 5);
 
-			scale.push(s,s,s);
+			scale.push( s,s,s );
 			
 		}
 
-		g = tree1.geometry;
-		if(i===1) g = tree2.geometry;
-		if(i===2) g = tree3.geometry;
+		if( debug ){
+			g = debugGeo;
+		}else{
+			g = tree1.geometry;
+		    if(i===1) g = tree2.geometry;
+		    if(i===2) g = tree3.geometry;
+		}
+
+		
 
 		inst = new THREE.Instance({
 
 			geometry: g,
-			material: mat,
+			material: debug ? debugMaterial : treeMaterial,
 			num:num,
 
 			pos: pos,

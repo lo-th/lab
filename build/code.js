@@ -21325,6 +21325,11 @@ gui = {
 
         ui = new UIL.Gui({ parent:parent, css:'left:0px; right: auto; ', size:240, color:'no', h:22, close:false });
 
+        if(option.withFps){ 
+            var fps = ui.add('fps', { height:30 });
+            fps.show();
+        }
+
         this.add( option );
         
     },
@@ -21355,6 +21360,7 @@ gui = {
         ui.setWidth( r-10 );
 
     },
+
 
 
 }

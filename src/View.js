@@ -5,7 +5,7 @@
 *    @author lo.th / https://github.com/lo-th
 */
 
-function View () {
+function View ( forceV1 ) {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
@@ -67,12 +67,13 @@ function View () {
 
 	// 1 CANVAS GL1 or GL2
 
-    var options = this.getGL();
+    var options = this.getGL( forceV1 );
 
     // 2 RENDERER
     try {
 
         this.renderer = new THREE.WebGLRenderer( options );
+        this.isWebGL2 = this.renderer.capabilities.isWebGL2;
 
     } catch( error ) {
         if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
@@ -82,9 +83,7 @@ function View () {
         return;
     }
 
-    console.log('THREE webgl' , this.isGl2 ? 2 : 1 );
-
-
+    console.log('THREE webgl' , this.isWebGL2 ? 2 : 1 );
 
     this.renderer.setClearColor( this.bg, 1 );
     this.renderer.setPixelRatio( this.isMobile ? 1 : window.devicePixelRatio );
@@ -195,9 +194,15 @@ View.prototype = {
         options.canvas = canvas;
         options.context = gl;
         this.canvas = canvas;
-        this.isGl2 = isWebGL2;
+        //this.isWebGL2 = isWebGL2;
 
         return options;
+
+    },
+
+    getWebGL2: function () {
+
+        return this.isWebGL2;
 
     },
 

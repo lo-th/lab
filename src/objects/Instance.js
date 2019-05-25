@@ -114,21 +114,18 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
     setMaterial: function ( o ) {
 
     	var extraFrag = [
-    	'varying mat4 mvmtx;',
+    	//'varying mat4 mvmtx;',
     	].join("\n");
 
-    	var extra = [
+    	var extra_V2 = [
     	    'uniform mat4 cmtx;',
-    	    'varying mat4 mvmtx;',
+    	    //'varying mat4 mvmtx;',
 			'attribute vec3 offset;',
 			'attribute vec3 scales;',
 			'attribute vec4 orientation;',
-			'vec3 applyTRS( vec3 position, vec3 translation, vec4 quaternion, vec3 scale ) {',
-			'   position *= scale;',
-			'   position += 2.0 * cross( quaternion.xyz, cross( quaternion.xyz, position ) + quaternion.w * position );',
-			'   return position + translation;',
-			'}',
+
 			'mat4 tmpWorldMatrix( vec3 position, vec4 quaternion, vec3 scale ) {',
+
 				'float x = quaternion.x, y = quaternion.y, z = quaternion.z, w = quaternion.w;',
 				'float x2 = x + x,	y2 = y + y, z2 = z + z;',
 				'float xx = x * x2, xy = x * y2, xz = x * z2;',
@@ -156,7 +153,62 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 				'B[3][2] = position.z;',
 				'B[3][3] = 1.0;',
 			    'return B;',
+
 			'}',
+
+			'mat3 getNormalMatrix( mat4 A ) {',
+
+			    'return transpose( inverse( mat3( A ) ) );',
+			    
+			'}',
+			
+		].join("\n");
+
+    	var extra_V1 = [
+    	    'uniform mat4 cmtx;',
+    	    //'varying mat4 mvmtx;',
+			'attribute vec3 offset;',
+			'attribute vec3 scales;',
+			'attribute vec4 orientation;',
+
+			/*'vec3 applyTRS( vec3 position, vec3 translation, vec4 quaternion, vec3 scale ) {',
+			'   position *= scale;',
+			'   position += 2.0 * cross( quaternion.xyz, cross( quaternion.xyz, position ) + quaternion.w * position );',
+			'   return position + translation;',
+			'}',*/
+
+			'mat4 tmpWorldMatrix( vec3 position, vec4 quaternion, vec3 scale ) {',
+
+				'float x = quaternion.x, y = quaternion.y, z = quaternion.z, w = quaternion.w;',
+				'float x2 = x + x,	y2 = y + y, z2 = z + z;',
+				'float xx = x * x2, xy = x * y2, xz = x * z2;',
+				'float yy = y * y2, yz = y * z2, zz = z * z2;',
+				'float wx = w * x2, wy = w * y2, wz = w * z2;',
+				'float sx = scale.x, sy = scale.y, sz = scale.z;',
+				'mat4 B;',
+				'B[0][0] = ( 1.0 - ( yy + zz ) ) * sx;',
+				'B[0][1] = ( xy + wz ) * sx;',
+				'B[0][2] = ( xz - wy ) * sx;',
+				'B[0][3] = 0.0;',
+			 
+				'B[1][0] = ( xy - wz ) * sy;',
+				'B[1][1] = ( 1.0 - ( xx + zz ) ) * sy;',
+				'B[1][2] = ( yz + wx ) * sy;',
+				'B[1][3] = 0.0;',
+			 
+				'B[2][0] = ( xz + wy ) * sz;',
+				'B[2][1] = ( yz - wx ) * sz;',
+				'B[2][2] = ( 1.0 - ( xx + yy ) ) * sz;',
+				'B[2][3] = 0.0;',
+			 
+				'B[3][0] = position.x;',
+				'B[3][1] = position.y;',
+				'B[3][2] = position.z;',
+				'B[3][3] = 1.0;',
+			    'return B;',
+
+			'}',
+
 			'mat3 tmpInverse( mat3 A ) {',
 
 				'float n11 = A[0][0], n21 = A[0][1], n31 = A[0][2];',
@@ -200,23 +252,13 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 			    'B[2][2] = A[2][2];',
 			    'return B;',
 			'}',
-			'mat3 tmpNormalMatrix( mat4 A ) {',
 
-			    'mat3 B = mat3( A[0][0], A[0][1], A[0][2], A[1][0], A[1][1], A[1][2], A[2][0], A[2][1], A[2][2] );',
-			    /*
-			    'B[0][0] = A[0][0];',//0
-			    'B[0][1] = A[0][1];',//1
-			    'B[0][2] = A[0][2];',//2
+			'mat3 getNormalMatrix( mat4 A ) {',
 
-			    'B[1][0] = A[1][0];',//3
-			    'B[1][1] = A[1][1];',//4
-			    'B[1][2] = A[1][2];',//5
-
-			    'B[2][0] = A[2][0];',//6
-			    'B[2][1] = A[2][1];',//7
-			    'B[2][2] = A[2][2];',//8
-			    */
-			    'return tmpTranspose( tmpInverse(B) );',
+			    //'if( isGL2 ) return transpose( inverse( mat3( A ) ) );',
+			    //'else 
+			    'return tmpTranspose( tmpInverse( mat3( A[0][0], A[0][1], A[0][2], A[1][0], A[1][1], A[1][2], A[2][0], A[2][1], A[2][2] ) ) );',
+			    
 			'}',
 			
 		].join("\n");
@@ -224,7 +266,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 		var extraMain0 = [
 			'mat4 world = tmpWorldMatrix( offset, orientation, scales );',
 			'mat4 viewMatrix = (cmtx*world);',
-			'mat3 normalMtx = tmpNormalMatrix( viewMatrix );',
+			'mat3 normalMtx = getNormalMatrix( viewMatrix );',
 			//'vec3 objectNormal = (world * vec4( normal , 1.0 )).xyz;',
 			//'vec3 objectNormal = (viewMatrix * vec4( normal , 1.0 )).xyz;',
 			'vec3 objectNormal = vec3( normal );',
@@ -282,9 +324,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 
     		shader.uniforms['cmtx'] = { value: view.camera.matrixWorldInverse };
 
-    		
-
-    		shader.vertexShader = extra + '\n' + shader.vertexShader;
+    		shader.vertexShader = ( view.isWebGL2 ? extra_V2 : extra_V1 ) + '\n' + shader.vertexShader;
     		shader.vertexShader = shader.vertexShader.replace( '#include <beginnormal_vertex>', extraMain0 );
     		shader.vertexShader = shader.vertexShader.replace( '#include <defaultnormal_vertex>', extraMain20 )
     		//shader.vertexShader = shader.vertexShader.replace( '#include <begin_vertex>', extraMain );

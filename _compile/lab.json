@@ -20,6 +20,7 @@
     "src/objects/Terrain.js",
     "src/objects/Lensflare.js",
     "src/objects/Environement.js",
+    "src/objects/Instance.js",
     "src/helpers/CarHelper.js",
     "src/helpers/PointHelper.js",
     "src/intro.js",
