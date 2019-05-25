@@ -24,7 +24,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 
     setGeometry: function ( o ) {
 
-    	if(this.geometry!==undefined) this.geometry.dispose();
+    	this.clear();
 
     	var bufferGeometry = o.geometry || new THREE.BoxBufferGeometry( 2, 2, 2 );
 
@@ -317,6 +317,12 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ),
 
     	this.scaleAttribute.needsUpdate = true;
     	
+    },
+
+    clear: function () {
+
+    	if( this.geometry !== undefined ) this.geometry.dispose();
+
     },
 
 });

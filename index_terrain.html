@@ -37,10 +37,14 @@ var editor;
 var view;
 
 var terra;
+var instances = [];
 
 var hour = 6;
+var numT = 3000;
+
 var option = {
 	hour: 6,
+	demo:[ 3000, 6000, 9000, 12000 ],
 }
 
 
@@ -62,18 +66,19 @@ function start () {
 		withFps:true,
         base:option,
         function: applyOption,
-        hour: { min:0, max:24, precision:2, color:0xFFFF44 },
+        hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:30 },
+        demo: { type:'button', p:0, h:30, radius:3 },
 
     };
 
-	gui.init( document.body, options );
-	gui.resize(400);
 
-	
+	gui.init( document.body, options );
+	option.demo = 3000;
+	gui.resize(260);
 
 	addTerrain();
 
-	view.load ( [ 'tree.sea' ], addInstance, true, true );
+	view.load ( [ 'tree.sea' ], populate, true, true );
 }
 
 function addTerrain () {
@@ -94,7 +99,15 @@ function addTerrain () {
 
 }
 
-function addInstance () {
+function populate () {
+
+	addInstance( 3000 );
+
+}
+
+function addInstance ( num ) {
+
+	clear();
 
 	var tree1 = view.getMesh( 'tree', 'tree1' );
 	var tree2 = view.getMesh( 'tree', 'tree2' );
@@ -104,37 +117,39 @@ function addInstance () {
 	var scale = [];
 	var rot = [];
 
-	var n, j, num = 1000;
-	var x, z, s;
+	var i, n, j, inst, s, p;
+	var num = num !== undefined ? num/3 : 1000;
 
 	var mat = new THREE.MeshLambertMaterial({ map: view.texture( 'tree.png'),alphaTest:0.3, side:THREE.DoubleSide });
 
-	for (var i=0; i < 3; i++ ){
+	for ( i = 0; i < 3; i++ ){
 
 		pos = [];
 		scale = [];
 		rot = [];
 
-		for ( j=0; j < num; j++ ){
+		for ( j = 0; j < num; j++ ){
 
 			n = j*3;
-			x = Math.rand(-600, 600);
-			z = Math.rand(-600, 600);
-			pos.push( x, terra.getHeight(x, z), z );
 
+			p = testTerrain( 30 );
+
+			pos.push( p[0], p[1], p[2] );
+				
 			rot.push( Math.rand(-10, 10), Math.rand(-180, 180), Math.rand(-10, 10) );
 
 			s = Math.rand(2, 5);
 
 			scale.push(s,s,s);
-
+			
 		}
 
 		g = tree1.geometry;
-		if(i==1) g = tree2.geometry;
-		if(i==2) g = tree3.geometry;
+		if(i===1) g = tree2.geometry;
+		if(i===2) g = tree3.geometry;
 
-		var inst1 = new THREE.Instance({
+		inst = new THREE.Instance({
+
 			geometry: g,
 			material: mat,
 			num:num,
@@ -145,19 +160,40 @@ function addInstance () {
 
 		});
 
+		view.scene.add( inst );
+		instances.push( inst );
 
-		view.scene.add( inst1 );
 	}
 
-	
+}
 
+function testTerrain ( limit ) {
 
+	var x = Math.rand(-600, 600);
+	var z = Math.rand(-600, 600);
+	var y = terra.getHeight( x, z );
+	return [x,y,z];
+
+}
+
+function clear () {
+
+	var inst;
+
+	while ( instances.length > 0 ){ 
+
+		inst = instances.pop();
+		view.scene.remove( inst );
+		inst.clear();
+		
+	}
 
 }
 
 function applyOption () {
 
     if( hour !== option.hour ){ hour = option.hour; view.updateSky({hour:hour}); }
+    if( numT !== option.demo ){ numT = option.demo; addInstance( option.demo ); }
 
 }
 
