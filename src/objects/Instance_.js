@@ -14,58 +14,30 @@ THREE.Instance = function  ( o ) {
 
 	this.setGeometry( o );
 	this.setMaterial( o );
-	this.setShadow( o );
 
-	if( this.isAnimation ) this.mesh = new THREE.SkinnedMesh( this.geometry, this.material );
-	else this.mesh = new THREE.Mesh( this.geometry, this.material );
+	if( this.isAnimation ) THREE.SkinnedMesh.call( this, this.geometry, this.material );
+	else THREE.Mesh.call( this, this.geometry, this.material );
 
-	//console.log( this )
+	console.log( this )
 
-	this.mesh.castShadow = true;
-	this.mesh.receiveShadow = true;
-	this.mesh.frustumCulled = false;
+	this.castShadow = false;
+	this.receiveShadow = false;
+	this.frustumCulled = false;
 
-
-	THREE.Object3D.call( this );
-	this.add( this.mesh );
-
-	this.mesh.customDepthMaterial = this.depthMaterial;
-
-
-	if( this.isAnimation ){
-
-		this.mesh.skeleton = this.skeleton;
-		this.rootBone = this.skeleton.bones[ 0 ];
-		this.mesh.add( this.rootBone );
-
-		this.mesh.bind( this.skeleton, this.matrixWorld );
-		this.offsetMatrix = new THREE.Matrix4();
-
-		this.setMixer();
-
-		/*var parent = this.parent;
-		this.add( parent.children[ 0 ] ); // move bones under SkinnedMesh
-
-		while ( parent.children.length > 0 ) {
-
-			parent.remove( parent.children[ 0 ] );
-
-		}*/
+	/*if(this.isAnimation){
 			
-		//this.type = 'SkinnedMesh';
+		this.type = 'SkinnedMesh';
 	
-		/*this.bindMode = 'attached';
+		this.bindMode = 'attached';
 		this.bindMatrix = new THREE.Matrix4();
-		this.bindMatrixInverse = new THREE.Matrix4();*/
-	}
-
-	
+		this.bindMatrixInverse = new THREE.Matrix4();
+	}*/
 	//this.customDepthMaterial = this.materialDepth;
 
 
 }
 
-THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
+THREE.Instance.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
     constructor: THREE.Instance,
 
@@ -95,16 +67,10 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 		for ( name in attributes ){
 			//this.geometry.attributes[k] = source.attributes[k];
 
-			//var attribute = attributes[ name ];
-			this.geometry.addAttribute( name, source.getAttribute( name ) );
-			//this.geometry.addAttribute( name, attribute.clone() );
+			var attribute = attributes[ name ];
+			this.geometry.addAttribute( name, attribute.clone() );
 
 		}
-
-		//this.geometry.index = source.index;
-		this.geometry.setIndex( source.getIndex() );
-
-		//console.log(this.geometry)
 
 		// morph attributes
 
@@ -117,7 +83,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 				var array = [];
 				var morphAttribute = morphAttributes[ name ]; // morphAttribute: array of Float32BufferAttributes
 
-				for ( var i = 0, l = morphAttribute.length; i < l; i ++ ) {
+				for ( i = 0, l = morphAttribute.length; i < l; i ++ ) {
 
 					array.push( morphAttribute[ i ].clone() );
 
@@ -133,17 +99,14 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 		// animation
 		if( source.animations && this.isAnimation ){
 
-			this.skeleton = o.mesh.skeleton.clone();
-			//this.parent = o.mesh.parent
-			//console.log(this.parent)
+			this.skeleton = o.mesh.skeleton;
 			//
 			//this.geometry.animations = source.animations;
 		    //this.geometry.bones = source.bones;
 
-		    
+		    this.offsetMatrix = new THREE.Matrix4();
 
 		    var bones = this.skeleton.bones;
-
 
 		    var size = Math.sqrt( bones.length * 4 );
 			size = THREE.Math.ceilPowerOfTwo( size );
@@ -157,43 +120,14 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			boneTexture.type = THREE.FloatType;
 			boneTexture.needsUpdate = true;
 
-			this.skeleton.boneMatrices = boneMatrices
+
+
+			this.skeleton.boneMatrices = boneMatrices;
 			this.skeleton.boneTexture = boneTexture;
 			this.skeleton.boneTextureSize = size;
 
-			//
-
-			//var sourceAnimation = o.mesh.clips;
-			var sourceAnimation = source.animations;
-			this.clips = [];
-
-			for(var k = 0; k < sourceAnimation.length; k++ ){
-
-				var clip = sourceAnimation[k];
-				var track = clip.tracks;
-				var tracks = [];
-
-				for (var f=0; f<track.length; f++){
-
-					track[f].name = track[f].name.replace('.bones[', '');
-					track[f].name = track[f].name.replace('].', '.');
-
-					tracks.push( track[ f ].clone() );
-
-				}
-
-				var anim = new THREE.AnimationClip( clip.name, clip.duration, tracks )
-				//anim.optimize();
-				anim.trim()
-				anim.resetDuration();
-				//
-
-				//anim.validate()
-				this.clips.push( anim );
-
-			}
-
-			//console.log( source, this.clips )
+			this.animations = o.mesh.animations;
+			this.clips = o.mesh.clips;
 
 			this.skeleton.update = function () {};
 
@@ -213,7 +147,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			this.geometry.addAttribute( 'instanceNormalMatrixColumn2', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns2 ), 3 ) );
 			*/
 
-		    
+		    this.setMixer();
 		}
 
 		
@@ -226,7 +160,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 		  this.geometry.attributes[attributeName] = source.attributes[attributeName]
 		})*/
 
-
+		this.geometry.index = source.index;
 
 		this.offsets = new Float32Array( this.num * 3 );
 		this.scales = new Float32Array( this.num * 3 );
@@ -305,9 +239,9 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
     	var extraFrag = [
     	//'varying mat4 mvmtx;',
-    	].join('\n');
+    	].join("\n");
 
-    	this.vertexPars_V2 = [
+    	var extra_V2 = [
     	    'uniform mat4 cmtx;',
     	    'uniform float morpher[ 8 ];',
     	    //'varying mat4 mvmtx;',
@@ -353,9 +287,9 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			    
 			'}',
 			
-		].join('\n') + '\n';
+		].join("\n");
 
-    	this.vertexPars_V1 = [
+    	var extra_V1 = [
     	    'uniform mat4 cmtx;',
     	    'uniform float morpher[ 8 ];',
     	    //'varying mat4 mvmtx;',
@@ -453,56 +387,64 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			    
 			'}',
 			
-		].join('\n') + '\n';
+		].join("\n");
 
-		this.beginInstanceVertex = [
+		var extraMain0 = [
 			'mat4 world = ComposeWorldMatrix( offset, orientation, scales );',
-			'mat4 viewMatrix = ( cmtx * world );',
-			
+			'mat4 viewMatrix = (cmtx*world);',
+			'mat3 normalMtx = getNormalMatrix( viewMatrix );',
 			//'vec3 objectNormal = (world * vec4( normal , 1.0 )).xyz;',
 			//'vec3 objectNormal = (viewMatrix * vec4( normal , 1.0 )).xyz;',
-			/*'vec3 objectNormal = vec3( normal );',
+			'vec3 objectNormal = vec3( normal );',
 			'#ifdef USE_TANGENT',
 				'vec3 objectTangent = vec3( tangent.xyz );',
-			'#endif',*/
-		].join('\n') + '\n';
+			'#endif',
+		].join("\n");
 
-		/*var extraMain = [
+		var extraMain = [
 		    'vec3 transformed = (world * vec4( position , 1.0 )).xyz;',
 
 			//'vec3 transformed = applyTRS( position.xyz, offset, orientation, scales );',
-		].join('\n') + '\n';*/
+		].join("\n");
 
-		this.projectVertex = [
+		var extraMain2 = [
 		    
 		    'vec4 mvPosition = viewMatrix * vec4( transformed, 1.0 );',
+			//'vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );',
 			'gl_Position = projectionMatrix * mvPosition;',
+		].join("\n");
 
-		].join('\n') + '\n';
-
-		this.worldPosVertex = [
+		var extraMain3 = [
 			'#if defined( USE_ENVMAP ) || defined( DISTANCE ) || defined ( USE_SHADOWMAP )',
 			'vec4 worldPosition = world * vec4( transformed, 1.0 );',
 			'#endif',
-		].join('\n') + '\n';
+		].join("\n");
 
+		var extraMain20 = [
 
-		this.normalVertex = [
-		    'mat3 normalMtx = getNormalMatrix( viewMatrix );',
 		    'vec3 transformedNormal = normalMtx * objectNormal;',
+			//'vec3 transformedNormal = normalMatrix * objectNormal;',
 
 			'#ifdef FLIP_SIDED',
-				'transformedNormal = - transformedNormal;',
-			'#endif',
-			'#ifdef USE_TANGENT',
-				'vec3 transformedTangent = normalMatrix * objectTangent;',
-				'#ifdef FLIP_SIDED',
-					'transformedTangent = - transformedTangent;',
-				'#endif',
-			'#endif',
-		].join('\n') + '\n';
 
-		this.morping = [
+				'transformedNormal = - transformedNormal;',
+
+			'#endif',
+
+			'#ifdef USE_TANGENT',
+
+				'vec3 transformedTangent = normalMatrix * objectTangent;',
+
+				'#ifdef FLIP_SIDED',
+
+					'transformedTangent = - transformedTangent;',
+
+				'#endif',
+
+			'#endif',
+		].join("\n");
+
+		var morping = [
 
 		    '#ifdef USE_MORPHTARGETS',
 
@@ -521,9 +463,9 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 				'#endif',
 
 			'#endif',
-		].join('\n') + '\n';
+		].join("\n");
 
-		this.skinningParsChunk = [
+		var skinningParsChunk = [
 			'#ifdef USE_SKINNING',
 			'precision highp sampler2DArray;',
 			'uniform mat4 bindMatrix;',
@@ -547,27 +489,20 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			'#endif'
 		].join( '\n' ) + '\n';
 
-    	var self = this;
+    	
 
     	this.material.onBeforeCompile = function ( shader ) {
 
     		shader.uniforms['cmtx'] = { value: view.camera.matrixWorldInverse };
     		shader.uniforms['morpher'] = { value: [0,0,0,0,0,0,0,0] };
 
-    		shader.vertexShader = shader.vertexShader
-    		    .replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
-    		    .replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
-    		    .replace( '#include <defaultnormal_vertex>', self.normalVertex )
-    		    .replace( '#include <project_vertex>', self.projectVertex )
-    		    .replace( '#include <worldpos_vertex>', self.worldPosVertex );
-
-    		//shader.vertexShader = ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) + '\n' + shader.vertexShader;
-    		//shader.vertexShader = shader.vertexShader
-    		//shader.vertexShader = shader.vertexShader
+    		shader.vertexShader = ( view.isWebGL2 ? extra_V2 : extra_V1 ) + '\n' + shader.vertexShader;
+    		shader.vertexShader = shader.vertexShader.replace( '#include <beginnormal_vertex>', extraMain0 );
+    		shader.vertexShader = shader.vertexShader.replace( '#include <defaultnormal_vertex>', extraMain20 )
     		//shader.vertexShader = shader.vertexShader.replace( '#include <begin_vertex>', extraMain );
-    		//shader.vertexShader = shader.vertexShader
-    		//shader.vertexShader = shader.vertexShader
-    		if( self.isAnimation ) shader.vertexShader = shader.vertexShader.replace( '#include <skinning_pars_vertex>\n', self.skinningParsChunk );
+    		shader.vertexShader = shader.vertexShader.replace( '#include <project_vertex>', extraMain2 );
+    		shader.vertexShader = shader.vertexShader.replace( '#include <worldpos_vertex>', extraMain3 );
+    		shader.vertexShader = shader.vertexShader.replace( '#include <skinning_pars_vertex>\n', skinningParsChunk );
     		//shader.vertexShader = shader.vertexShader.replace( '#include <morphtarget_vertex>', morping );
 
     		shader.fragmentShader = extraFrag + '\n' + shader.fragmentShader;
@@ -584,60 +519,25 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
     },
 
-    setShadow: function () {
-
-    	this.depthMaterial = new THREE.MeshDepthMaterial( { 
-    		depthPacking: THREE.RGBADepthPacking,
-			skinning: this.isAnimation,
-			morphTargets: this.isMorph,
-	    });
-
-	    var self = this;
-
-	    this.depthMaterial.onBeforeCompile = function ( shader ) {
-
-	    	shader.uniforms['cmtx'] = { value: view.camShadow.matrixWorldInverse };
-
-	    	shader.vertexShader = shader.vertexShader
-				.replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
-				.replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
-    		   // .replace( '#include <defaultnormal_vertex>', self.normalVertex )
-    		    .replace( '#include <project_vertex>', self.projectVertex )
-    		    //.replace( '#include <worldpos_vertex>', self.worldPosVertex );
-
-    		 if( self.isAnimation ) shader.vertexShader = shader.vertexShader.replace( '#include <skinning_pars_vertex>\n', self.skinningParsChunk );
-	    }
-
-    },
-
     update: function ( delta ) {
 
     	if ( this.mixers.length === 0 ) return;
 
-    	var root = this.mixers[ 0 ]._root;
-		var geometry = root.geometry;
-		var skeleton = root.skeleton;
-
-        
-		//var geometry = this.geometry;
-		//var skeleton = this.skeleton;
+       
+		var geometry = this.geometry;
+		var skeleton = this.skeleton;
 		var bones = skeleton.bones;
 		var boneInverses = skeleton.boneInverses;
 		var boneMatrices = skeleton.boneMatrices;
 		var boneTexture = skeleton.boneTexture;
-		var identityMatrix = new THREE.Matrix4();
 
-		for ( var i = 0, il = this.num; i < il; i ++ ) {
+		for ( var i = 0, il = geometry.maxInstancedCount; i < il; i ++ ) {
 
 			this.mixers[ i ].update( delta );
-			this.rootBone.updateMatrixWorld();
-			//identityMatrix.copy(this.rootBone.matrixWorld) 
+			//this.parent.updateMatrixWorld();
 
 			for ( var j = 0, jl = bones.length; j < jl; j ++ ) {
 
-				//var matrix = bones[ j ] ? bones[ j ].matrixWorld : identityMatrix;
-
-				//offsetMatrix.multiplyMatrices( matrix, boneInverses[ j ] );
 				this.offsetMatrix.multiplyMatrices( bones[ j ].matrixWorld, boneInverses[ j ] );
 				this.offsetMatrix.toArray( boneMatrices, j * 16 + i * boneTexture.image.width * boneTexture.image.height * 4 );
 
@@ -652,35 +552,18 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
     setMixer: function () {
 
     	this.mixers = [];
+    	var mixer, action;
 
     	for ( var i = 0; i < this.num; i ++ ) {
 
-    		var mixer = new THREE.AnimationMixer( this.mesh );
+    		mixer = new THREE.AnimationMixer( this );
 
-    		var n = Math.randInt(0, 2);
-    		var action;
-    		if(n===0) action = mixer.clipAction( this.clips[0] );
-    		else if(n===1) action = mixer.clipAction( this.clips[1] );
-    		else if(n===2) action = mixer.clipAction( this.clips[2] );
-    		
-    		action.loop = THREE.LoopRepeat;
+    		action = mixer.clipAction( this.clips[0] );
     		action.weight = 1;
-    		action.setLoop( THREE.LoopRepeat, Infinity ).reset();
-		    action.clampWhenFinished = false;
-		    action.paused = false;
-		    action.play()
+    		action.timeScale = 1;
+    		action.play();
 
-		//action.setEffectiveWeight( 1 ).play();
-    		//a
-    		mixer.timeScale = 0.1 + Math.random();
-    		//action.weight = Math.random() * 0.5 + 0.5;
-			//action.timeScale = Math.random() * 0.5 + 0.75;
-
-    		
-    		//console.log(mixer)
-
-    		mixer.update( 0 );
-    		//
+    		mixer.update( Math.random() );
 
     		this.mixers.push( mixer );
 
@@ -691,16 +574,14 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
     setMorph: function ( v ) {
 
     	//this.material.uniforms.morpher.value[ 0 ] = v;
-    	this.mesh.morphTargetInfluences[ 0 ] = v;
+    	this.morphTargetInfluences[ 0 ] = v;
     },
 
-    
-
-    /*play: function ( v ) {
+    play: function ( v ) {
 
     	//this.material.uniforms.morpher.value[ 0 ] = v;
     	//this.morphTargetInfluences[ 0 ] = v;
-    },*/
+    },
 
     setPosition: function ( ar ) {
 
@@ -722,7 +603,6 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
     clear: function () {
 
-    	if( this.mesh !== undefined ) this.remove( this.mesh );
     	if( this.geometry !== undefined ) this.geometry.dispose();
 
     },
