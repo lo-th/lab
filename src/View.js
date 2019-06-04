@@ -10,6 +10,7 @@ function View ( forceV1 ) {
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
     this.rayCallBack = function(){};
+    this.resetCallBack = function(){};
     this.tmpName = [];
 
     this.pause = false;
@@ -289,6 +290,8 @@ View.prototype = {
 
 	reset: function ( full ) {
 
+        this.resetCallBack();
+
         this.controler.resetFollow();
 
         this.setShadowRange();
@@ -337,6 +340,7 @@ View.prototype = {
 
         this.update = function () {};
         this.tmpCallback = function(){};
+        this.resetCallBack = function(){};
         this.byName = {};
 
         if( full ){
