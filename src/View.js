@@ -5,7 +5,7 @@
 *    @author lo.th / https://github.com/lo-th
 */
 
-function View ( forceV1 ) {
+function View ( forceV1, bg, alpha ) {
 
     this.loadCallback = function(){};
     this.tmpCallback = function(){};
@@ -15,6 +15,8 @@ function View ( forceV1 ) {
 
     this.pause = false;
     this.isPause = false;
+
+    this.container = null;
 
     this.fog = null;
 
@@ -42,7 +44,7 @@ function View ( forceV1 ) {
 	this.t = [0,0,0,0];
     this.delta = 0;
     this.fps = 0;
-	this.bg = 0x222322;//151515;
+	this.bg = bg || 0x222322;
 	this.vs = { w:1, h:1, l:0, x:0, y:0 };
 
 	this.agents = [];
@@ -64,11 +66,14 @@ function View ( forceV1 ) {
     this.tmpTxt = {};
     this.tmpMat = {};
 
+    this.isGl2 = false;
+    this.isInContainer = false;
+
 
 
 	// 1 CANVAS GL1 or GL2
 
-    var options = this.getGL( forceV1 );
+    var options = this.getGL( forceV1, alpha );
 
     // 2 RENDERER
     try {
@@ -93,7 +98,7 @@ function View ( forceV1 ) {
 
     this.camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
     this.camera.position.set( 0, 15, 30 );
-    this.controler = new THREE.OrbitControlsExtra( this.camera, this.canvas );
+    this.controler = new THREE.OrbitControlsExtra( this.camera, this.renderer.domElement ); //this.canvas );
     this.controler.target.set( 0, 0, 0 );
     this.controler.enableKeys = false;
     this.controler.screenSpacePanning = true;
@@ -130,8 +135,9 @@ function View ( forceV1 ) {
     // 6 RESIZE
 
     this.resize();
-    var _this = this;
-    window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
+    //var _this = this;
+    //window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
+    window.addEventListener( 'resize', this.resize.bind(this), false );
 
     // 7 KEYBOARD & JOSTICK 
 
@@ -152,9 +158,18 @@ View.prototype = {
 
 	byName: {},
 
-    
+    setContainer: function ( container ){
 
-    getGL: function ( forceV1 ) {
+        this.container = container;
+        document.body.removeChild( this.canvas );
+        this.container.appendChild( this.canvas );
+
+        this.canvas.style.position = 'absolute';
+        this.resize();
+
+    },
+
+    getGL: function ( forceV1, alpha ) {
 
         //forceV1 = true;
 
@@ -174,7 +189,7 @@ View.prototype = {
         }*/
 
         var options = { 
-            antialias: this.isMobile ? false : true, alpha: false, 
+            antialias: this.isMobile ? false : true, alpha: alpha || false, 
             stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
         }
 
@@ -195,17 +210,19 @@ View.prototype = {
         options.canvas = canvas;
         options.context = gl;
         this.canvas = canvas;
+
+        this.isGl2 = isWebGL2;
         //this.isWebGL2 = isWebGL2;
 
         return options;
 
     },
 
-    getWebGL2: function () {
+    /*getWebGL2: function () {
 
         return this.isWebGL2;
 
-    },
+    },*/
 
     init: function ( Callback, noObj ) {
 
@@ -245,6 +262,10 @@ View.prototype = {
 
         requestAnimationFrame(  function(s){ _this.render(s); } );
 
+        //requestAnimationFrame(  this.render.bind( this ) );
+
+        if( this.controler.enableDamping ) this.controler.update();
+
         if( this.pause ) this.isPause = true;
         if( this.isPause && !this.pause ){ this.isPause = false; unPause(); }
 
@@ -257,7 +278,7 @@ View.prototype = {
         TWEEN.update(); // tweener
 
         this.updateExtra();
-        this.update();
+        this.update( this.delta );
 
 
 		if( this.isNeedUpdate ){
@@ -269,12 +290,8 @@ View.prototype = {
 
            // this.update();
             this.updateIntern();
-            
             this.controler.follow();
             
-            
-			
-
 		}
 
 
@@ -296,7 +313,7 @@ View.prototype = {
 
         this.setShadowRange();
 
-        //this.removeAudio();
+        this.removeAudio();
 
         this.isNeedUpdate = false;
 
@@ -384,10 +401,15 @@ View.prototype = {
 
 	resize: function ( e ) {
 
-		//this.needResize = false;
-		var v = this.vs;
-		var w = window.innerWidth - v.x - v.y;
-		var h = window.innerHeight;
+        var w, h, v = this.vs;
+
+        if(this.container !== null ){
+            w = this.container.offsetWidth - v.x - v.y;
+            h = this.container.offsetHeight; 
+        } else {
+            w = window.innerWidth - v.x - v.y;
+            h = window.innerHeight;
+        }
 
 		if( v.w !== w || v.h !== h ){
 
@@ -400,6 +422,8 @@ View.prototype = {
 
 		}
     },
+
+    
 
     upResize: function () {
 
@@ -547,7 +571,7 @@ View.prototype = {
 	getFps: function () { return this.fps; },
 	getEnvMap: function () { return this.envmap; },
     getSun: function (){ return this.sun.position.clone().normalize(); },
-    getAzimuthal: function (){ return -this.getControls().getAzimuthalAngle(); },
+    getAzimuthal: function (){ return -this.controler.getAzimuthalAngle(); },
     getGeo: function () { return this.geo; },
     getMat: function () { return this.mat; },
     getScene: function () { return this.scene; },
@@ -557,6 +581,8 @@ View.prototype = {
 	getControls: function () { return this.controler; },
     getCamera: function () { return this.camera; },
     getMouse: function () { return this.mouse; },
+    //getDom: function () { return this.canvas; },
+    getDom: function () { return this.renderer.domElement; },
     //getOffset: function () { return this.offset; },
 
 
@@ -649,6 +675,7 @@ View.prototype = {
             option.reflectivity = option.metalness || 0.5;
             delete( option.metalness ); 
             delete( option.roughness );
+            delete( option.envMapIntensity );
         }
 
         option.envMap = this.envmap;
@@ -701,7 +728,7 @@ View.prototype = {
 
     initMaterial: function (){
 
-        this.check = this.loader.load( './assets/textures/check.jpg' );
+        this.check = new THREE.Texture();//this.loader.load( './assets/textures/check.jpg' );
         this.check.repeat = new THREE.Vector2( 2, 2 );
         this.check.wrapS = this.check.wrapT = THREE.RepeatWrapping;
 
@@ -991,7 +1018,9 @@ View.prototype = {
     //
     //-----------------------------
 
-    addShadow: function(){
+    addShadow: function( o ){
+
+        o = o || {};
 
     	if( this.isWithShadow ) return;
         if( !this.isWithLight ) this.addLights();
@@ -1034,9 +1063,9 @@ View.prototype = {
         //this.followGroup.add( this.camShadow );
         this.sun.shadow = new THREE.LightShadow( this.camShadow );
 
-        this.sun.shadow.mapSize.width = 2048;
-        this.sun.shadow.mapSize.height = 2048;
-        this.sun.shadow.bias = 0.00001;
+        this.sun.shadow.mapSize.width = o.resolution || 2048;
+        this.sun.shadow.mapSize.height = o.resolution || 2048;
+        this.sun.shadow.bias = o.bias || 0.00001;
         //this.sun.shadow.bias = 0.0001;
         this.sun.castShadow = true;
 
@@ -1062,6 +1091,8 @@ View.prototype = {
         cam.bottom = - d;*/
         cam.near = ( near !== undefined ) ? near : 100;
         cam.far = ( far !== undefined ) ? far : 300;
+
+        this.shadowGround.scale.set( d*2, 1, d*2 );
 
         this.camShadow.updateProjectionMatrix();
 
@@ -1101,9 +1132,11 @@ View.prototype = {
     //
     //-----------------------------
 
-    initGrid: function ( c1, c2 ){
+    initGrid: function ( o ){
 
-        this.grid = new THREE.GridHelper( 40, 16, c1 || 0x111111, c2 || 0x050505 );
+        o = o || {};
+
+        this.grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
         this.grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
         //this.grid.position.y = -0.001;
         //this.grid.rotation.x = -Math.Pi*0.5;
@@ -1238,7 +1271,7 @@ View.prototype = {
     //
     //-----------------------------
 
-    activeRay: function ( callback, debug ) {
+    activeRay: function ( callback, debug, size ) {
 
         if( this.isWithRay ) return;
 
@@ -1251,7 +1284,7 @@ View.prototype = {
 
         this.dragPlane.castShadow = false;
         this.dragPlane.receiveShadow = false;
-        this.setDragPlane( null, 100 );
+        this.setDragPlane( null, size );
         this.scene.add( this.dragPlane );
 
         this.fray = function(e){ this.rayTest(e); }.bind( this );
@@ -1459,10 +1492,27 @@ View.prototype = {
         console.log('Shader hack')
 
 
+    },
 
+    loadJson: function ( link, callback ) {
 
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', link, true );
+        xhr.overrideMimeType("application/json");
 
+        xhr.onreadystatechange = function () {
 
-    }
+            if ( xhr.readyState === 2 ) { 
+            } else if ( xhr.readyState === 3 ) {
+            } else if ( xhr.readyState === 4 ) {
+                if ( xhr.status === 200 || xhr.status === 0 ) callback( JSON.parse( xhr.response ) );
+                else console.error( "Couldn't load ["+ link + "] [" + xhr.status + "]" );
+            }
+
+        };
+        
+        xhr.send( null );
+
+    },
 
 }

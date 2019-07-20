@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Robot</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="shortcut icon" href="favicon.ico">
+<style> body { margin: 0px; background-color: #404040; overflow: hidden; } </style>
+<script src="./build/lab.js"></script>
+<script src="./src/libs/uil.js"></script>
+
+</head>
+
+<body>
+
+<script>
+	var setting = {
+
+		mini_view: false,
+
+		Axis_1:0,
+		Axis_2:90,
+		Axis_3:0,
+		Axis_4:90,
+		Axis_5:0,
+		Gripper:3,
+
+	}
+
+	var view = new View();
+
+    view.initGrid({s1:140, s2:14, c1:0x000000, c2:0x222222});
+
+
+	
+	UIL.Tools.colors.backgroundOver = 'rgba(0,0,0,0)';
+	UIL.Tools.colors.button = 'rgba(10,10,10,1)';
+	UIL.Tools.colors.boolbg = 'rgba(0,0,0,0.1)';
+	UIL.Tools.colors.border = 'rgba(0,0,0,0.3)';
+	UIL.Tools.colors.input = '#a63724';
+	UIL.Tools.setText( 16, '#000', 'Trebuchet MS, Geneva, sans-serif', '1px 1px 2px rgba(0,0,0,0.3)' )
+
+	ui = new UIL.Gui({ w:300, h:30, close:false, bg:'rgba(0,0,0,0)' });
+
+	ui.add( setting, 'mini_view', { type:'bool', fontColor:color, p:75, inh:12 }).listen().onChange( callback );
+
+	
+
+	ui.add( setting, 'Axis_1', { min:-169, max:169, fontColor:color, p:20, sc:sc })//.listen()//.onChange( youbot.moveArm );
+
+	ui.add( setting, 'mini_view', { type:'bool', fontColor:color, p:75, inh:12 })//.listen()//.onChange( youbot.setMiniView );
+
+	var gr0 = ui.add('group', { name:'ARM', bg:'rgba(0,0,0,0)', h:22 });
+	var color = '#a63724';
+	var w = 72;
+	var sc = 50;
+
+
+	
+	gr0.add( setting, 'Axis_2', { min:-65,  max:90, precision:0, step:1, mode:2, fontColor:color, p:20, sc:sc }).listen()//.onChange( youbot.moveArm );
+	gr0.add( setting, 'Axis_3', { min:-151, max:146, precision:0, step:1, mode:2, fontColor:color, p:20, sc:sc }).listen()//.onChange( youbot.moveArm );
+	gr0.add( setting, 'Axis_4', { min:-102, max:102, precision:0, step:1, mode:2, fontColor:color, p:20, sc:sc }).listen()//.onChange( youbot.moveArm );
+	gr0.add( setting, 'Axis_5', { min:-167, max:167, precision:0, step:1, mode:2, fontColor:color, p:20, sc:sc }).listen()//.onChange( youbot.moveArm );
+	// gr0.add( setting, 'Gripper', { min:0, max:3, precision:2, step:0.01, mode:2, fontColor:'#2BABFF', p:20, sc:sc }).listen().onChange( youbot.moveArm );
+
+	gr0.add('button', { name:'gripper', fontColor:'#000', bColor:'#888', h:22, value:['OPEN', 'CLOSE'], p:0, radius:6 })//.onChange( youbot.gripper );
+
+	gr0.open();
+
+	function callback (){
+
+	}
+</script>
+
+</body>
+</html>

@@ -9,6 +9,8 @@ function Environement ( view ) {
 
     this.mapReady = 0;
     this.shaderReady = false;
+    this.isPreload = false;
+    this.isPreloadShader = false;
     this.callback = function (){};
 
 
@@ -22,10 +24,15 @@ function Environement ( view ) {
     // textures Loader
     this.loader = view.loader;
 
-	this.basicEnvmap = this.loader.load( './assets/textures/spherical/sky.jpg', function ( texture ) { texture.mapping = THREE.SphericalReflectionMapping; this.mapReady++; this.callback(); }.bind(this) );
+    this.basicEnvmap = new THREE.Texture();
+
+
+
+    // basic map
+
+	/*this.basicEnvmap = this.loader.load( './assets/textures/spherical/sky.jpg', function ( texture ) { texture.mapping = THREE.SphericalReflectionMapping; this.mapReady++; this.callback(); }.bind(this) );
     this.noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.mapReady++; this.callback(); }.bind(this)  );
     this.nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.mapReady++; this.callback(); }.bind(this)  );
-    //this.view.envmap = this.basicEnvmap;
 
     // shader Loader
     this.shader = new THREE.ShaderLoader();
@@ -40,7 +47,7 @@ function Environement ( view ) {
         this.shaderReady = true; 
         this.callback();
 
-    }.bind(this) );
+    }.bind(this) );*/
 
 	this.isHdr = false;
 
@@ -142,9 +149,20 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     constructor: Environement,
 
+    setResolution: function ( r ) {
+
+        this.resolution = r;
+        var options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
+        this.camera = new THREE.CubeCamera( 0.1, 1, this.resolution, options );
+
+
+    },
+
     defaultSky: function () {
         
         //this.material.dispose();
+
+        
         
 
         this.isAutoSky = false;
@@ -263,25 +281,29 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     initBasicSky: function ( texture, mapHdr ) {
 
+        if( texture !== undefined ) this.tmptexture = texture;
+        if( mapHdr !== undefined ) this.tmpMapHdr = mapHdr !== undefined ? mapHdr : false;
+
+        //if( !this.isPreloadShader ) this.preloadderShader();
+
     	if( !this.isBasicSky ){
 
-            if( !this.shaderReady ){
+            /*if( !this.shaderReady ){
                 this.callback = this.initBasicSky;
                 return;
             } else {
                 this.callback = function (){};
-            }
+            }*/
 
     		this.material.dispose();
-
 	    	this.material = new THREE.ShaderMaterial( BasicSky );
 	    	this.sphere.material = this.material;
 	    	this.isBasicSky = true;
 
     	}
 
-    	this.material.uniforms.map.value = texture;
-        this.material.uniforms.isHdr.value = mapHdr ? 1 : 0;
+    	this.material.uniforms.map.value = this.tmptexture;
+        this.material.uniforms.isHdr.value = this.tmpMapHdr ? 1 : 0;
         //this.needsUpdate = true;
 
         this.render();
@@ -290,13 +312,51 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     },
 
+    preloadderShader: function () {
+
+        this.isPreloadShader = true;
+
+        // shader Loader
+        this.shader = new THREE.ShaderLoader();
+        this.shader.path = './assets/shaders/';
+        this.shader.load(['sky_f.fs'], function () { 
+            
+            //BasicSky.vertexShader = this.shader.shader.sky_v;
+            //BasicSky.fragmentShader = this.shader.shader.basic_sky_f;
+            SuperSkyShader.vertexShader = BasicSky.vertexShader;//this.shader.shader.sky_v;
+            SuperSkyShader.fragmentShader = this.shader.shader.sky_f;
+
+            this.shaderReady = true; 
+            this.callback();
+
+        }.bind(this) );
+
+    },
+
+    preloadder: function () {
+
+        this.isPreload = true;
+
+        // basic map
+
+        //this.basicEnvmap = this.loader.load( './assets/textures/spherical/sky.jpg', function ( texture ) { texture.mapping = THREE.SphericalReflectionMapping; this.mapReady++; this.callback(); }.bind(this) );
+        this.noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.mapReady++; this.callback(); }.bind(this)  );
+        this.nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.mapReady++; this.callback(); }.bind(this)  );
+
+
+    },
+
     initAutoSky: function () {
+
 
     	if( !this.isAutoSky ){
 
+            if( !this.isPreload ) this.preloadder();
+            if( !this.isPreloadShader ) this.preloadderShader();
+
             //console.log(this.mapReady)
 
-            if( this.mapReady !== 3 || !this.shaderReady ){
+            if( this.mapReady !== 2 || !this.shaderReady ){
                 this.callback = this.initAutoSky;
                 return;
             } else {
@@ -573,8 +633,6 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
 		view.updateEnvMap();
 
-        //console.log( 'final' )
-
 
     },
 
@@ -729,19 +787,23 @@ var BasicSky = {
         decode: { value: 0 },
         isHdr: { value: 1 },
         rev: { value: 0 },
+        alpha:{ value: 0.5 },
     },
 
     //vertexShader: this.shader.shader.sky_v,
     //fragmentShader: this.shader.shader.basic_sky_f,
 
 
-    /*vertexShader: [
+    vertexShader: [
     'varying vec2 vUv;',
+    'varying vec3 worldPosition;',
     'void main() {',
         'vUv = uv;',
+        'worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
         'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
     '}'
     ].join("\n"),
+
     fragmentShader: [
 
     '#include <common>',
@@ -752,7 +814,6 @@ var BasicSky = {
 		'float maxComponent = max( max( value.r, value.g ), value.b );',
 		'float fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );',
 		'return vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );',
-	    //'return vec4( value.brg, ( 3.0 + 128.0 ) / 256.0 );',
 	'}',
 
     'vec4 toHDR( in vec4 c ) {',
@@ -761,29 +822,23 @@ var BasicSky = {
         'return ToRGBE( vec4(v.r, v.g, v.b, 1.0) );',
     '}',
 
-    'vec4 HdrEncode(vec3 value) {',
-		//'value = value / 65536.0;',
-		'vec3 exponent = clamp(ceil(log2(value)), -128.0, 127.0);',
-		'float commonExponent = max(max(exponent.r, exponent.g), exponent.b);',
-		'float range = exp2(commonExponent);',
-		'vec3 mantissa = clamp(value / range, 0.0, 1.0);',
-		'return vec4(mantissa, (commonExponent + 128.0)/256.0);',
-	'}',
-
     'uniform sampler2D map;',
     'uniform int decode;',
     'uniform int isHdr;',
     'uniform int rev;',
     'varying vec2 vUv;',
+    'uniform float alpha;',
 
     'void main() {',
         'int flip = isHdr;',
         'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, flip == 1 ? 1.0 - vUv.y : vUv.y );',
         'vec4 c = texture2D( map, uVx );',
         'vec4 color = isHdr == 1 ? c : toHDR( c );',
+        
         'gl_FragColor = decode == 1 ? RGBEToLinear( color ) : color;',
     '}'
-    ].join("\n"),*/
+    ].join("\n"),
+
     depthTest: false,
     depthWrite: false,
     side: THREE.BackSide,

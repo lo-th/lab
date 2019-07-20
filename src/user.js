@@ -32,6 +32,9 @@ var user = ( function () {
     var isInit = false;
     var isSameAxis = false;
 
+    var fscreen = function (){};
+    var noui = function (){};
+
     user = {
 
         axeL:[0,0],
@@ -81,6 +84,18 @@ var user = ( function () {
 
         },
 
+        setFscreen: function ( f ) {
+
+            fscreen = f;
+
+        },
+
+        setNoUI: function ( f ) {
+
+            noui = f;
+
+        },
+
         setSameAxis: function ( v ){
 
             isSameAxis = v;
@@ -90,7 +105,7 @@ var user = ( function () {
 
         keyDown: function ( e ) {
 
-            if( editor.getFocus() ) return;
+            if( editor ) if( editor.getFocus() ) return;
 
             var key = user.key;
 
@@ -112,6 +127,8 @@ var user = ( function () {
                     
                     case 16:          key[7] = 1; break; // shift
                     //case 71:          view.hideGrid(); break; // G
+                    case 121:         noui(); break; // f10
+                    case 122:         fscreen(); break; // f11
                 }
 
             } else {
@@ -134,6 +151,9 @@ var user = ( function () {
                     case 69:          key[5] = 1; break; // E
                     
                     case 16:          key[7] = 1; break; // shift
+                    case 121:         noui(); break; // f10
+                    case 122:         fscreen(); break; // f11
+                    
                     //case 71:          view.hideGrid(); break; // G
                 }
             }
@@ -147,13 +167,13 @@ var user = ( function () {
 
             //console.log( e.which, String.fromCharCode(e.which) );
             e.preventDefault();
-            e.stopPropagation();
+            //e.stopPropagation();
 
         },
 
         keyUp: function ( e ) {
 
-            if( editor.getFocus() ) return;
+            if( editor ) if( editor.getFocus() ) return;
 
             var key = user.key;
 
@@ -206,7 +226,7 @@ var user = ( function () {
             // send to worker
             //ammo.send( 'key', key );
             e.preventDefault();
-            e.stopPropagation();
+            //e.stopPropagation();
 
         },
 

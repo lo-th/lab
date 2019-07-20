@@ -38,15 +38,15 @@ array.sort(function (a, b) { return a - b});
 //Sort Aarray in descending order
 array.sort(function (a, b) { return b - a});
 */
-Math.torad = 0.0174532925199432957;
-Math.todeg = 57.295779513082320876;
-Math.Pi = 3.141592653589793;
-Math.TwoPI = 6.283185307179586;
-Math.PI90 = 1.570796326794896;
-Math.PI45 = 0.7853981633973;
+Math.torad = Math.PI / 180;//0.0174532925199432957;
+Math.todeg = 180 / Math.PI;//57.295779513082320876;
+Math.Pi = Math.PI;//3.141592653589793;
+Math.TwoPI = Math.PI*2;//6.283185307179586;
+Math.PI90 = Math.PI*0.5;//1.570796326794896;
+Math.PI45 = Math.PI*0.25;//0.7853981633973;
 Math.PI270 = 4.712388980384689;
 Math.inv255 = 0.003921569;
-Math.golden = 10.166407384630519;
+Math.golden = 1.618;
 
 Math.int = function(x) { return Math.floor(x); };
 
@@ -57,6 +57,8 @@ Math.int = function(x) { return Math.floor(x); };
 Math.lerp = function ( x, y, t ) { return ( 1 - t ) * x + t * y; };
 Math.rand = function ( low, high ) { return low + Math.random() * ( high - low ); };
 Math.randInt = function ( low, high ) { return low + Math.floor( Math.random() * ( high - low + 1 ) ); };
+
+Math.toFixed = function ( v, n ) { return v.toFixed( n ) * 1; }
 
 Math.seed = function( s ) { return function() { s = Math.sin(s) * 10000; return s - Math.floor(s); }; };
 Math.seed1 = Math.seed(32);
@@ -143,6 +145,15 @@ Math.rot2d = function ( v, d, angle ) {
 
 }
 
+Math.distanceBetween = function ( v1, v2 ) {
+
+    var dx = v2.x - v1.x;
+    var dy = v2.y - v1.y;
+    var dz = v1.z !== undefined ? v2.z - v1.z : 0;
+    return Math.sqrt( dx * dx + dy * dy + dz * dz );
+
+}
+
 Math.dist2d = function ( v1, v2 ) {
 
     var dx = v2.x - v1.x;
@@ -165,6 +176,19 @@ Math.colorDistance = function ( a, b ){
 Math.rgbToHex = function( rgb ){
 
     return '0x' + ( '000000' + ( ( rgb[0] * 255 ) << 16 ^ ( rgb[1] * 255 ) << 8 ^ ( rgb[2] * 255 ) << 0 ).toString( 16 ) ).slice( - 6 );
+
+};
+
+Math.hexToHtml = function ( v ) { 
+    
+    v = v === undefined ? 0x000000 : v;
+    return "#" + ("000000" + v.toString(16)).substr(-6);
+    
+};
+
+Math.rgbToHtml = function( rgb ){
+
+    return '#' + ( '000000' + ( ( rgb[0] * 255 ) << 16 ^ ( rgb[1] * 255 ) << 8 ^ ( rgb[2] * 255 ) << 0 ).toString( 16 ) ).slice( - 6 );
 
 };
 

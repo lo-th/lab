@@ -171,14 +171,16 @@
 
 	    // custom text
 
-	    setText : function( size, color, font ){
+	    setText : function( size, color, font, Shadow ){
 
 	        size = size || 11;
 	        color = color || '#CCC';
 	        font = font || 'Monospace';//'"Consolas", "Lucida Console", Monaco, monospace';
 
+
 	        T.colors.text = color;
 	        T.css.txt = T.css.basic + 'font-family:'+font+'; font-size:'+size+'px; color:'+color+'; padding:2px 10px; left:0; top:2px; height:16px; width:100px; overflow:hidden; white-space: nowrap;';
+	        if(Shadow) T.css.txt += ' text-shadow:'+ Shadow + '; '; //"1px 1px 1px #ff0000";
 	        T.css.txtselect = T.css.txt + 'padding:2px 5px; border:1px dashed ' + T.colors.border+';';
 	        T.css.item = T.css.txt + 'position:relative; background:rgba(0,0,0,0.2); margin-bottom:1px;';
 
@@ -657,6 +659,7 @@
 	    oldCursor:'auto',
 
 	    input: null,
+	    parent: null,
 	    firstImput: true,
 	    callbackImput: null,
 
@@ -1087,20 +1090,25 @@
 	        if( R.input === null ) return;
 	        if( !R.firstImput ) R.callbackImput();
 
-	        R.input.style.background = 'none';
+	        //R.input.style.background = 'none';
+	        R.input.style.borderColor = R.parent.defaultBorderColor;//'rgba(0,0,0,0)';
+	        R.parent.isEdit = false;
 	        R.callbackImput = null;
 	        R.input = null;
+	        R.parent = null;
 	        R.firstImput = true;
 
 	    },
 
-	    setInput: function ( Input, Callback, color ) {
+	    setInput: function ( Input, Callback, color, parent ) {
 
 	        R.clearInput();
 	        
 	        R.callbackImput = Callback;
 	        R.input = Input;
-	        R.input.style.background = color;
+	        R.parent = parent;
+	        R.input.style.borderColor = color;
+	        //R.input.style.background = color;
 
 	    },
 
@@ -1113,6 +1121,10 @@
 	    editText: function ( e ) {
 
 	        if( R.input === null ) return;
+
+	        R.parent.isEdit = true;
+
+	        e.preventDefault();
 
 	        if( e.keyCode === 13 ){ //enter
 
@@ -1335,6 +1347,7 @@
 
 	    this.css = Tools.css;
 	    this.colors = Tools.colors;
+	    this.defaultBorderColor = this.colors.border;
 	    this.svgs = Tools.svgs;
 
 	    this.zone = { x:0, y:0, w:0, h:0 };
@@ -1581,7 +1594,8 @@
 
 	    setInput: function ( Input, Callback ) {
 
-	        Roots.setInput( Input, Callback, Tools.colors.input );
+	        
+	        Roots.setInput( Input, Callback, Tools.colors.input, this );
 
 	    },
 
@@ -4564,18 +4578,18 @@
 
 	        if( n === this.cMode[name] ) return false;
 
-	        var m;
+	        //var m;
 
-	        switch(n){
+	        /*switch(n){
 
 	            case 0: m = this.colors.border; break;
 	            case 1: m = this.colors.borderOver; break;
 	            case 2: m = this.colors.borderSelect;  break;
 
-	        }
+	        }*/
 
 	        this.reset();
-	        this.c[name+2].style.borderColor = m;
+	        //this.c[name+2].style.borderColor = m;
 	        this.cMode[name] = n;
 
 	        return true;
@@ -4689,7 +4703,7 @@
 	        while(i--){ 
 	            if(this.cMode[i]!==0){
 	                this.cMode[i] = 0;
-	                this.c[2+i].style.borderColor = this.colors.border;
+	                //this.c[2+i].style.borderColor = this.colors.border;
 	                nup = true;
 	            }
 	        }
@@ -4765,18 +4779,26 @@
 	    if( o.mode !== undefined ) this.model = o.mode;
 	    this.buttonColor = o.bColor || this.colors.button;
 
+	    this.defaultBorderColor = this.colors.hide;
+
 	    this.isDown = false;
 	    this.isOver = false;
 	    this.allway = o.allway || false;
 
 	    this.firstImput = false;
 
-	    this.c[2] = this.dom( 'div', this.css.txtselect + 'letter-spacing:-1px; text-align:right; width:47px; border:1px dashed '+this.colors.hide+'; color:'+ this.fontColor );
+	    //this.c[2] = this.dom( 'div', this.css.txtselect + 'letter-spacing:-1px; text-align:right; width:47px; border:1px dashed '+this.defaultBorderColor+'; color:'+ this.fontColor );
+	    this.c[2] = this.dom( 'div', this.css.txtselect + 'text-align:right; width:47px; border:1px dashed '+this.defaultBorderColor+'; color:'+ this.fontColor );
+	    //this.c[2] = this.dom( 'div', this.css.txtselect + 'letter-spacing:-1px; text-align:right; width:47px; color:'+ this.fontColor );
 	    this.c[3] = this.dom( 'div', this.css.basic + ' top:0; height:'+this.h+'px;' );
 	    this.c[4] = this.dom( 'div', this.css.basic + 'background:'+this.colors.scrollback+'; top:2px; height:'+(this.h-4)+'px;' );
 	    this.c[5] = this.dom( 'div', this.css.basic + 'left:4px; top:5px; height:'+(this.h-10)+'px; background:' + this.fontColor +';' );
 
 	    this.c[2].isNum = true;
+	    //this.c[2].style.height = (this.h-4) + 'px';
+	    //this.c[2].style.lineHeight = (this.h-8) + 'px';
+	    this.c[2].style.height = (this.h-2) + 'px';
+	    this.c[2].style.lineHeight = (this.h-10) + 'px';
 
 	    if(this.model !== 0){
 	        if(this.model === 1 || this.model === 3){
@@ -4787,8 +4809,8 @@
 	        }
 
 	        if(this.model === 2){
-	            h1 = 2;
-	            h2 = 4;
+	            h1 = 4;//2
+	            h2 = 8;
 	            ra = 2;
 	            ww = (this.h-4)*0.5;
 	        }
@@ -4830,7 +4852,7 @@
 
 	    mouseup: function ( e ) {
 	        
-	        if(this.isDown) this.isDown = false;
+	        if( this.isDown ) this.isDown = false;
 	        
 	    },
 
@@ -4966,13 +4988,13 @@
 	        if(this.isUI || !this.simple) tx = this.sc+10;
 	        this.txl = this.w - tx + 2;
 
-	        var ty = Math.floor(this.h * 0.5) - 8;
+	        //var ty = Math.floor(this.h * 0.5) - 8;
 
 	        var s = this.s;
 
-	        s[2].width = (this.sc -2 )+ 'px';
-	        s[2].left = this.txl + 'px';
-	        s[2].top = ty + 'px';
+	        s[2].width = (this.sc -6 )+ 'px';
+	        s[2].left = (this.txl +4) + 'px';
+	        //s[2].top = ty + 'px';
 	        s[3].left = this.sa + 'px';
 	        s[3].width = w + 'px';
 	        s[4].left = this.sa + 'px';
@@ -5032,17 +5054,17 @@
 
 	        if( n === this.cmode ) return false;
 
-	        var m;
+	        //var m;
 
-	        switch ( n ) {
+	        /*switch ( n ) {
 
 	            case 0: m = this.colors.border; break;
 	            case 1: m = this.colors.borderOver; break;
 	            case 2: m = this.colors.borderSelect;  break;
 
-	        }
+	        }*/
 
-	        this.c[2].style.borderColor = m;
+	        //this.c[2].style.borderColor = m;
 	        this.cmode = n;
 	        return true;
 
@@ -5567,7 +5589,7 @@
 	        this.mouse.neg();
 	        this.isDown = false;
 
-	        Roots.clearInput();
+	        //Roots.clearInput();
 	        var r = this.mode('def');
 	        var r2 = this.clearTarget();
 

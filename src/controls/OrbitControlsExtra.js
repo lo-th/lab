@@ -3,6 +3,12 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	THREE.OrbitControls.call( this, object, domElement );
 
+    var state = -1;
+    var spherical = new THREE.Spherical();
+
+    this.getSpherical = function () { return spherical; };
+    this.getState = function () { return state; };
+
 	this.followTarget = null;
     this.camTween = null;
 
@@ -18,7 +24,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	    v: new THREE.Vector3(),
         d: new THREE.Vector3(),
-        s: new THREE.Spherical(),
+        //s: new THREE.Spherical(),
         tmp: new THREE.Vector3(),
         old: new THREE.Vector3(),
         oldObj: new THREE.Vector3(),
@@ -29,6 +35,8 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         isDecal:false,
 
 	}
+
+    this.cam.s = this.getSpherical();
 
 	this.followGroup = new THREE.Group();
 
@@ -266,7 +274,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
             .delay( o.delay || 0 )
             .easing( o.tween || TWEEN.Easing.Quadratic.Out )
             .onUpdate( function() { self.orbit( c ); } )
-            .onComplete( function() { self.enabled = true;  callback(); } )
+            .onComplete( function() { self.enabled = true; callback(); } )
             .start();
 
     },

@@ -5,6 +5,7 @@
     "src/libs/tween.js",
     "src/controls/OrbitControls.js",
     "src/controls/OrbitControlsExtra.js",
+    "src/controls/TransformControls.js",
     "src/loaders/BVHLoader.js",
     "src/loaders/RGBELoader.js",
     "src/loaders/ShaderLoader.js",
