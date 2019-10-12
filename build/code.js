@@ -21701,7 +21701,7 @@ editor = {
         bottomLogo = document.createElement( 'a' );
         bottomLogo.href = "https://github.com/lo-th";
         bottomLogo.target = "_blank";
-        bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:18px; bottom:10px; pointer-events:auto; cursor:pointer;'
+        bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:6px; bottom:13px; pointer-events:auto; cursor:pointer;'
         bottomLogo.innerHTML = editor.icon( '3TH', '#787978' );
         bottomLeft.appendChild( bottomLogo );
 
