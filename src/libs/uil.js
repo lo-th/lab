@@ -737,6 +737,7 @@
 
 	        window.addEventListener( 'keydown', R, false );
 	        window.addEventListener( 'resize', R.resize , false );
+	        //window.addEventListener( 'mousedown', R, false );
 
 	        R.isEventsInit = true;
 
@@ -1110,6 +1111,8 @@
 	        R.input.style.borderColor = color;
 	        //R.input.style.background = color;
 
+	        //window.addEventListener( 'mousedown', function (){ if( !R.firstImput ) R.clearInput() }, false );
+
 	    },
 
 	    select: function () {
@@ -1130,6 +1133,10 @@
 
 	            R.callbackImput();
 	            R.clearInput();
+
+	        } else if( e.keyCode === 8 ){ //backspace
+
+	            R.input.textContent = '';
 
 	        } else {
 
@@ -1418,12 +1425,24 @@
 	    // Font Color;
 	    this.titleColor = o.titleColor || Tools.colors.text;
 	    this.fontColor = o.fontColor || Tools.colors.text;
-	    
+
 	    if( o.color !== undefined ){ 
+
+	        if(o.color === 'n') o.color = '#ff0000';
+
+	        if( o.color !== 'no' ) {
+	            if( !isNaN(o.color) ) this.fontColor = Tools.hexToHtml(o.color);
+	            else this.fontColor = o.color;
+	            this.titleColor = this.fontColor;
+	        }
+	        
+	    }
+	    
+	    /*if( o.color !== undefined ){ 
 	        if( !isNaN(o.color) ) this.fontColor = Tools.hexToHtml(o.color);
 	        else this.fontColor = o.color;
 	        this.titleColor = this.fontColor;
-	    }
+	    }*/
 
 	    this.colorPlus = Tools.ColorLuma( this.fontColor, 0.3 );
 
@@ -3042,10 +3061,13 @@
 		this.value = o.value !== undefined ? o.value : [0,0,0];
 	    this.lng = this.value.length;
 
-	    this.precision = o.precision || 2;
+	    this.precision = o.precision !== undefined ? o.precision : 2;
 	    this.multiplicator = o.multiplicator || 1;
+	    this.neg = o.neg || false;
 
-	    this.autoWidth = true;
+	    //if(this.neg)this.multiplicator*=2;
+
+	    this.autoWidth = o.autoWidth !== undefined ? o.autoWidth : true;
 	    this.isNumber = false;
 
 	    this.isDown = false;
@@ -3091,7 +3113,9 @@
 	    	t[i] = [ 14 + (i*this.iw) + (i*4), this.iw ];
 	    	t[i][2] = t[i][0] + t[i][1];
 	    	this.cMode[i] = 0;
-	    	this.v[i] = this.value[i] / this.multiplicator;
+
+	        if( this.neg ) this.v[i] = ((1+(this.value[i] / this.multiplicator))*0.5);
+	    	else this.v[i] = this.value[i] / this.multiplicator;
 
 	    	this.dom( 'rect', '', { x:t[i][0], y:14, width:t[i][1], height:1, fill:this.fontColor, 'fill-opacity':0.3 }, svg );
 
@@ -3099,6 +3123,8 @@
 
 	    this.tmp = t;
 	    this.c[3] = svg;
+
+	    console.log(this.w);
 
 	    this.init();
 
@@ -3115,6 +3141,24 @@
 	Graph.prototype = Object.assign( Object.create( Proto.prototype ), {
 
 	    constructor: Graph,
+
+	    updateSVG: function () {
+
+	        this.setSvg( this.c[3], 'd', this.makePath(), 0 );
+
+	        for(var i = 0; i<this.lng; i++ ){
+
+	            
+	            this.setSvg( this.c[3], 'height', this.v[i]*this.gh, i+2 );
+	            this.setSvg( this.c[3], 'y', 14 + (this.gh - this.v[i]*this.gh), i+2 );
+	            if( this.neg ) this.value[i] = ( ((this.v[i]*2)-1) * this.multiplicator ).toFixed( this.precision ) * 1;
+	            else this.value[i] = ( (this.v[i] * this.multiplicator) ).toFixed( this.precision ) * 1;
+
+	        }
+
+	        this.c[2].textContent = this.value;
+
+	    },
 
 	    testZone: function ( e ) {
 
@@ -3254,29 +3298,14 @@
 	    },
 
 
-	    updateSVG: function () {
-
-	        this.setSvg( this.c[3], 'd', this.makePath(), 0 );
-
-	    	for(var i = 0; i<this.lng; i++ ){
-
-	    		
-	    		this.setSvg( this.c[3], 'height', this.v[i]*this.gh, i+2 );
-	    		this.setSvg( this.c[3], 'y', 14 + (this.gh - this.v[i]*this.gh), i+2 );
-	    		this.value[i] = (this.v[i] * this.multiplicator).toFixed( this.precision ) * 1;
-
-		    }
-
-		    this.c[2].textContent = this.value;
-
-	    },
+	    
 
 	    rSize: function () {
 
 	        Proto.prototype.rSize.call( this );
 
 	        var s = this.s;
-	        if( this.c[1] !== undefined )s[1].width = this.w + 'px';
+	        if( this.c[1] !== undefined ) s[1].width = this.w + 'px';
 	        s[2].width = this.w + 'px';
 	        s[3].width = this.w + 'px';
 
@@ -4027,6 +4056,17 @@
 
 	    Proto.call( this, o );
 
+	    // images
+	    this.path = o.path || '';
+	    this.format = o.format || '';
+	    this.imageSize = o.imageSize || [20,20];
+
+	    this.isWithImage = this.path !== '' ? true:false;
+	    this.preLoadComplete = false;
+
+	    this.tmpImage = {};
+	    this.tmpUrl = [];
+
 	    this.autoHeight = false;
 	    var align = o.align || 'center';
 
@@ -4038,7 +4078,7 @@
 	    var fltop = Math.floor(this.h*0.5)-5;
 
 	    this.c[2] = this.dom( 'div', this.css.basic + 'top:0; display:none;' );
-	    this.c[3] = this.dom( 'div', this.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px;  background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );
+	    this.c[3] = this.dom( 'div', this.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px; background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );
 	    this.c[4] = this.dom( 'path', this.css.basic + 'position:absolute; width:10px; height:10px; top:'+fltop+'px;', { d:this.svgs.arrow, fill:this.fontColor, stroke:'none'});
 
 	    this.scroller = this.dom( 'div', this.css.basic + 'right:5px;  width:10px; background:#666; display:none;');
@@ -4093,21 +4133,81 @@
 	    this.c[2].appendChild( this.listIn );
 	    this.c[2].appendChild( this.scroller );
 
-	    // populate list
+	    if( o.value !== undefined ){
+	        if(!isNaN(o.value)) this.value = this.list[ o.value ];
+	        else this.value = o.value;
+	    }else{
+	        this.value = this.list[0];
+	    }
 
-	    this.setList( this.list, o.value );
+	    this.isOpenOnStart = o.open || false;
+
+	    
 
 	    //this.c[0].style.background = '#FF0000'
-
-	    this.init();
-
-	    if( o.open !== undefined ) this.open();
+	    if( this.isWithImage ) this.preloadImage();
+	   // } else {
+	        // populate list
+	        this.setList( this.list );
+	        this.init();
+	        if( this.isOpenOnStart ) this.open();
+	   // }
 
 	}
 
 	List.prototype = Object.assign( Object.create( Proto.prototype ), {
 
 	    constructor: List,
+
+	    // image list
+
+	    preloadImage: function () {
+
+	        this.preLoadComplete = false;
+
+	        this.tmpImage = {};
+	        for( var i=0; i<this.list.length; i++ ) this.tmpUrl.push( this.list[i] );
+	        this.loadOne();
+	        
+	    },
+
+	    nextImg: function () {
+
+	        this.tmpUrl.shift();
+	        if( this.tmpUrl.length === 0 ){ 
+
+	            this.preLoadComplete = true;
+
+	            this.addImages();
+	            /*this.setList( this.list );
+	            this.init();
+	            if( this.isOpenOnStart ) this.open();*/
+
+	        }
+	        else this.loadOne();
+
+	    },
+
+	    loadOne: function(){
+
+	        var self = this;
+	        var name = this.tmpUrl[0];
+	        var img = document.createElement('img');
+	        img.style.cssText = 'position:absolute; width:'+self.imageSize[0]+'px; height:'+self.imageSize[1]+'px';
+	        img.setAttribute('src', this.path + name + this.format );
+
+	        img.addEventListener('load', function() {
+
+	            self.imageSize[2] = img.width;
+	            self.imageSize[3] = img.height;
+	            self.tmpImage[name] = img;
+	            self.nextImg();
+
+	        });
+
+	    },
+
+	    //
 
 	    testZone: function ( e ) {
 
@@ -4205,8 +4305,9 @@
 	        
 	        } else {
 	            if( this.current ){
-	                this.value = this.current.textContent;
-	                this.c[3].textContent = this.value;
+	                this.value = this.list[this.current.id];
+	                //this.value = this.current.textContent;
+	                this.setTopItem();
 	                this.send();
 	                this.close();
 	            }
@@ -4331,7 +4432,7 @@
 
 	    },
 
-	    setList: function ( list, value ) {
+	    setList: function ( list ) {
 
 	        this.clearList();
 
@@ -4358,23 +4459,52 @@
 
 	        var item, n;//, l = this.sb;
 	        for( var i=0; i<this.length; i++ ){
+
 	            n = this.list[i];
 	            item = this.dom( 'div', this.css.item + 'width:'+this.ww+'px; height:'+this.itemHeight+'px; line-height:'+(this.itemHeight-5)+'px; color:'+this.fontColor+';' );
-	            item.textContent = n;
 	            item.name = 'item'+i;
+	            item.id = i;
 	            item.posy = (this.itemHeight+1)*i;
 	            this.listIn.appendChild( item );
 	            this.items.push( item );
+
+	            //if( this.isWithImage ) item.appendChild( this.tmpImage[n] );
+	            if( !this.isWithImage ) item.textContent = n;
+
 	        }
 
-	        if( value !== undefined ){
-	            if(!isNaN(value)) this.value = this.list[ value ];
-	            else this.value = value;
-	        }else{
-	            this.value = this.list[0];
-	        }
+	        this.setTopItem();
 	        
-	        this.c[3].textContent = this.value;
+	    },
+
+	    addImages: function (){
+	        var lng = this.list.length;
+	        for( var i=0; i<lng; i++ ){
+	            this.items[i].appendChild( this.tmpImage[this.list[i]] );
+	        }
+	        this.setTopItem();
+	    },
+
+	    setTopItem: function (){
+
+	        if( this.isWithImage ){ 
+
+	            if( !this.preLoadComplete ) return;
+
+	            if(!this.c[3].children.length){
+	                this.canvas = document.createElement('canvas');
+	                this.canvas.width = this.imageSize[0];
+	                this.canvas.height = this.imageSize[1];
+	                this.canvas.style.cssText = 'position:absolute; top:0px; left:0px;';
+	                this.ctx = this.canvas.getContext("2d");
+	                this.c[3].appendChild( this.canvas );
+	            }
+
+	            var img = this.tmpImage[ this.value ];
+	            this.ctx.drawImage( this.tmpImage[ this.value ], 0, 0, this.imageSize[2], this.imageSize[3], 0,0, this.imageSize[0], this.imageSize[1] );
+
+	        }
+	        else this.c[3].textContent = this.value;
 
 	    },
 
@@ -4478,6 +4608,8 @@
 	        var s = this.s;
 	        var w = this.sb;
 	        var d = this.sa;
+
+	        if(s[2]=== undefined) return;
 
 	        s[2].width = w + 'px';
 	        s[2].left = d +'px';
@@ -5288,6 +5420,8 @@
 	    this.ratio = 1;
 	    this.oy = 0;
 
+	    this.isNewTarget = false;
+
 	    this.content = Tools.dom( 'div', Tools.css.basic + ' width:0px; height:auto; top:0px; ' + this.css );
 
 	    this.innerContent = Tools.dom( 'div', Tools.css.basic + 'width:100%; top:0; left:0; height:auto; overflow:hidden;');
@@ -5457,6 +5591,11 @@
 	        this.target.reset();
 	        this.target = null;
 	        this.current = -1;
+
+	        ///console.log(this.isDown)//if(this.isDown)Roots.clearInput();
+
+	        
+
 	        Roots.cursor();
 	        return true;
 
@@ -5502,6 +5641,8 @@
 	    	if( type === 'mouseup' && this.isDown ) this.isDown = false;
 	    	if( type === 'mousedown' && !this.isDown ) this.isDown = true;
 
+	        if( this.isDown && this.isNewTarget ){ Roots.clearInput(); this.isNewTarget=false; }
+
 	    	if( !name ) return;
 
 	    	switch( name ){
@@ -5517,7 +5658,9 @@
 		    		if( type === 'mousemove' ) change = this.mode('def');
 	                if( type === 'wheel' && !targetChange && this.isScroll ) change = this.onWheel( e );
 	               
-		    		if( !Roots.lock ) this.getNext( e, change );
+		    		if( !Roots.lock ) {
+	                    this.getNext( e, change );
+	                }
 
 	    		break;
 	    		case 'bottom':
@@ -5555,12 +5698,17 @@
 
 	    getNext: function ( e, change ) {
 
+
+
 	        var next = Roots.findTarget( this.uis, e );
 
 	        if( next !== this.current ){
 	            this.clearTarget();
 	            this.current = next;
 	            change = true;
+
+	            this.isNewTarget = true;
+
 	        }
 
 	        if( next !== -1 ){ 

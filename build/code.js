@@ -741,6 +741,7 @@ var global;
 
 	        window.addEventListener( 'keydown', R, false );
 	        window.addEventListener( 'resize', R.resize , false );
+	        //window.addEventListener( 'mousedown', R, false );
 
 	        R.isEventsInit = true;
 
@@ -1114,6 +1115,8 @@ var global;
 	        R.input.style.borderColor = color;
 	        //R.input.style.background = color;
 
+	        //window.addEventListener( 'mousedown', function (){ if( !R.firstImput ) R.clearInput() }, false );
+
 	    },
 
 	    select: function () {
@@ -1134,6 +1137,10 @@ var global;
 
 	            R.callbackImput();
 	            R.clearInput();
+
+	        } else if( e.keyCode === 8 ){ //backspace
+
+	            R.input.textContent = '';
 
 	        } else {
 
@@ -1422,12 +1429,24 @@ var global;
 	    // Font Color;
 	    this.titleColor = o.titleColor || Tools.colors.text;
 	    this.fontColor = o.fontColor || Tools.colors.text;
-	    
+
 	    if( o.color !== undefined ){ 
+
+	        if(o.color === 'n') o.color = '#ff0000';
+
+	        if( o.color !== 'no' ) {
+	            if( !isNaN(o.color) ) this.fontColor = Tools.hexToHtml(o.color);
+	            else this.fontColor = o.color;
+	            this.titleColor = this.fontColor;
+	        }
+	        
+	    }
+	    
+	    /*if( o.color !== undefined ){ 
 	        if( !isNaN(o.color) ) this.fontColor = Tools.hexToHtml(o.color);
 	        else this.fontColor = o.color;
 	        this.titleColor = this.fontColor;
-	    }
+	    }*/
 
 	    this.colorPlus = Tools.ColorLuma( this.fontColor, 0.3 );
 
@@ -3046,10 +3065,13 @@ var global;
 		this.value = o.value !== undefined ? o.value : [0,0,0];
 	    this.lng = this.value.length;
 
-	    this.precision = o.precision || 2;
+	    this.precision = o.precision !== undefined ? o.precision : 2;
 	    this.multiplicator = o.multiplicator || 1;
+	    this.neg = o.neg || false;
 
-	    this.autoWidth = true;
+	    //if(this.neg)this.multiplicator*=2;
+
+	    this.autoWidth = o.autoWidth !== undefined ? o.autoWidth : true;
 	    this.isNumber = false;
 
 	    this.isDown = false;
@@ -3095,7 +3117,9 @@ var global;
 	    	t[i] = [ 14 + (i*this.iw) + (i*4), this.iw ];
 	    	t[i][2] = t[i][0] + t[i][1];
 	    	this.cMode[i] = 0;
-	    	this.v[i] = this.value[i] / this.multiplicator;
+
+	        if( this.neg ) this.v[i] = ((1+(this.value[i] / this.multiplicator))*0.5);
+	    	else this.v[i] = this.value[i] / this.multiplicator;
 
 	    	this.dom( 'rect', '', { x:t[i][0], y:14, width:t[i][1], height:1, fill:this.fontColor, 'fill-opacity':0.3 }, svg );
 
@@ -3103,6 +3127,8 @@ var global;
 
 	    this.tmp = t;
 	    this.c[3] = svg;
+
+	    console.log(this.w);
 
 	    this.init();
 
@@ -3119,6 +3145,24 @@ var global;
 	Graph.prototype = Object.assign( Object.create( Proto.prototype ), {
 
 	    constructor: Graph,
+
+	    updateSVG: function () {
+
+	        this.setSvg( this.c[3], 'd', this.makePath(), 0 );
+
+	        for(var i = 0; i<this.lng; i++ ){
+
+	            
+	            this.setSvg( this.c[3], 'height', this.v[i]*this.gh, i+2 );
+	            this.setSvg( this.c[3], 'y', 14 + (this.gh - this.v[i]*this.gh), i+2 );
+	            if( this.neg ) this.value[i] = ( ((this.v[i]*2)-1) * this.multiplicator ).toFixed( this.precision ) * 1;
+	            else this.value[i] = ( (this.v[i] * this.multiplicator) ).toFixed( this.precision ) * 1;
+
+	        }
+
+	        this.c[2].textContent = this.value;
+
+	    },
 
 	    testZone: function ( e ) {
 
@@ -3258,29 +3302,14 @@ var global;
 	    },
 
 
-	    updateSVG: function () {
-
-	        this.setSvg( this.c[3], 'd', this.makePath(), 0 );
-
-	    	for(var i = 0; i<this.lng; i++ ){
-
-	    		
-	    		this.setSvg( this.c[3], 'height', this.v[i]*this.gh, i+2 );
-	    		this.setSvg( this.c[3], 'y', 14 + (this.gh - this.v[i]*this.gh), i+2 );
-	    		this.value[i] = (this.v[i] * this.multiplicator).toFixed( this.precision ) * 1;
-
-		    }
-
-		    this.c[2].textContent = this.value;
-
-	    },
+	    
 
 	    rSize: function () {
 
 	        Proto.prototype.rSize.call( this );
 
 	        var s = this.s;
-	        if( this.c[1] !== undefined )s[1].width = this.w + 'px';
+	        if( this.c[1] !== undefined ) s[1].width = this.w + 'px';
 	        s[2].width = this.w + 'px';
 	        s[3].width = this.w + 'px';
 
@@ -4031,6 +4060,17 @@ var global;
 
 	    Proto.call( this, o );
 
+	    // images
+	    this.path = o.path || '';
+	    this.format = o.format || '';
+	    this.imageSize = o.imageSize || [20,20];
+
+	    this.isWithImage = this.path !== '' ? true:false;
+	    this.preLoadComplete = false;
+
+	    this.tmpImage = {};
+	    this.tmpUrl = [];
+
 	    this.autoHeight = false;
 	    var align = o.align || 'center';
 
@@ -4042,7 +4082,7 @@ var global;
 	    var fltop = Math.floor(this.h*0.5)-5;
 
 	    this.c[2] = this.dom( 'div', this.css.basic + 'top:0; display:none;' );
-	    this.c[3] = this.dom( 'div', this.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px;  background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );
+	    this.c[3] = this.dom( 'div', this.css.txt + 'text-align:'+align+'; line-height:'+(this.h-4)+'px; top:1px; background:'+this.buttonColor+'; height:'+(this.h-2)+'px; border-radius:'+this.radius+'px;' );
 	    this.c[4] = this.dom( 'path', this.css.basic + 'position:absolute; width:10px; height:10px; top:'+fltop+'px;', { d:this.svgs.arrow, fill:this.fontColor, stroke:'none'});
 
 	    this.scroller = this.dom( 'div', this.css.basic + 'right:5px;  width:10px; background:#666; display:none;');
@@ -4097,21 +4137,81 @@ var global;
 	    this.c[2].appendChild( this.listIn );
 	    this.c[2].appendChild( this.scroller );
 
-	    // populate list
+	    if( o.value !== undefined ){
+	        if(!isNaN(o.value)) this.value = this.list[ o.value ];
+	        else this.value = o.value;
+	    }else{
+	        this.value = this.list[0];
+	    }
 
-	    this.setList( this.list, o.value );
+	    this.isOpenOnStart = o.open || false;
+
+	    
 
 	    //this.c[0].style.background = '#FF0000'
-
-	    this.init();
-
-	    if( o.open !== undefined ) this.open();
+	    if( this.isWithImage ) this.preloadImage();
+	   // } else {
+	        // populate list
+	        this.setList( this.list );
+	        this.init();
+	        if( this.isOpenOnStart ) this.open();
+	   // }
 
 	}
 
 	List.prototype = Object.assign( Object.create( Proto.prototype ), {
 
 	    constructor: List,
+
+	    // image list
+
+	    preloadImage: function () {
+
+	        this.preLoadComplete = false;
+
+	        this.tmpImage = {};
+	        for( var i=0; i<this.list.length; i++ ) this.tmpUrl.push( this.list[i] );
+	        this.loadOne();
+	        
+	    },
+
+	    nextImg: function () {
+
+	        this.tmpUrl.shift();
+	        if( this.tmpUrl.length === 0 ){ 
+
+	            this.preLoadComplete = true;
+
+	            this.addImages();
+	            /*this.setList( this.list );
+	            this.init();
+	            if( this.isOpenOnStart ) this.open();*/
+
+	        }
+	        else this.loadOne();
+
+	    },
+
+	    loadOne: function(){
+
+	        var self = this;
+	        var name = this.tmpUrl[0];
+	        var img = document.createElement('img');
+	        img.style.cssText = 'position:absolute; width:'+self.imageSize[0]+'px; height:'+self.imageSize[1]+'px';
+	        img.setAttribute('src', this.path + name + this.format );
+
+	        img.addEventListener('load', function() {
+
+	            self.imageSize[2] = img.width;
+	            self.imageSize[3] = img.height;
+	            self.tmpImage[name] = img;
+	            self.nextImg();
+
+	        });
+
+	    },
+
+	    //
 
 	    testZone: function ( e ) {
 
@@ -4209,8 +4309,9 @@ var global;
 	        
 	        } else {
 	            if( this.current ){
-	                this.value = this.current.textContent;
-	                this.c[3].textContent = this.value;
+	                this.value = this.list[this.current.id];
+	                //this.value = this.current.textContent;
+	                this.setTopItem();
 	                this.send();
 	                this.close();
 	            }
@@ -4335,7 +4436,7 @@ var global;
 
 	    },
 
-	    setList: function ( list, value ) {
+	    setList: function ( list ) {
 
 	        this.clearList();
 
@@ -4362,23 +4463,52 @@ var global;
 
 	        var item, n;//, l = this.sb;
 	        for( var i=0; i<this.length; i++ ){
+
 	            n = this.list[i];
 	            item = this.dom( 'div', this.css.item + 'width:'+this.ww+'px; height:'+this.itemHeight+'px; line-height:'+(this.itemHeight-5)+'px; color:'+this.fontColor+';' );
-	            item.textContent = n;
 	            item.name = 'item'+i;
+	            item.id = i;
 	            item.posy = (this.itemHeight+1)*i;
 	            this.listIn.appendChild( item );
 	            this.items.push( item );
+
+	            //if( this.isWithImage ) item.appendChild( this.tmpImage[n] );
+	            if( !this.isWithImage ) item.textContent = n;
+
 	        }
 
-	        if( value !== undefined ){
-	            if(!isNaN(value)) this.value = this.list[ value ];
-	            else this.value = value;
-	        }else{
-	            this.value = this.list[0];
-	        }
+	        this.setTopItem();
 	        
-	        this.c[3].textContent = this.value;
+	    },
+
+	    addImages: function (){
+	        var lng = this.list.length;
+	        for( var i=0; i<lng; i++ ){
+	            this.items[i].appendChild( this.tmpImage[this.list[i]] );
+	        }
+	        this.setTopItem();
+	    },
+
+	    setTopItem: function (){
+
+	        if( this.isWithImage ){ 
+
+	            if( !this.preLoadComplete ) return;
+
+	            if(!this.c[3].children.length){
+	                this.canvas = document.createElement('canvas');
+	                this.canvas.width = this.imageSize[0];
+	                this.canvas.height = this.imageSize[1];
+	                this.canvas.style.cssText = 'position:absolute; top:0px; left:0px;';
+	                this.ctx = this.canvas.getContext("2d");
+	                this.c[3].appendChild( this.canvas );
+	            }
+
+	            var img = this.tmpImage[ this.value ];
+	            this.ctx.drawImage( this.tmpImage[ this.value ], 0, 0, this.imageSize[2], this.imageSize[3], 0,0, this.imageSize[0], this.imageSize[1] );
+
+	        }
+	        else this.c[3].textContent = this.value;
 
 	    },
 
@@ -4482,6 +4612,8 @@ var global;
 	        var s = this.s;
 	        var w = this.sb;
 	        var d = this.sa;
+
+	        if(s[2]=== undefined) return;
 
 	        s[2].width = w + 'px';
 	        s[2].left = d +'px';
@@ -5292,6 +5424,8 @@ var global;
 	    this.ratio = 1;
 	    this.oy = 0;
 
+	    this.isNewTarget = false;
+
 	    this.content = Tools.dom( 'div', Tools.css.basic + ' width:0px; height:auto; top:0px; ' + this.css );
 
 	    this.innerContent = Tools.dom( 'div', Tools.css.basic + 'width:100%; top:0; left:0; height:auto; overflow:hidden;');
@@ -5461,6 +5595,11 @@ var global;
 	        this.target.reset();
 	        this.target = null;
 	        this.current = -1;
+
+	        ///console.log(this.isDown)//if(this.isDown)Roots.clearInput();
+
+	        
+
 	        Roots.cursor();
 	        return true;
 
@@ -5506,6 +5645,8 @@ var global;
 	    	if( type === 'mouseup' && this.isDown ) this.isDown = false;
 	    	if( type === 'mousedown' && !this.isDown ) this.isDown = true;
 
+	        if( this.isDown && this.isNewTarget ){ Roots.clearInput(); this.isNewTarget=false; }
+
 	    	if( !name ) return;
 
 	    	switch( name ){
@@ -5521,7 +5662,9 @@ var global;
 		    		if( type === 'mousemove' ) change = this.mode('def');
 	                if( type === 'wheel' && !targetChange && this.isScroll ) change = this.onWheel( e );
 	               
-		    		if( !Roots.lock ) this.getNext( e, change );
+		    		if( !Roots.lock ) {
+	                    this.getNext( e, change );
+	                }
 
 	    		break;
 	    		case 'bottom':
@@ -5559,12 +5702,17 @@ var global;
 
 	    getNext: function ( e, change ) {
 
+
+
 	        var next = Roots.findTarget( this.uis, e );
 
 	        if( next !== this.current ){
 	            this.clearTarget();
 	            this.current = next;
 	            change = true;
+
+	            this.isNewTarget = true;
+
 	        }
 
 	        if( next !== -1 ){ 
@@ -21410,6 +21558,8 @@ var styles;
 var fullSc, miniDebug, miniDebugS, subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
 var contentLeft, contentRight, codeContent, code, separatorLeft, separatorRight, menuCode, github;
 
+var bottomLogo, logoSvg;
+
 var bottomRight, bottomLeft, extra01, extra02;
 
 
@@ -21548,6 +21698,17 @@ editor = {
         fullSc.addEventListener('mouseover', function(){ this.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', selectColor, 30, 30); }, false );
         fullSc.addEventListener('mouseout', function(){ this.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', '#787978', 30, 30); }, false );
 
+        bottomLogo = document.createElement( 'a' );
+        bottomLogo.href = "https://github.com/lo-th";
+        bottomLogo.target = "_blank";
+        bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:18px; bottom:10px; pointer-events:auto; cursor:pointer;'
+        bottomLogo.innerHTML = editor.icon( '3TH', '#787978' );
+        bottomLeft.appendChild( bottomLogo );
+
+        logoSvg = document.getElementById( '3TH' );
+        //bottomLogo.addEventListener('click',  window.location.assign('https://github.com/lo-th'  );, false );
+        bottomLogo.addEventListener('mouseover', function(){ logoSvg.setAttributeNS(null,"fill",selectColor) }, false );
+        bottomLogo.addEventListener('mouseout', function(){ logoSvg.setAttributeNS(null,"fill",'#787978') }, false );
 
 
         document.addEventListener("fullscreenchange", editor.screenChange, false );
@@ -21599,11 +21760,20 @@ editor = {
     icon: function ( type, color, w, ww ){
 
         w = w || 40;
+        var h = w;
         ww = ww || 40;
         color = color || '#DEDEDE';
         var viewBox = '0 0 '+ww+' '+ww;
+        var extra = '';
 
-        var t = ["<svg xmlns='http://www.w3.org/2000/svg' version='1.1' xmlns:xlink='http://www.w3.org/1999/xlink' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+w+"px' viewBox='"+viewBox+"'><g>"];
+        if(type === '3TH'){ 
+            viewBox = '0 0 100 50'; 
+            w = 60;//60;
+            h = 30;//30;
+            extra = "<filter id='f1' x='0' y='0' width='200%' height='200%'><feOffset result='offOut' in='SourceAlpha' dx='1' dy='1' /><feGaussianBlur result='blurOut' in='offOut' stdDeviation='1' /><feBlend in='SourceGraphic' in2='blurOut' mode='normal' /></filter>"
+        }
+
+        var t = ["<svg xmlns='http://www.w3.org/2000/svg' version='1.1' xmlns:xlink='http://www.w3.org/1999/xlink' style='pointer-events:none;' preserveAspectRatio='xMinYMax meet' x='0px' y='0px' width='"+w+"px' height='"+h+"px' viewBox='"+viewBox+"'>"+extra+"<g>"];
         switch(type){
             case 'save':
             t[1]="<path stroke='"+color+"' stroke-width='4' stroke-linejoin='round' stroke-linecap='round' fill='none' d='M 26.125 17 L 20 22.95 14.05 17 M 20 9.95 L 20 22.95'/>";
@@ -21627,6 +21797,16 @@ editor = {
             t[1]="<path fill='rgba(0,0,0,0.5)' stroke='none' d='M 7.15 14.25 L 5.75 12.85 2.95 15.65 4.35 17.05 7.15 14.25 M 5 9 L 1 9 1 11 5 11 5 9 M 4.35 2.95 L 2.95 4.35 5.75 7.15 7.15 5.75 4.35 2.95 M 14.25 7.15 L 17.05 4.35 15.65 2.95 12.85 5.75 14.25 7.15 M 11 5 L 11 1 9 1 9 5 11 5 M 22.9 19.9 L 28 17 10 10 17 28 19.9 22.9 26 29 29 26 22.9 19.9 M 19 20 L 17 24 13 13 24 17 20 19 27 26 26 27 19 20 Z'/>";
             t[1]+="<path fill='"+color+"' stroke='none' d='M 3.35 16.05 L 6.15 13.25 4.75 11.85 1.95 14.65 3.35 16.05 M 4 10 L 4 8 0 8 0 10 4 10 M 3.35 1.95 L 1.95 3.35 4.75 6.15 6.15 4.75 3.35 1.95 M 8 4 L 10 4 10 0 8 0 8 4 M 16.05 3.35 L 14.65 1.95 11.85 4.75 13.25 6.15 16.05 3.35 M 21.9 18.9 L 27 16 9 9 16 27 18.9 21.9 25 28 28 25 21.9 18.9 M 18 19 L 16 23 12 12 23 16 19 18 26 25 25 26 18 19 Z'/>";
             break;
+
+            case '3TH':
+            t[1]="<path id='3TH' filter='url(#f1)' fill='"+color+"' stroke='none' stroke-width='0' d='M 83.7 48.3 L 94 48.3 94 32.95 Q 94 26.65 89.5 22.1 85.05 17.7 78.65 17.7 L 78.55 17.7 Q 78.35 17.7 78.15 17.7 L 73.6 17.7 73.6 8 63.4 8 63.4 17.7 49.7 17.7 49.7 8 39.5 8 39.5 17.7 34.05 17.7";
+            t[1]+="Q 34.35 16.35 34.35 14.8 L 34.35 14.7 Q 34.35 12.45 33.65 10.45 32.7 7.7 30.55 5.55 30.15 5.1 29.6 4.7 26.1 1.7 21.25 1.7 18.3 1.7 15.8 2.85 13.75 3.75 12 5.55 8.3 9.35 8.2 14.6 8.2 14.7 8.2 14.8 L 18.4 14.8 18.4 14.7";
+            t[1]+="Q 18.4 13.55 19.2 12.75 20.05 11.9 21.15 11.9 L 21.35 11.9 Q 22.5 11.9 23.35 12.75 24.05 13.55 24.15 14.7 L 24.15 14.8 Q 24.15 15.95 23.35 16.85 22.5 17.6 21.35 17.7";
+            t[1]+="L 18.4 17.7 18.4 27.9 21.6 27.9 Q 23.45 28 24.9 29.35 25.5 30.05 25.9 30.85 26.3 31.8 26.3 32.95 26.3 35.1 24.9 36.55 23.45 38 21.35 38.1 L 21.25 38.1 Q 19.1 38.1 17.65 36.55 16.1 35.1 16.1 32.95 16.1 32.85 16.1 32.75 L 6 32.75";
+            t[1]+="Q 6 32.85 6 32.95 6 39.3 10.45 43.75 12.8 46.15 15.8 47.25 18.3 48.3 21.25 48.3 L 21.35 48.3 Q 26 48.2 29.6 45.8 30.95 44.9 32.1 43.75 36.5 39.3 36.5 32.95 36.5 31.9 36.4 30.85 36.2 29.35 35.8 27.9 L 39.5 27.9 39.5 32.75 Q 39.5 32.85 39.5 32.95 39.5 39.3 44.05 43.75 48.45 48.3 54.85 48.3 L 60.45 48.3 60.45 38.1 54.75 38.1";
+            t[1]+="Q 52.7 38.1 51.15 36.55 49.7 35.1 49.7 32.95 L 49.7 27.9 54.75 27.9 Q 54.85 27.9 54.95 27.9 L 63.4 27.9 63.4 48.3 73.6 48.3 73.6 32.95 Q 73.6 30.85 75.05 29.35 76.3 28.2 77.85 27.9 78.15 27.9 78.55 27.9 L 78.65 27.9 Q 80.85 27.9 82.25 29.35 83.7 30.85 83.7 32.95 L 83.7 48.3 Z'/>"
+            break;
+
         }
         t[2] = "</g></svg>";
         return t.join("\n");
@@ -21861,7 +22041,7 @@ editor = {
 
         if( view ) view.setLeft( left, right );
 
-        if(joystickLeft!==null){ joystickLeft.s[0].left = left +'px'; joystickLeft.needZone() }
+        if(joystickLeft!==null){ joystickLeft.s[0].left = (left+70) +'px'; joystickLeft.needZone() }
 
         bottomLeft.style.left = left +'px';
         bottomRight.style.right = right +'px';
@@ -22405,7 +22585,7 @@ editor = {
 
         //console.log(o)
 
-        joystickLeft = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:left+'px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
+        joystickLeft = UIL.add( user, 'axeL', { type:'joystick', target:document.body, pos:{left:(left+70)+'px', top:'auto', bottom:'10px' },name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 } ).onChange( editor.joyMove ).listen();
         //joystickLeft = UIL.add('joystickLeft', {  target:document.body, pos:{left:'10px', top:'auto', bottom:'10px' }, name:'MOVE', w:150, multiplicator:1, precision:2, fontColor:'#308AFF', mode:1 }).onChange( editor.joyMove );
 
     },
