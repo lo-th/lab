@@ -10,6 +10,7 @@
 
 var editor = ( function () {
 
+
 var styles;
 
 var fullSc, miniDebug, miniDebugS, subtitle, subtitleS, title, menuBottom, demoContent, bigmenu, menuImg, bigButton = []; 
@@ -59,6 +60,8 @@ var currentCode = '';
 var fileName = '';
 var link = '';
 
+var golden = 1.6180339887498948420;
+
 var octo, octoArm;
 
 var unselectable = '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select: none;';
@@ -77,7 +80,7 @@ editor = {
 
         if( Callback ) callback = Callback;
 
-        document.body.style.cssText = 'font-family: "Lucida Console", Monaco, monospace; padding:0; margin:0; font-size: 11px; height:100%; background:#222322; color:#dedede; overflow:hidden;';
+        document.body.style.cssText = 'font-family: Consolas,monaco,monospace; padding:0; margin:0; font-size: 13px; height:100%; background:#222322; color:#dedede; overflow:hidden;';
 
         selectColor = color || '#DE5825';
 
@@ -107,7 +110,9 @@ editor = {
         bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px; border-bottom:none; overflow:hidden;';
         document.body.appendChild( bigmenu );
 
-        this.makeBigMenu();
+        editor.resizeMenu()
+
+        editor.makeBigMenu();
 
         bottomRight = document.createElement( 'div' );
         bottomRight.style.cssText = unselectable + 'position:absolute; right:0; bottom:0;';
@@ -173,10 +178,20 @@ editor = {
         document.addEventListener("mozfullscreenchange", editor.screenChange, false );
         document.addEventListener("MSFullscreenChange", editor.screenChange, false );
 
+        document.addEventListener( 'contextmenu', editor.noMenu, false );
+
+        //document.bind( 'contextmenu', editor.noMenu )
+
         if( Link !== undefined ) this.setLink( Link );
 
         if( isWithCode ) this.show();
 
+    },
+
+    noMenu: function ( e ) {
+
+        if( e.clientX < left - 10 && e.clientY > 40 ) return;
+        e.preventDefault();
     },
 
     addExtraOption: function ( callback ) {
@@ -282,6 +297,10 @@ editor = {
     	contentRight = document.createElement('div');
         contentRight.style.cssText = styles.content;
         contentRight.style.right = '0';
+
+        //contentRight.addEventListener( 'contextmenu', editor.noMenu, false );
+
+        //contentRight.oncontextmenu = null;//function(e){ e.preventDefault(); };
         
         separatorRight = document.createElement('div');
         separatorRight.style.cssText = styles.separator;
@@ -289,6 +308,8 @@ editor = {
         separatorRight.addEventListener('mouseover', editor.mid_over, false );
         separatorRight.addEventListener('mouseout', editor.mid_out, false );
         separatorRight.addEventListener('mousedown', editor.mid_down, false );
+
+        //separatorRight.addEventListener( 'contextmenu', editor.noMenu, false );
 
         document.body.appendChild( contentRight );
         document.body.appendChild( separatorRight );
@@ -299,6 +320,8 @@ editor = {
         isWithUIopen = true;
 
     },
+
+    
 
     removeUI: function () {
 
@@ -359,15 +382,20 @@ editor = {
             value: currentCode,
             mode:'text/' + mode,
             theme:'monokai', 
-            lineNumbers: true, matchBrackets: true, indentWithTabs: false, styleActiveLine: true,
-            tabSize: 4, indentUnit: 4, highlightSelectionMatches: {showToken: /\w/}
+            lineNumbers: true, matchBrackets: true, indentWithTabs: false, styleActiveLine: false,
+            tabSize: 4, indentUnit: 4/*, highlightSelectionMatches: {showToken: /\w/}*/
         });
 
         code.on('change', function () { editor.onChange() } );
-        code.on('focus', function () { isFocus = true; view.needFocus(); } );
+        code.on('focus', function () { isFocus = true; if( view ) view.needFocus(); } );
         code.on('blur', function () { isFocus = false; } );
         code.on('drop', function () { if ( !isSelfDrag ) code.setValue(''); else isSelfDrag = false; } );
         code.on('dragstart', function () { isSelfDrag = true; } );
+
+        //codeContent.addEventListener( 'contextmenu', editor.displayMenu, false );
+
+        //document.oncontextmenu = function(e){ e.preventDefault(); };
+        //code.oncontextmenu = function(e){ };
 
         isCodeInit = true;
 
@@ -470,14 +498,15 @@ editor = {
 
         isWithCode = true;
         if( oldLeft ) left = oldLeft;
-        else left = Math.floor(window.innerWidth*0.4);
+        else left = Math.floor( window.innerWidth - (window.innerWidth/golden) );
         this.resize();
 
     },
 
     resizeMenu: function ( w ) {
 
-        bigmenu.style.width = w +'px';
+        //bigmenu.style.width = w +'px';
+        bigmenu.style.width = ( w || window.innerWidth-left-right ) +'px';
 
     },
 
@@ -504,6 +533,8 @@ editor = {
         bottomRight.style.right = right +'px';
         
         bigmenu.style.left = left +'px';
+
+        //editor.resizeMenu();
 
         //title.style.left = left +'px';
         //subtitle.style.left = left +'px';
@@ -625,7 +656,7 @@ editor = {
 
         }
 
-        view.pause = isPause;
+        if( view ) view.pause = isPause;
 
     },
 
@@ -884,7 +915,7 @@ editor = {
     unFocus: function () {
 
         if( isCodeInit ) code.getInputField().blur();
-        view.haveFocus();
+        if( view ) view.haveFocus();
 
     },
 

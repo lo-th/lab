@@ -9324,7 +9324,7 @@ TextareaInput.prototype.supportsTouch = function () { return false };
 TextareaInput.prototype.focus = function () {
   if (this.cm.options.readOnly != "nocursor" && (!mobile || activeElt() != this.textarea)) {
     try { this.textarea.focus(); }
-    catch (e) {} // IE8 will throw if the textarea is display: none or not in DOM
+    catch (error) {} // IE8 will throw if the textarea is display: none or not in DOM
   }
 };
 

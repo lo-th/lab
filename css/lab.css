@@ -11,27 +11,16 @@
     pointer-events: auto;
    /*  overflow: scroll;*/
     height: 100%;
-    font-family: "Lucida Console", Monaco, monospace;
-    /*font-smooth: never;
-    -webkit-font-smoothing : none;*/
-    font-size: 11px;
-    /*line-height: 123%;
-    letter-spacing:-1px;
-    padding-right: 20px;*/
+
+    font-size: 13px;
+    font-family: Consolas,monaco,monospace;
+    font-style: normal; 
+    font-variant: normal; 
+    /*font-weight: 400;*/
+
     background: none;
     border:none;
     color: #AAA;
-    /*font-style: normal;
-    font-variant: normal;
-    font-weight: 400;
-    line-height: 23px;
-    margin-left:10px;*/
-    
-    
-   /*
-    -webkit-transform: translateZ(0);
-     backface-visibility: hidden;
-    transform: translate3d(0,0,0);*/
 }
 
 

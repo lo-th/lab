@@ -178,7 +178,7 @@ View.prototype = {
         var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
         canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto; image-rendering: pixelated;'
         if( !this.isMobile ){
-            document.oncontextmenu = function(e){ e.preventDefault(); };
+            //document.oncontextmenu = function(e){ e.preventDefault(); };
             canvas.ondrop = function(e) { e.preventDefault(); };
         }
         document.body.appendChild( canvas );
@@ -381,7 +381,7 @@ View.prototype = {
             b.remove( m );
         }
 
-        this.scene.remove( b );
+        if ( b.parent ) b.parent.remove( b );
 
     },
 

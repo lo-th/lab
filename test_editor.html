@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Test Editor</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="stylesheet" href="./css/lab.css">
+
+<script src="./src/externs_lab.js"></script>
+<script src="./src/libs/uil.js"></script>
+<script src="./src/libs/codemirror.js"></script>
+<script src="./src/libs/codemirrorAdd/glsl.js"></script>
+<script src="./src/libs/codemirrorAdd/javascript.js"></script>
+<script src="./src/libs/codemirrorAdd/active-line.js"></script>
+<script src="./src/libs/codemirrorAdd/matchbrackets.js"></script>
+<script src="./src/libs/codemirrorAdd/match-highlighter.js"></script>
+<script src="./src/libs/esprima.js"></script>
+<script src="./src/libs/saveAs.js"></script>
+<script src="./src/gui.js"></script>
+<script src="./src/editor.js"></script>
+
+</head>
+
+<body>
+
+<script>
+var demos = [ 
+    'basic', 'terrain', 'terrainPlus', 'supermaket', 'collision', 'ragdoll',
+    'car_advanced', 'car_basic','car_multy', 'car_Breakers', 'car_terrain',
+    'moto_basic','moto_akira',
+    'kinematics', 'kineBody',
+    'soft_cloth', 'soft_rope', 'soft_rope2', 'soft_box', 'soft_pig', 'soft_ball', 'soft_convex',// 'soft_basic', // ,
+    'character', 'joints', 'empty',  'asteroid', 'point2point', 'contact', 'testmesh', 'water',
+    'mecanum', 'drone', 'millions', 'basketball',
+    'compound', 'tower', 
+    'break_glass', 'break_round',
+    'rayTest',
+    'ghost', 'fps',
+    'test_kinect',
+];
+
+demos.sort();
+
+var view, demo, physic;
+var demoName = 'basic';
+var currentMode = '';
+
+var view = null;
+var isWithCode = true;
+
+editor.init( launch, isWithCode, '#308AFF', 'Ammo.lab' );
+editor.addExtraOption( mode );
+editor.load('src/intro.js');
+
+
+function launch ( name, full ) {
+
+    console.log('launch')
+
+}
+
+function mode ( mode ) {
+
+    console.log('mode')
+
+}
+
+function ui ( option ) { editor.setOption( option ); };
+
+</script>
+
+</body>
+</html>
