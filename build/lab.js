@@ -70542,8 +70542,12 @@ var intro = ( function () {
     var content;
     var txt;
     var alpha = { n:1 };
+    var isDisplay = false;
+    var tween = null;
 
     intro.init = function ( text, Parent ) {
+
+        if( isDisplay ) return;
 
         parent = Parent || document.body;
 
@@ -70557,6 +70561,22 @@ var intro = ( function () {
         txt.textContent = text || 'loading...';
         parent.appendChild( txt );
 
+        isDisplay = true;
+
+    };
+
+    intro.clear = function () {
+
+        if( !isDisplay ) return;
+
+        if( tween !== null ){ TWEEN.remove( tween ); alpha = { n:1 } }
+
+        tween = new TWEEN.Tween( alpha ).to( {n:0}, 2000 )
+            .easing( TWEEN.Easing.Quadratic.Out )
+            .onUpdate( function() { intro.opacity ( alpha.n ); } )
+            .onComplete( function () { intro.dispose(); } )
+            .start();
+
     };
 
     intro.opacity = function ( a ) {
@@ -70566,21 +70586,11 @@ var intro = ( function () {
 
     }
 
-    intro.clear = function () {
-
-        new TWEEN.Tween( alpha ).to( {n:0}, 2000 )
-            .easing( TWEEN.Easing.Quadratic.Out )
-            .onUpdate( function() { intro.opacity ( alpha.n  ); } )
-            .onComplete( function () { intro.dispose(); } )
-            .start();
-
-
-    };
-
     intro.dispose = function () {
 
         parent.removeChild( content );
         parent.removeChild( txt );
+        isDisplay = false;
 
     }
 

@@ -70,7 +70,7 @@ View.prototype = {
 
         var w = window.innerWidth - this.x - this.y;
         var h = window.innerHeight;
-        this.content.style.cssText = 'position:absolute; left:'+this.x+'px; top:'+this.y+'px; width:'+w+'px; height:'+h+'px;';
+        this.content.style.cssText = 'position:absolute; left:'+this.x+'px; top:0px; width:'+w+'px; height:'+h+'px;';
         editor.resizeMenu( w );
 
     },
@@ -92,7 +92,14 @@ View.prototype = {
 
 var view = new View();
 
+var isfirst = true;
 
+var option = {
+
+    hide:false,
+    show:false,
+
+}
 
 var isWithCode = true;
 
@@ -103,10 +110,24 @@ editor.load('src/intro.js');
 
 function launch ( name, full ) {
 
+    if(!isfirst) return;
+
     console.log('launch')
-    //demo = new window['intro'];
 
     intro.init('Lab interface by 3TH', view.content )
+
+    // add option setting
+    ui ({
+
+        base:option,
+        function: applyOption,
+
+        hide: { type:'button', p:0, h:30, radius:10, value:false },
+        show: { type:'button', p:0, h:30, radius:10, value:'show' },
+
+    });
+
+    isfirst = false;
 
 }
 
@@ -117,6 +138,14 @@ function mode ( mode ) {
 }
 
 function ui ( option ) { editor.setOption( option ); };
+
+function applyOption () { 
+
+    if( option.hide ) intro.clear();
+    if( option.show ) intro.init('Lab interface by 3TH', view.content );
+
+
+};
 
 </script>
 
