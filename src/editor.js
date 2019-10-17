@@ -130,7 +130,7 @@ editor = {
 
 
         miniDebug = document.createElement( 'div' );
-        miniDebug.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute;  bottom:'+space+'px; color:'+selectColor+'; text-align:left; left:'+(space*2)+'px';
+        miniDebug.style.cssText = unselectable + 'width:150px; font-size: 10px; position:absolute; bottom:'+space+'px; color:'+selectColor+'; text-align:left; left:'+((space*2)+50)+'px';
         bottomLeft.appendChild( miniDebug );
 
         // title
@@ -501,6 +501,9 @@ editor = {
         else left = Math.floor( window.innerWidth - (window.innerWidth/golden) );
         this.resize();
 
+        code.refresh();
+        
+
     },
 
     resizeMenu: function ( w ) {
@@ -545,7 +548,7 @@ editor = {
 
         	separatorRight.style.right = (right-10) + 'px';
 	        contentRight.style.width = (right-10) + 'px';
-	        gui.resize( right )
+	        gui.resize( right );
 
         }
 
@@ -553,7 +556,7 @@ editor = {
 
 	        separatorLeft.style.left = (left-10) + 'px';
 	        contentLeft.style.width = (left-10) + 'px';
-	        code.refresh();
+	       // code.refresh();
 
 	    }
         

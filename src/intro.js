@@ -2,21 +2,24 @@ var intro = ( function () {
 
     intro = function () {};
 
+    var parent;
     var content;
     var txt;
     var alpha = { n:1 };
 
-    intro.init = function ( text ) {
+    intro.init = function ( text, Parent ) {
+
+        parent = Parent || document.body;
 
         content = document.createElement( 'img' );
         content.style.cssText = "position:absolute; margin:0; padding:0; top:50%; left:50%; width:300px; height:220px; margin-left:-150px; margin-top:-110px; display:block; pointer-events:none; ";
         content.src = 'assets/textures/logo.png';
-        document.body.appendChild( content );
+        parent.appendChild( content );
 
         txt = document.createElement( 'div' );
         txt.style.cssText = "font-family: Monospace; color: #AAA; font-size: 12px; text-align:center; position:absolute; margin:0; padding:0; top:50%; left:50%; width:400px; height:20px; margin-left:-200px; margin-top:110px; display:block; pointer-events:none; font-size: 12px;";
         txt.textContent = text || 'loading...';
-        document.body.appendChild( txt );
+        parent.appendChild( txt );
 
     };
 
@@ -40,8 +43,8 @@ var intro = ( function () {
 
     intro.dispose = function () {
 
-        document.body.removeChild( content );
-        document.body.removeChild( txt );
+        parent.removeChild( content );
+        parent.removeChild( txt );
 
     }
 

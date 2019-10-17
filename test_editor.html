@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="./css/lab.css">
 
 <script src="./src/externs_lab.js"></script>
+<script src="./src/libs/tween.js"></script>
 <script src="./src/libs/uil.js"></script>
 <script src="./src/libs/codemirror.js"></script>
 <script src="./src/libs/codemirrorAdd/glsl.js"></script>
@@ -30,17 +31,6 @@
 <script>
 var demos = [ 
     'basic', 'terrain', 'terrainPlus', 'supermaket', 'collision', 'ragdoll',
-    'car_advanced', 'car_basic','car_multy', 'car_Breakers', 'car_terrain',
-    'moto_basic','moto_akira',
-    'kinematics', 'kineBody',
-    'soft_cloth', 'soft_rope', 'soft_rope2', 'soft_box', 'soft_pig', 'soft_ball', 'soft_convex',// 'soft_basic', // ,
-    'character', 'joints', 'empty',  'asteroid', 'point2point', 'contact', 'testmesh', 'water',
-    'mecanum', 'drone', 'millions', 'basketball',
-    'compound', 'tower', 
-    'break_glass', 'break_round',
-    'rayTest',
-    'ghost', 'fps',
-    'test_kinect',
 ];
 
 demos.sort();
@@ -49,10 +39,64 @@ var view, demo, physic;
 var demoName = 'basic';
 var currentMode = '';
 
-var view = null;
+
+// fake view
+
+function View (){
+
+    this.x = 0;
+    this.y = 0;
+    this.content = document.createElement( 'div' );
+    this.content.style.cssText = 'position:absolute; left:0; top:0;';
+    document.body.appendChild( this.content );
+
+    window.addEventListener( 'resize', this.resize.bind(this), false );
+
+    this.render();
+
+};
+
+View.prototype = {
+
+    setLeft: function ( x, y ) { 
+
+        this.x = x;
+        this.y = y;
+        this.resize();
+
+    },
+
+    resize: function ( e ){
+
+        var w = window.innerWidth - this.x - this.y;
+        var h = window.innerHeight;
+        this.content.style.cssText = 'position:absolute; left:'+this.x+'px; top:'+this.y+'px; width:'+w+'px; height:'+h+'px;';
+        editor.resizeMenu( w );
+
+    },
+
+    render: function ( t ){
+
+        var _this = this;
+        requestAnimationFrame(  function(s){ _this.render(s); } );
+
+        TWEEN.update(); // tweener
+
+    },
+
+    needFocus: function () {
+
+    }
+
+};
+
+var view = new View();
+
+
+
 var isWithCode = true;
 
-editor.init( launch, isWithCode, '#308AFF', 'Ammo.lab' );
+editor.init( launch, isWithCode, '#FF8800', 'lab' );
 editor.addExtraOption( mode );
 editor.load('src/intro.js');
 
@@ -60,6 +104,9 @@ editor.load('src/intro.js');
 function launch ( name, full ) {
 
     console.log('launch')
+    //demo = new window['intro'];
+
+    intro.init('Lab interface by 3TH', view.content )
 
 }
 
