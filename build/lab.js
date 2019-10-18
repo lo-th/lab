@@ -72783,6 +72783,7 @@ View.prototype = {
         geo.plane.rotateX( -Math.PI90 );
         geo.wheel.rotateZ( -Math.PI90 );
 
+
         this.geo = geo;
 
     },
@@ -72906,7 +72907,7 @@ View.prototype = {
             hero: this.makeMaterial({ color:0xffffff, name:'hero', metalness:0.4, roughness:0.6, skinning:true }), 
             soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
 
-            shadow: new THREE.ShadowMaterial({ opacity:0.4, depthWrite:false }),
+            shadow: new THREE.ShadowMaterial({ name:'shadow', opacity:0.4, depthWrite:false }), 
 
         }
 
