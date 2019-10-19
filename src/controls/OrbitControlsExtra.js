@@ -27,6 +27,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         decal:[0,0,0],
 
         isDecal:false,
+        start: false
 
 	}
 
@@ -59,26 +60,27 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         o = o || {};
 
+        var cam = this.cam;
+
         this.followTarget = mesh;
 
-        this.cam.height = o.height !== undefined ? o.height : 0.6;
-        this.cam.d.set(0,this.cam.height,0);
+        cam.height = o.height !== undefined ? o.height : 0.6;
+        cam.d.set(0,this.cam.height,0);
 
-        this.cam.theta = o.theta !== undefined ? o.theta : 180;
-        this.cam.phi = o.phi !== undefined ? o.phi : 20;
-        this.cam.distance = o.distance !== undefined ? o.distance : 10;
+        cam.theta = o.theta !== undefined ? o.theta : 180;
+        cam.phi = o.phi !== undefined ? o.phi : 20;
+        cam.distance = o.distance !== undefined ? o.distance : 10;
         
-        this.cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
-        this.cam.speed = o.speed !== undefined ? o.speed : 10;
+        cam.acceleration = o.acceleration !== undefined ? o.acceleration : 0.05;
+        cam.speed = o.speed !== undefined ? o.speed : 10;
 
-        this.cam.decal = o.decal !== undefined ? o.decal : [0,0,0];
+        cam.decal = o.decal !== undefined ? o.decal : [0,0,0];
 
-        this.cam.offset.fromArray( this.cam.decal );
+        cam.offset.fromArray( this.cam.decal );
 
-        var sph = this.getSpherical();
-        sph.radius = this.cam.distance;
+        cam.start = true;
 
-        //this.cam.distance = sph.radius;
+        //var sph = this.getSpherical();
 
         this.stopMoveCam();
         
@@ -103,16 +105,12 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         //this.target.copy( p ).add(this.cam.offset);
 
+       // var dist = cam.start ? 10 : p.distanceTo( cam.old );
+      //  var state = cam.start ? -1 : this.getState();
         var dist = p.distanceTo( cam.old );
-
-        //console.log(dist)
-
-        
-
-        
-
-        var sph = this.getSpherical();
         var state = this.getState();
+        var sph = this.getSpherical();
+        
 
         if( cam.isDecal ){
 
@@ -138,10 +136,14 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var phi = ( (90-cam.phi) * THREE.Math.DEG2RAD );
         
 
-        var radius = sph.radius;//cam.distance;
+        var radius = cam.distance;//sph.radius;//cam.distance;
 
-        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; /*sph.radius = radius;*/ }
-        else if( state === -1 ) { sph.phi = phi; sph.theta = theta; } 
+        if(cam.start){
+        	if( Math.abs(sph.radius-cam.distance) < 1 && Math.abs(sph.phi-phi)<0.01  && Math.abs(sph.theta-theta)<0.01 ) cam.start = false;
+        }
+
+        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; radius = sph.radius;/*cam.distance = sph.radius;*/ }
+        if( state === -1 && !cam.start ) { sph.phi = phi; sph.theta = theta;  sph.radius = radius;/*radius = cam.distance;*/ } 
 
         cam.s.set( radius, phi, theta );
         cam.s.makeSafe();
@@ -150,7 +152,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         
         cam.tmp.setFromSpherical( cam.s );
 
-        cam.v.copy( p ).add(this.cam.offset).add( cam.d );
+        cam.v.copy( p ).add( cam.offset ).add( cam.d );
         cam.v.add( cam.tmp )//{ x:Math.sin(radians) * cam.distance, y:cam.height, z:Math.cos(radians) * cam.distance });
         cam.v.sub( this.object.position );
         cam.v.multiply( { x:cam.acceleration * 2, y:cam.acceleration, z:cam.acceleration * 2 } );
@@ -171,7 +173,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         this.updateFollowGroup();
 
-        cam.old.copy( p );
+        if( !cam.start ) cam.old.copy( p );
 
         if( cam.isDecal ) cam.isDecal = false
         //cam.oldObj.copy( this.object.position );

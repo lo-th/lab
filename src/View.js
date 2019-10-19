@@ -102,6 +102,8 @@ function View ( forceV1, bg, alpha ) {
     this.controler.target.set( 0, 0, 0 );
     this.controler.enableKeys = false;
     this.controler.screenSpacePanning = true;
+    this.controler.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+    this.controler.dampingFactor = 0.5;//0.25;
     
     // 4 SCENE AND GROUP
 
@@ -290,9 +292,11 @@ View.prototype = {
 
            // this.update();
             this.updateIntern();
-            this.controler.follow();
+            
             
 		}
+
+        this.controler.follow();
 
 
 
@@ -1076,7 +1080,7 @@ View.prototype = {
 
     },
 
-    setShadowRange: function ( d, near, far, debug ) {
+    setShadowRange: function ( d, near, far, debug, groundRange ) {
 
         if( !this.isWithShadow ) return;
 
@@ -1093,7 +1097,9 @@ View.prototype = {
         cam.near = ( near !== undefined ) ? near : 100;
         cam.far = ( far !== undefined ) ? far : 300;
 
-        this.shadowGround.scale.set( d*2, 1, d*2 );
+        var gr = groundRange || 100;
+
+        this.shadowGround.scale.set( gr*2, 1, gr*2 );
 
         this.camShadow.updateProjectionMatrix();
 
@@ -1263,6 +1269,7 @@ View.prototype = {
         o = o || {};
 
         this.controler.initFollow( this.byName[ name ], o );
+        //this.controler.enableDamping = false;
 
     },
 
