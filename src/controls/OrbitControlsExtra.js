@@ -139,7 +139,11 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var radius = cam.distance;//sph.radius;//cam.distance;
 
         if(cam.start){
-        	if( Math.abs(sph.radius-cam.distance) < 1 && Math.abs(sph.phi-phi)<0.01  && Math.abs(sph.theta-theta)<0.01 ) cam.start = false;
+
+        	if( Math.abs(sph.radius-cam.distance) < 1  && Math.abs(sph.phi-phi)<0.1 ){ 
+
+        		cam.start = false;
+        	}
         }
 
         if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; radius = sph.radius;/*cam.distance = sph.radius;*/ }
