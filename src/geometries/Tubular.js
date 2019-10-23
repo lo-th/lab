@@ -95,10 +95,10 @@ THREE.Tubular = function ( pp, tubularSegments, radius, radialSegments, closed, 
     // build geometry
 
     this.setIndex( new ( this.indices.length > 65535 ? THREE.Uint32BufferAttribute : THREE.Uint16BufferAttribute )( this.indices, 1 ) );
-    this.addAttribute( 'position', new THREE.Float32BufferAttribute( this.vertices, 3 ) );
-    this.addAttribute( 'color', new THREE.Float32BufferAttribute( this.colors, 3 ) );
-    this.addAttribute( 'normal', new THREE.Float32BufferAttribute( this.normals, 3 ) );
-    this.addAttribute( 'uv', new THREE.Float32BufferAttribute( this.uvs, 2 ) );
+    this.setAttribute( 'position', new THREE.Float32BufferAttribute( this.vertices, 3 ) );
+    this.setAttribute( 'color', new THREE.Float32BufferAttribute( this.colors, 3 ) );
+    this.setAttribute( 'normal', new THREE.Float32BufferAttribute( this.normals, 3 ) );
+    this.setAttribute( 'uv', new THREE.Float32BufferAttribute( this.uvs, 2 ) );
 
 }
 

@@ -6057,26 +6057,26 @@ THREE.SEA3D.prototype.readGeometryBuffer = function ( sea ) {
 	// not indexes? use polygon soup
 	if ( sea.indexes ) geo.setIndex( new THREE.BufferAttribute( sea.indexes, 1 ) );
 
-	geo.addAttribute( 'position', new THREE.BufferAttribute( sea.vertex, 3 ) );
+	geo.setAttribute( 'position', new THREE.BufferAttribute( sea.vertex, 3 ) );
 
 	if ( sea.uv ) {
 
-		geo.addAttribute( 'uv', new THREE.BufferAttribute( sea.uv[ 0 ], 2 ) );
-		if ( sea.uv.length > 1 ) geo.addAttribute( 'uv2', new THREE.BufferAttribute( sea.uv[ 1 ], 2 ) );
+		geo.setAttribute( 'uv', new THREE.BufferAttribute( sea.uv[ 0 ], 2 ) );
+		if ( sea.uv.length > 1 ) geo.setAttribute( 'uv2', new THREE.BufferAttribute( sea.uv[ 1 ], 2 ) );
 
 	}
 
-	if ( sea.normal ) geo.addAttribute( 'normal', new THREE.BufferAttribute( sea.normal, 3 ) );
+	if ( sea.normal ) geo.setAttribute( 'normal', new THREE.BufferAttribute( sea.normal, 3 ) );
 	else geo.computeVertexNormals();
 
-	if ( sea.tangent4 ) geo.addAttribute( 'tangent', new THREE.BufferAttribute( sea.tangent4, 4 ) );
+	if ( sea.tangent4 ) geo.setAttribute( 'tangent', new THREE.BufferAttribute( sea.tangent4, 4 ) );
 
-	if ( sea.color ) geo.addAttribute( 'color', new THREE.BufferAttribute( sea.color[ 0 ], sea.numColor ) );
+	if ( sea.color ) geo.setAttribute( 'color', new THREE.BufferAttribute( sea.color[ 0 ], sea.numColor ) );
 
 	if ( sea.joint ) {
 
-		geo.addAttribute( 'skinIndex', new THREE.Float32BufferAttribute( sea.joint, sea.jointPerVertex ) );
-		geo.addAttribute( 'skinWeight', new THREE.Float32BufferAttribute( sea.weight, sea.jointPerVertex ) );
+		geo.setAttribute( 'skinIndex', new THREE.Float32BufferAttribute( sea.joint, sea.jointPerVertex ) );
+		geo.setAttribute( 'skinWeight', new THREE.Float32BufferAttribute( sea.weight, sea.jointPerVertex ) );
 
 	}
 
@@ -6124,7 +6124,7 @@ THREE.SEA3D.prototype.readLine = function ( sea ) {
 	if ( sea.closed )
 		sea.vertex.push( sea.vertex[ 0 ], sea.vertex[ 1 ], sea.vertex[ 2 ] );
 
-	geo.addAttribute( 'position', new THREE.Float32BufferAttribute( sea.vertex, 3 ) );
+	geo.setAttribute( 'position', new THREE.Float32BufferAttribute( sea.vertex, 3 ) );
 
 	var line = new THREE.Line( geo, new THREE.LineBasicMaterial( { color: THREE.SEA3D.HELPER_COLOR, linewidth: 3 } ) );
 	line.name = sea.name;

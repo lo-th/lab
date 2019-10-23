@@ -72,7 +72,7 @@ THREE.Terrain = function  ( o ) {
     this.geometry.rotateX( -Math.PI90 );
     this.geometry.computeBoundingSphere();
 
-    this.geometry.addAttribute( 'color', new THREE.BufferAttribute( this.colors, 3 ) );
+    this.geometry.setAttribute( 'color', new THREE.BufferAttribute( this.colors, 3 ) );
     this.vertices = this.geometry.attributes.position.array;
 
     this.wn = null;
@@ -349,7 +349,7 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
         this.lng2 = this.borderVertices.length / 3;
         this.list = new Array( this.lng2 )
         this.borderColors = new Float32Array( this.lng * 3 );
-        this.borderGeometry.addAttribute( 'color', new THREE.BufferAttribute( this.borderColors, 3 ) );
+        this.borderGeometry.setAttribute( 'color', new THREE.BufferAttribute( this.borderColors, 3 ) );
         this.borderMesh = new THREE.Mesh( this.borderGeometry, this.borderMaterial );
 
         var j = this.lng2, n, i;

@@ -96,8 +96,8 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 			//this.geometry.attributes[k] = source.attributes[k];
 
 			//var attribute = attributes[ name ];
-			this.geometry.addAttribute( name, source.getAttribute( name ) );
-			//this.geometry.addAttribute( name, attribute.clone() );
+			this.geometry.setAttribute( name, source.getAttribute( name ) );
+			//this.geometry.setAttribute( name, attribute.clone() );
 
 		}
 
@@ -204,13 +204,13 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
 			//view.scene.add(this.mesh)
 
-			/*this.geometry.addAttribute( 'instanceMatrixColumn0', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns0 ), 4 ) );
-			this.geometry.addAttribute( 'instanceMatrixColumn1', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns1 ), 4 ) );
-			this.geometry.addAttribute( 'instanceMatrixColumn2', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns2 ), 4 ) );
-			this.geometry.addAttribute( 'instanceMatrixColumn3', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns3 ), 4 ) );
-			this.geometry.addAttribute( 'instanceNormalMatrixColumn0', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns0 ), 3 ) );
-			this.geometry.addAttribute( 'instanceNormalMatrixColumn1', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns1 ), 3 ) );
-			this.geometry.addAttribute( 'instanceNormalMatrixColumn2', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns2 ), 3 ) );
+			/*this.geometry.setAttribute( 'instanceMatrixColumn0', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns0 ), 4 ) );
+			this.geometry.setAttribute( 'instanceMatrixColumn1', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns1 ), 4 ) );
+			this.geometry.setAttribute( 'instanceMatrixColumn2', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns2 ), 4 ) );
+			this.geometry.setAttribute( 'instanceMatrixColumn3', new THREE.InstancedBufferAttribute( new Float32Array( instanceMatrixColumns3 ), 4 ) );
+			this.geometry.setAttribute( 'instanceNormalMatrixColumn0', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns0 ), 3 ) );
+			this.geometry.setAttribute( 'instanceNormalMatrixColumn1', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns1 ), 3 ) );
+			this.geometry.setAttribute( 'instanceNormalMatrixColumn2', new THREE.InstancedBufferAttribute( new Float32Array( instanceNormalMatrixColumns2 ), 3 ) );
 			*/
 
 		    
@@ -292,9 +292,9 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 		this.orientationAttribute.dynamic = true
 		*/
 		
-		this.geometry.addAttribute( 'offset', this.offsetAttribute );
-		this.geometry.addAttribute( 'scales', this.scaleAttribute );
-		this.geometry.addAttribute( 'orientation', this.orientationAttribute );
+		this.geometry.setAttribute( 'offset', this.offsetAttribute );
+		this.geometry.setAttribute( 'scales', this.scaleAttribute );
+		this.geometry.setAttribute( 'orientation', this.orientationAttribute );
 
     },
 

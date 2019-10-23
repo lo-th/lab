@@ -34,8 +34,8 @@ THREE.CarHelper = function ( p, center, deep ) {
     ] );
 
     this.geometry = new THREE.BufferGeometry();
-    this.geometry.addAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-    this.geometry.addAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
+    this.geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+    this.geometry.setAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
 
     this.positions = this.geometry.attributes.position.array;
 

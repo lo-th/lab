@@ -1080,7 +1080,7 @@ View.prototype = {
 
     },
 
-    setShadowRange: function ( d, near, far, debug, groundRange ) {
+    setShadowRange: function ( d, near, far, debug, groundRange, groundPos ) {
 
         if( !this.isWithShadow ) return;
 
@@ -1098,8 +1098,10 @@ View.prototype = {
         cam.far = ( far !== undefined ) ? far : 300;
 
         var gr = groundRange || 100;
+        var py = groundPos || 0;
 
         this.shadowGround.scale.set( gr*2, 1, gr*2 );
+        this.shadowGround.position.y = py;
 
         this.camShadow.updateProjectionMatrix();
 
@@ -1151,10 +1153,10 @@ View.prototype = {
 
     },
 
-    hideGrid: function () {
+    hideGrid: function ( notGround ) {
 
-        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null ) this.shadowGround.visible = false; }
-        else{ this.grid.visible = true; if( this.shadowGround !== null ) this.shadowGround.visible = true; }
+        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = false; }
+        else{ this.grid.visible = true; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = true; }
 
     },
 

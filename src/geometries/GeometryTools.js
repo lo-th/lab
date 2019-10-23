@@ -26,14 +26,14 @@ THREE.GeometryTools = {
             color[n+2] = 1;
         }
 
-        geometry.addAttribute( 'color', color );
+        geometry.setAttribute( 'color', color );
         geometry.attributes.color.needsUpdate = true;
 
     },
 
     addUV2: function( geometry ){
 
-        geometry.addAttribute( 'uv2', geometry.attributes.uv );
+        geometry.setAttribute( 'uv2', geometry.attributes.uv );
 
     },
 
@@ -85,7 +85,7 @@ THREE.GeometryTools = {
         g.realIndices = new ( numFaces * 3 > 65535 ? Uint32Array : Uint16Array )( numFaces * 3 );
 
         if(withColor){
-            g.addAttribute( 'color', new THREE.BufferAttribute( new Float32Array( totalVertices*3 ), 3 ) );
+            g.setAttribute( 'color', new THREE.BufferAttribute( new Float32Array( totalVertices*3 ), 3 ) );
             var cc = g.attributes.color.array;
 
             i = totalVertices;

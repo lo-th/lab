@@ -24,6 +24,7 @@
     "src/objects/Instance.js",
     "src/helpers/CarHelper.js",
     "src/helpers/PointHelper.js",
+    "src/lth/Skeleton_Add.js",
     "src/intro.js",
     "src/user.js",
     "src/SimplexNoise.js",

@@ -38,8 +38,8 @@ THREE.PointHelper = function ( size, color ) {
 	];*/
 
 	var geometry = new THREE.BufferGeometry();
-	geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-	//geometry.addAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+	geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+	//geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
 
 	var material = new THREE.LineBasicMaterial( { color: color } );
 
