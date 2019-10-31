@@ -657,7 +657,7 @@ Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), 
 
     	//if( !this.view.isWithSphereLight ) return;
 
-    	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
+    	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
         this.vMid = new THREE.Vector3( 0,0,1 );
         this.vUp = new THREE.Vector3( 0,1,0 );
         this.vDown = new THREE.Vector3( 0,-1,0 );

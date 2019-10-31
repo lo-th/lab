@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>lab - geometry</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="shortcut icon" href="favicon.ico">
+<style>
+*{ 
+	margin: 0; padding: 0; border: 0; 
+	-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; 
+	-webkit-user-select:none; -moz-user-select:none; pointer-events:none;
+}
+body{ font-family:Monospace; background-color:#333; }
+
+
+</style>
+
+<script src="./src/libs/three.js"></script>
+<script src="./src/libs/sea3d.js"></script>
+<script src="./src/libs/tween.js"></script>
+<script src="./src/libs/uil.js"></script>
+
+<script src="./src/controls/OrbitControls.js"></script>
+<script src="./src/controls/OrbitControlsExtra.js"></script>
+
+<script src="./src/pmrem/PMREMCubeUVPacker.js"></script>
+<script src="./src/pmrem/PMREMGenerator.js"></script>
+
+<script src="./src/objects/Lensflare.js"></script>
+<script src="./src/objects/CubeCamera.js"></script>
+
+<script src="./src/geometries/TorusGeometry.js"></script>
+<script src="./src/geometries/SphereGeometry.js"></script>
+<script src="./src/geometries/CylinderGeometry.js"></script>
+<script src="./src/geometries/Capsule.js"></script>
+<script src="./src/geometries/ChamferCyl.js"></script>
+<script src="./src/geometries/ChamferBox.js"></script>
+<script src="./src/geometries/SphereBox.js"></script>
+
+<script src="./src/math.js"></script>
+<script src="./src/pool.js"></script>
+<script src="./src/sky.js"></script>
+<script src="./src/view.js"></script>
+</head>
+
+<body>
+<script>
+
+var group = null;
+
+var user;
+var ui, gr1;
+var current = '';
+var autoRotation = false;
+
+var options = {
+
+	ChamferBox:{ width:4, height:4, depth:4, filet:0.2, widthSegs:1, heightSegs:1, depthSegs:1, filetSegs:3 },
+	ChamferCyl:{ radiusTop:2, radiusBottom:2, height:4, filet:0.2, radialSegs:24, heightSegs:1, filetSegs:3 },
+	Capsule:{ radius:1.5, height:1, radialSegs:24, heightSegs:1 },
+	SphereBox:{ radius:2, widthSegs:8, heightSegs:8, depthSegs:8},
+
+}
+
+var integrals = [ 'widthSegs', 'heightSegs', 'depthSegs', 'filetSegs', 'radialSegs' ];
+
+view.init( start, true );
+initGui();
+
+function initGui () {
+
+    ui = new UIL.Gui( { w:320, h:30, close:false } );
+	ui.add('fps', { height:30 });
+
+	var gr0 = ui.add('group', { name:'Geometry', h:30 });
+	gr0.add('button', { name:'ChamferBox', p:0 }).onChange( function(){ make('ChamferBox'); } );
+	gr0.add('button', { name:'ChamferCyl', p:0 }).onChange( function(){ make('ChamferCyl'); } );
+	gr0.add('button', { name:'Capsule', p:0 }).onChange( function(){ make('Capsule'); } );
+	gr0.add('button', { name:'SphereBox', p:0 }).onChange( function(){ make('SphereBox'); } );
+	gr0.add('bool', { name:'wireframe', value:true, inh:20, p:80 }).onChange( function(b){ group.children[ 0 ].visible = b } );
+	gr0.add('bool', { name:'autoRotate', value:autoRotation, inh:20, p:80 }).onChange( function(b){ autoRotation = b } );
+	gr0.open();
+
+	gr1 = ui.add('group', { name:'Option', h:30 });
+
+	make('ChamferCyl');
+}
+
+function start () {
+
+	view.moveCam({ theta:0, phi:10, distance:15, target:[0,-1,0], time:0 });
+	view.setShadow({ size:150, near:100, far:300, groundY:-5 });
+	view.hideGrid( true );
+	view.addSky({ url:'colors.jpg' });
+
+
+	/*
+	var c = new THREE.CylinderBufferGeometry(2,3,4, 30)
+	var m = new THREE.Mesh(c,  view.getMat().check );
+	m.position.set(5,0,0)
+	view.add( m );
+	*/
+
+	group = new THREE.Group();
+
+	var geometry = new THREE.BufferGeometry();
+	geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( [], 3 ) );
+
+	var lineMaterial = new THREE.LineBasicMaterial( { color: 0x000000, transparent: true, opacity: 0.5 } );
+	var meshMaterial = view.getMat().check;
+
+	var l = new THREE.LineSegments( geometry, lineMaterial );
+	l.castShadow = false;
+    l.receiveShadow = false;
+
+    var m = new THREE.Mesh( geometry, meshMaterial );
+	m.castShadow = true;
+    m.receiveShadow = true;
+
+	group.add( l );
+	group.add( m );
+
+	view.add( group );
+
+	view.update = function(){
+
+		if( !autoRotation ) return;
+
+		group.rotation.x += 0.0025;
+		group.rotation.y += 0.0025;
+
+	}
+
+
+}
+
+function make ( name ) {
+
+	var g; 
+	var o = options[ name ];
+
+	switch( name ){
+
+		case 'ChamferBox':
+
+			g = new THREE.ChamferBox( o.width, o.height, o.depth, o.filet, o.widthSegs, o.heightSegs, o.depthSegs, o.filetSegs );
+		
+		break;
+		case 'ChamferCyl':
+
+			g = new THREE.ChamferCyl( o.radiusTop, o.radiusBottom, o.height, o.filet, o.radialSegs, o.heightSegs, o.filetSegs );
+		
+		break;
+		case 'Capsule':
+
+			g = new THREE.Capsule( o.radius, o.height, o.radialSegs, o.heightSegs );
+		
+		break;
+		case 'SphereBox':
+
+			g = new THREE.SphereBox( o.radius, o.widthSegs, o.heightSegs, o.depthSegs );
+		
+		break;
+
+	}
+
+	updateGroupGeometry( g );
+
+	if( name !== current ){
+
+		gr1.clearGroup();
+
+		for( var k in o ){
+
+			if( integrals.indexOf(k) !== -1 ) gr1.add( o, k, { min: k==='radialSegs'? 4: 1, max: k==='radialSegs'? 40: 20, precision:0, mode:2 } ).onChange( function(){ make(current); } );
+			else gr1.add( o, k, { min:0, max:10 } ).onChange( function(){ make(current); } );
+
+		}
+
+		gr1.open();
+
+		current = name;
+
+	}
+
+	
+
+}
+
+function updateGroupGeometry( geometry ) {
+
+	group.children[ 0 ].geometry.dispose();
+	group.children[ 1 ].geometry.dispose();
+
+	group.children[ 0 ].geometry = new THREE.WireframeGeometry( geometry );
+	group.children[ 1 ].geometry = geometry;
+
+}
+
+function applyOption () {
+
+	if( option.colors ){ 
+		sky.getColor();
+		option.colors=false;
+	}
+
+    if( hour !== option.hour ){ 
+
+    	clearTimeout(timout);
+    	timout = setTimeout( function (){ hour = option.hour; view.updateSky({hour:hour}); }, 0);
+    	
+    }
+
+}
+
+</script>
+</body>
+</html>

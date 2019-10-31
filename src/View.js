@@ -5,372 +5,357 @@
 *    @author lo.th / https://github.com/lo-th
 */
 
-function View ( forceV1, bg, alpha ) {
-
-    this.loadCallback = function(){};
-    this.tmpCallback = function(){};
-    this.rayCallBack = function(){};
-    this.resetCallBack = function(){};
-    this.tmpName = [];
 
-    this.pause = false;
-    this.isPause = false;
 
-    this.container = null;
+var view = ( function () {
+
+'use strict';
+
+
+var refEditor = null;
+
+var setting = {
+	correctLight: false,
+    gammaInput: true,
+    gammaOutput: true,
+    exposure: 1.2,
+    whitePoint: 1.0,
+    type: "Filmic",
+    envIntensity: 1.2,
+    sunIntensity: 0.8,
+    moonIntensity: 0.25,
+};
 
-    this.fog = null;
+var toneMappings = {
+    None: THREE.NoToneMapping,
+    Linear: THREE.LinearToneMapping,
+    Reinhard: THREE.ReinhardToneMapping,
+    Uncharted2: THREE.Uncharted2ToneMapping,
+    Cineon: THREE.CineonToneMapping,
+    Filmic: THREE.ACESFilmicToneMapping,
+};
 
-    this.matType = 'Standard';
+var tmpName = [];
 
-    this.refEditor = null;
+//var pause = false;
+var isPause = false;
 
-    this.lightDistance = 200;
-    this.shadowMat = null;
-    this.shadowGround = null;
+var container = null;
+var canvas = null;
+var renderer = null;
+var camera = null;
+var controler = null;
+var scene = null;
+var content = null;
+var followGroup = null;
+var loader = null;
+var envmap = null;
+var environement = null;
+var listener = null;
+var mouse = null;
+var offset = null;
 
-	this.isMobile = this.testMobile();
+var grid = null;
+var ray = null;
+var dragPlane = null;
 
-    this.isDebug = false;
-    this.isWithJoystick = false;
-	this.isNeedUpdate = false;
-	this.isWithShadow = false;
-    this.isShadowDebug = false;
-    this.isWithSky = false;
-    this.isWithLight = false;
-    this.isWithFog = false;
-    this.isWithSphereLight = false;//this.isMobile ? false : true;
-	this.isWithRay = false;
-	this.needResize = false;
-	this.t = [0,0,0,0];
-    this.delta = 0;
-    this.fps = 0;
-	this.bg = bg || 0x222322;
-	this.vs = { w:1, h:1, l:0, x:0, y:0 };
+var sun = null;
+var moon = null;
+var probe = null;
+var sphereLight = null;
+var camShadow = null;
 
-	this.agents = [];
-    this.heros = [];
-    this.cars = [];
-    this.softs = [];
-	this.bodys = [];
-	this.solids = [];
-	this.extraMesh = [];
-	this.extraGeo = [];
+var check = null;
 
-    this.helper = [];
 
-    this.mesh = {};
-    this.geo = {};
-    this.mat = {};
-    this.txt = {};
+var fog = null;
 
-    this.tmpTxt = {};
-    this.tmpMat = {};
+var matType = 'Standard';
 
-    this.isGl2 = false;
-    this.isInContainer = false;
+var lightDistance = 200;
+var shadowMat = null;
+var shadowGround = null;
+var isHighShadow = false;
 
+var campHelper = null;
 
+var isMobile = false;
 
-	// 1 CANVAS GL1 or GL2
+var isDebug = false;
+var isWithJoystick = false;
+var isNeedUpdate = false;
+var isWithShadow = false;
+var isShadowDebug = false;
+var isWithSky = false;
 
-    var options = this.getGL( forceV1, alpha );
+var isLight = false;
+var isFog = false;
+var isRay = false;
+var needResize = false;
 
-    // 2 RENDERER
-    try {
+var t = [0,0,0,0];
+var delta = 0;
+var fps = 0;
 
-        this.renderer = new THREE.WebGLRenderer( options );
-        this.isWebGL2 = this.renderer.capabilities.isWebGL2;
+var bg = bg || 0x222322;
+var vs = { w:1, h:1, l:0, x:0, y:0 };
 
-    } catch( error ) {
-        if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
-                    + '<p>This application uses WebGL to quickly draw</p>'
-                    + '<p>Physics Labs can be used without WebGL, but unfortunately this application cannot.</p>'
-                    + '<p>Have a great day!</p>');
-        return;
-    }
+var agents = [];
+var heros = [];
+var cars = [];
+var softs = [];
+var bodys = [];
+var solids = [];
+var extraMesh = [];
+var extraGeo = [];
 
-    console.log('THREE webgl' , this.isWebGL2 ? 2 : 1 );
+var helper = [];
 
-    this.renderer.setClearColor( this.bg, 1 );
-    this.renderer.setPixelRatio( this.isMobile ? 1 : window.devicePixelRatio );
+var mesh = {};
+var geo = {};
+var mat = {};
+var txt = {};
 
-    // 3 CAMERA / CONTROLER
+var tmpTxt = {};
+var tmpMat = {};
 
-    this.camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
-    this.camera.position.set( 0, 15, 30 );
-    this.controler = new THREE.OrbitControlsExtra( this.camera, this.renderer.domElement ); //this.canvas );
-    this.controler.target.set( 0, 0, 0 );
-    this.controler.enableKeys = false;
-    this.controler.screenSpacePanning = true;
-    this.controler.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
-    this.controler.dampingFactor = 0.5;//0.25;
-    
-    // 4 SCENE AND GROUP
+var isGl2 = false;
+var isInContainer = false;
 
-    this.scene = new THREE.Scene();
+var autoAddAudio = null;
 
-    this.content = new THREE.Group();
-    this.scene.add( this.content );
 
-    this.followGroup = this.controler.followGroup;
-    this.scene.add( this.followGroup );
+	
+///
 
-    this.extraMesh = new THREE.Group();
-    this.scene.add( this.extraMesh );
+view = {
 
+    pause: false,
 
-    // 5 TEXTURE LOADER
+    byName: {},
 
-    this.loader = new THREE.TextureLoader();
+    loadCallback: function(){},
+    tmpCallback: function(){},
+    rayCallBack: function(){},
+    resetCallBack: function(){},
+    unPause: function(){},
 
+    update: function(){},
 
-    this.envmap = null;
-    this.environement = new Environement( this );
-    
 
-    // AUDIO
+    //-----------------------------
+    //
+    //  RENDER LOOP
+    //
+    //-----------------------------
 
-    this.listener = null;
-    //this.autoAddAudio = this.autoAudio.bind( this )
-    //this.canvas.addEventListener( 'click', this.autoAddAudio, false );
+    render: function ( stamp ) {
 
-    // 6 RESIZE
+        requestAnimationFrame( view.render );
 
-    this.resize();
-    //var _this = this;
-    //window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
-    window.addEventListener( 'resize', this.resize.bind(this), false );
+        t[0] = stamp === undefined ? now() : stamp;
+        delta = ( t[0] - t[3] ) * 0.001;
+        t[3] = t[0];
 
-    // 7 KEYBOARD & JOSTICK 
+        if( view.pause ) isPause = true;
+        if( isPause && !view.pause ){ isPause = false; view.unPause(); }
 
-    if( !this.isMobile && user ) user.init();
+        if( needResize ) view.upResize();
 
-    this.mouse = new THREE.Vector3();
-    this.offset = new THREE.Vector3();
-
-    
-
-    // 8 START RENDER
-
-    this.render( 0 );
-
-}
-
-View.prototype = {
-
-	byName: {},
-
-    setContainer: function ( container ){
-
-        this.container = container;
-        document.body.removeChild( this.canvas );
-        this.container.appendChild( this.canvas );
-
-        this.canvas.style.position = 'absolute';
-        this.resize();
-
-    },
-
-    getGL: function ( forceV1, alpha ) {
-
-        //forceV1 = true;
-
-        var isWebGL2 = false, gl;
-
-        var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
-        canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto;'//' image-rendering: pixelated;'
-        if( !this.isMobile ){
-            //document.oncontextmenu = function(e){ e.preventDefault(); };
-            canvas.ondrop = function(e) { e.preventDefault(); };
-        }
-        document.body.appendChild( canvas );
-
-        /*var options = { 
-            antialias: this.isMobile ? false : true, alpha: false, 
-            stencil:false, depth:true, precision: this.isMobile ? "mediump" :"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
-        }*/
-
-        var options = { 
-            antialias: this.isMobile ? false : true, alpha: alpha || false, 
-            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
-        }
-
-        if( forceV1 === undefined ){
-
-            gl = canvas.getContext( 'webgl2', options );
-            if (!gl) gl = canvas.getContext( 'experimental-webgl2', options );
-            isWebGL2 = !!gl;
-            //gl.v2 = isWebGL2 ? true : false;
-
-        }
-
-        if( !isWebGL2 ) {
-            gl = canvas.getContext( 'webgl', options );
-            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
-        }
-
-        options.canvas = canvas;
-        options.context = gl;
-        this.canvas = canvas;
-
-        this.isGl2 = isWebGL2;
-        //this.isWebGL2 = isWebGL2;
-
-        return options;
-
-    },
-
-    /*getWebGL2: function () {
-
-        return this.isWebGL2;
-
-    },*/
-
-    init: function ( Callback, noObj ) {
-
-        this.shaderHack();
-        this.initGeometry();
-        //this.initEnvMap();
-        this.initMaterial();
-        this.initGrid();
-        this.addTone();
-        this.addLights();
-        this.addShadow();
-
-        this.environement.defaultSky()
-
-        if( !noObj ) this.loadObject( 'basic', Callback );
-        else{
-            if( Callback !== undefined ) Callback();
-        }
-
-    },
-
-	update: function(){},
-
-	updateIntern: function(){},
-
-    updateExtra: function(){},
-
-	needUpdate: function ( b ){ this.isNeedUpdate = b; },
-
-	render: function ( stamp ) {
-
-        this.t[0] = stamp === undefined ? now() : stamp;
-        this.delta = ( this.t[0] - this.t[3] ) * 0.001;
-        this.t[3] = this.t[0];
-
-        var _this = this;
-
-        requestAnimationFrame(  function(s){ _this.render(s); } );
-
-        //requestAnimationFrame(  this.render.bind( this ) );
-
-        if( this.controler.enableDamping ) this.controler.update();
-
-        if( this.pause ) this.isPause = true;
-        if( this.isPause && !this.pause ){ this.isPause = false; unPause(); }
-
-        if( this.needResize ) this.upResize();
-
-        THREE.SEA3D.AnimationHandler.update( this.delta ); // sea3d model
+        THREE.SEA3D.AnimationHandler.update( delta ); // sea3d animation
 
         if( user ) user.update(); // gamepad
+        if( controler.enableDamping ) controler.update();
 
         TWEEN.update(); // tweener
 
-        this.updateExtra();
-        this.update( this.delta );
+        view.update( delta );
 
-
-		if( this.isNeedUpdate ){
-
-            // if physics change 
-
-            this.isNeedUpdate = false;
-
-
-           // this.update();
-            this.updateIntern();
-            
-            
-		}
-
-        this.controler.follow();
-
-
-
-		this.renderer.render( this.scene, this.camera );
+        renderer.render( scene, camera );
 
         // fps
+        if ( (t[0] - 1000) > t[1] ){ t[1] = t[0]; fps = t[2]; t[2] = 0; }; t[2]++;
+
+    },
+
+
+    //-----------------------------
+    //
+    //  INIT THREE VIEW
+    //
+    //-----------------------------
+
+    init: function ( Callback, noObj, Container, forceGL1, alpha ) {
+
+        alpha = alpha !== undefined ? alpha : false;
+
+        // 1 CANVAS / CONTAINER
+
+        isMobile = this.getMobile();
+        container = Container || null;
+
+        canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
+        canvas.style.cssText = 'position:absolute; top:0; left:0; pointer-events:auto;'//' image-rendering: pixelated;'
+
+        if( !isMobile ){
+            //document.oncontextmenu = function(e){ e.preventDefault(); };
+            canvas.ondrop = function(e) { e.preventDefault(); };
+        }
+
+        // 2 RENDERER
+
+        try {
+
+            renderer = new THREE.WebGLRenderer( this.getGL( forceGL1, alpha ) );
+
+        } catch( error ) {
+            if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
+                        + '<p>This application uses WebGL to quickly draw</p>'
+                        + '<p>Physics Labs can be used without WebGL, but unfortunately this application cannot.</p>'
+                        + '<p>Have a great day!</p>');
+            return;
+        }
+
+        console.log('THREE '+THREE.REVISION+' GL'+(isGl2 ? 2 : 1) );
+
+        renderer.setClearColor( bg, (alpha !== undefined ? alpha : true) ? 0:1 );
+        renderer.setPixelRatio( isMobile ? 1 : window.devicePixelRatio );
+
+        // 3 CAMERA / CONTROLER / MOUSE
+
+        camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
+        //camera.position.set( 0, 15, 30 );
+        controler = new THREE.OrbitControlsExtra( camera, renderer.domElement ); //this.canvas );
+        controler.target.set( 0, 0, 0 );
+        controler.enableKeys = false;
+        controler.screenSpacePanning = true;
+        controler.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+        controler.dampingFactor = 0.5;
+
+        this.moveCam({ theta:0, phi:10, distance:30, target:[0,1,0], time:0 });
+
+        mouse = new THREE.Vector3();
+        offset = new THREE.Vector3();
+        
+        // 4 SCENE / GROUP
+
+        scene = new THREE.Scene();
+
+        content = new THREE.Group();
+        scene.add( content );
+
+        followGroup = controler.followGroup;
+        scene.add( followGroup );
+
+        extraMesh = new THREE.Group();
+        scene.add( extraMesh );
+
+
+        // 5 TEXTURE LOADER / ENVMAP
+
+        loader = new THREE.TextureLoader();
+        envmap = null;//new THREE.CubeTexture();
+        
+        // 6 RESIZE
+
+        this.resize();
+        window.addEventListener( 'resize', view.resize, false );
+
+        // 7 KEYBOARD & JOSTICK 
+
+        if( !isMobile && user ) user.init();
 
         
-        if ( (this.t[0] - 1000) > this.t[1] ){ this.t[1] = this.t[0]; this.fps = this.t[2]; this.t[2] = 0; }; this.t[2]++;
+        // 8 START BASE
 
-	},
+        this.shaderHack();
+        this.initGeometry();
+        this.initMaterial();
+        
+        this.setTone();
+        this.addLights();
+        this.addShadow();
+        this.initGrid();
+
+        if ( !noObj ) this.loadObject( 'basic', Callback );
+        else { if( Callback !== undefined ) Callback(); }
+
+        if( container !== null ) container.appendChild( canvas );
+        else document.body.appendChild( canvas );
+
+
+        this.extandGroup();
+
+        this.render( 0 );
+
+    },
+
+
+    //-----------------------------
+    //
+    //  RESET THREE VIEW
+    //
+    //-----------------------------
 
 	reset: function ( full ) {
 
         this.resetCallBack();
 
-        this.controler.resetFollow();
+        controler.resetFollow();
 
-        this.setShadowRange();
+        this.setShadow();
+        this.removeRay();
+        this.removeSky();
+        this.removeFog();
+        this.resetLight();
+        this.removeJoystick();
+        this.removeShadowDebug();
 
         this.removeAudio();
 
-        this.isNeedUpdate = false;
+        //isNeedUpdate = false;
 
-        this.grid.visible = true;
-        if( this.shadowGround !== null ) this.shadowGround.visible = true;
+        grid.visible = true;
+        if( shadowGround !== null ) shadowGround.visible = true;
 
-        while( this.extraMesh.children.length > 0 ) this.scene.remove( this.extraMesh.children.pop() );
+        while( extraMesh.children.length > 0 ) scene.remove( extraMesh.children.pop() );
 
-        while( this.extraGeo.length > 0 ) this.extraGeo.pop().dispose();
+        while( extraGeo.length > 0 ) extraGeo.pop().dispose();
 
-        while( this.bodys.length > 0 ) this.clear( this.bodys.pop() );
-        while( this.solids.length > 0 ) this.clear( this.solids.pop() );
-        while( this.heros.length > 0 ) this.clear( this.heros.pop() );
-        while( this.softs.length > 0 ) this.clear( this.softs.pop() );
+        while( bodys.length > 0 ) this.clear( bodys.pop() );
+        while( solids.length > 0 ) this.clear( solids.pop() );
+        while( heros.length > 0 ) this.clear( heros.pop() );
+        while( softs.length > 0 ) this.clear( softs.pop() );
         //while( terrains.length > 0 ) this.scene.remove( terrains.pop() );
 
-        while( this.cars.length > 0 ){
+        while( cars.length > 0 ){
 
-            var c = this.cars.pop();
+            var c = cars.pop();
             if( c.userData.helper ){
                 c.remove( c.userData.helper );
                 c.userData.helper.dispose();
             }
             var i = c.userData.w.length;
             while( i-- ){
-                this.scene.remove( c.userData.w[i] );
+                scene.remove( c.userData.w[i] );
             }
-            this.scene.remove( c );
+            scene.remove( c );
         }
-
-        //for( var t in this.txt ) this.txt[t].dispose();
-
-        this.removeRay();
-        this.removeSky();
-        this.removeFog();
-        this.resetLight();
-        this.removeShadowDebug();
-        //this.resetMaterial();
-        this.removeJoystick();
         
 
         this.update = function () {};
         this.tmpCallback = function(){};
         this.resetCallBack = function(){};
+
         this.byName = {};
 
         if( full ){
 
-            for( var m in this.tmpTxt ){ this.tmpTxt[m].dispose(); this.tmpTxt[m] = undefined; }
-            for( var m in this.tmpMat ){ this.tmpMat[m].dispose(); this.tmpMat[m] = undefined; }
+            for( var m in tmpTxt ){ tmpTxt[m].dispose(); tmpTxt[m] = undefined; }
+            for( var m in tmpMat ){ tmpMat[m].dispose(); tmpMat[m] = undefined; }
 
-            this.tmpMat = {};
-            this.tmpTxt = {};
+            tmpMat = {};
+            tmpTxt = {};
 
         }
 
@@ -389,57 +374,199 @@ View.prototype = {
 
     },
 
-    setLeft: function ( x, y ) { 
+    //-----------------------------
+    //
+    //  EXTAND THREE GROUP
+    //
+    //-----------------------------
 
-    	this.vs.x = x;
-        this.vs.y = y;
-    	this.resize();
+    extandGroup: function () {
+
+        Object.defineProperty( THREE.Group.prototype, 'material', {
+            get: function() { return this.children[0].material; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.material = value; });
+                //var i = this.children.length;
+                //while(i--) this.children[i].material = value; 
+            }
+        });
+        
+        Object.defineProperty( THREE.Group.prototype, 'receiveShadow', {
+            get: function() { return this.children[0].receiveShadow; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.receiveShadow = value; }); }
+        });
+
+        Object.defineProperty( THREE.Group.prototype, 'castShadow', {
+            get: function() { return this.children[0].castShadow; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.castShadow = value; }); }
+        });
 
     },
 
-    setRefEditor: function ( ed ) {
 
-        this.refEditor = ed;
+    //-----------------------------
+    //
+    //  GET SYSTEM INFO
+    //
+    //-----------------------------
+
+    getGL: function ( force, alpha ) {
+
+        var gl;
+
+        var options = { 
+            antialias: isMobile ? false : true, alpha: alpha, 
+            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+        }
+
+        if( !force ){
+            gl = canvas.getContext( 'webgl2', options );
+            if ( !gl ) gl = canvas.getContext( 'experimental-webgl2', options );
+            isGl2 = !!gl;
+        }
+
+        if( !isGl2 ) {
+            gl = canvas.getContext( 'webgl', options );
+            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
+        }
+
+        options.canvas = canvas;
+        options.context = gl;
+        return options;
+
+    },
+
+    getMobile: function () {
+
+        var n = navigator.userAgent;
+        if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
+        else return false;  
+
+    },
+
+
+    //-----------------------------
+    //
+    //  GET
+    //
+    //-----------------------------
+
+    getGL2: function () { return isGl2; },
+    getFps: function () { return fps; },
+    getEnvMap: function () { return envmap; },
+    getAzimuthal: function (){ return -controler.getAzimuthalAngle(); },
+    getGeo: function () { return geo; },
+    getMat: function () { return mat; },
+    
+    getBody: function () { return bodys; },
+    getSolid: function () { return solids; },
+    getHero: function () { return heros; },
+
+    //getPause: function () { return pause; },
+
+    getControls: function () { return controler; },
+    getControler: function () { return controler; },
+    getCamera: function () { return camera; },
+    getMouse: function () { return mouse; },
+    getDom: function () { return renderer.domElement; },
+
+    getLoader:  function () { return loader; },
+    getRenderer: function () { return renderer; },
+    getScene: function () { return scene; },
+
+    getSun: function () { return sun; },
+    getMoon: function () { return moon; },
+    getProbe: function () { return probe },
+    getSphereLight: function () { return sphereLight; },
+    //getLightProbe: function () { return lightProbe; },
+
+    getLightDistance: function () { return lightDistance; },
+    getFollowGroup:  function () { return followGroup; },
+    getContent:  function () { return content; },
+
+
+    //-----------------------------
+    //
+    //  SET
+    //
+    //-----------------------------
+
+    setEditor: function ( v ) { refEditor = v; },
+
+
+    //-----------------------------
+    //
+    //  FOCUS
+    //
+    //-----------------------------
+
+    needFocus: function () {
+
+        if( !refEditor )  return;
+        canvas.addEventListener( 'mouseover', refEditor.unFocus, false );
+
+    },
+
+    haveFocus: function () {
+
+        if( !refEditor )  return;
+        canvas.removeEventListener( 'mouseover', refEditor.unFocus, false );
+
+    },
+
+    //-----------------------------
+    //
+    //  RESIZE
+    //
+    //-----------------------------
+
+    setLeft: function ( x, y ) { 
+
+        vs.x = x;
+        vs.y = y;
+        this.resize();
 
     },
 
 	resize: function ( e ) {
 
-        var w, h, v = this.vs;
+        var w, h;
 
-        if(this.container !== null ){
-            w = this.container.offsetWidth - v.x - v.y;
-            h = this.container.offsetHeight; 
+        if(container !== null ){
+            w = container.offsetWidth - vs.x - vs.y;
+            h = container.offsetHeight; 
         } else {
-            w = window.innerWidth - v.x - v.y;
+            w = window.innerWidth - vs.x - vs.y;
             h = window.innerHeight;
         }
 
-		if( v.w !== w || v.h !== h ){
+		if( vs.w !== w || vs.h !== h ){
 
-			v.h = h;
-            v.w = w;
+			vs.h = h;
+            vs.w = w;
 
-            this.needResize = true;
+            needResize = true;
 
-            if( this.refEditor ) this.refEditor.resizeMenu( v.w );
+            if( refEditor ) refEditor.resizeMenu( vs.w );
 
 		}
     },
 
-    
-
     upResize: function () {
 
-    	var v = this.vs;
-        this.canvas.style.left = v.x +'px';
-        this.camera.aspect = v.w / v.h;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize( v.w, v.h );
-        this.needResize = false;
+        canvas.style.left = vs.x +'px';
+        camera.aspect = vs.w / vs.h;
+        camera.updateProjectionMatrix();
+        renderer.setSize( vs.w, vs.h );
+        needResize = false;
 
     },
 
+
+    //-----------------------------
+    //
+    //  LOADER
+    //
+    //-----------------------------
 
     getName: function ( url ) {
 
@@ -447,13 +574,11 @@ View.prototype = {
 
     },
 
-    
-
     loadTexture: function ( name ){
 
         var n = this.getName( name );
-        this.txt[ n ] = this.loader.load( './assets/textures/'+ name );
-        return this.txt[ n ];
+        txt[ n ] = loader.load( './assets/textures/'+ name );
+        return txt[ n ];
 
     },
 
@@ -466,20 +591,20 @@ View.prototype = {
     loadObject: function( Urls, Callback ){
 
         var urls = [];
-        this.tmpName = [];
+        tmpName = [];
 
         if ( typeof Urls == 'string' || Urls instanceof String ){ 
             urls.push( './assets/models/'+ Urls + '.sea' );
-            this.tmpName.push(  Urls );
+            tmpName.push(  Urls );
         } else {
             for(var i=0; i < Urls.length; i++){
                 urls.push( './assets/models/'+ Urls[i] + '.sea' );
-                this.tmpName.push(  Urls[i] );
+                tmpName.push(  Urls[i] );
             }
         }
             
         this.loadCallback = Callback || function(){};
-        this.tmpCallback = function(p){ this.afterLoad(p) }.bind(this);
+        this.tmpCallback = function(p){ this.afterLoad(p) }.bind( this );
         pool.load( urls, this.tmpCallback );
 
     },
@@ -488,22 +613,22 @@ View.prototype = {
 
         var o, mesh, j;
 
-        for(var i=0; i < this.tmpName.length; i++){
+        for(var i=0; i < tmpName.length; i++){
 
-            o = p[ this.tmpName[i] ];
+            o = p[ tmpName[i] ];
             j = o.length;
 
             while(j--){
 
                 mesh = o[j];
-                this.geo[mesh.name] = mesh.geometry;
+                geo[mesh.name] = mesh.geometry;
 
                 if( mesh.name === 'wheel' ){
 
-                    this.geo['wheelR'] = this.geo.wheel.clone();
-                    this.geo['wheelL'] = this.geo.wheel.clone();
-                    this.geo.wheelL.rotateY( -Math.PI90 );
-                    this.geo.wheelR.rotateY( Math.PI90 );
+                    geo['wheelR'] = geo.wheel.clone();
+                    geo['wheelL'] = geo.wheel.clone();
+                    geo.wheelL.rotateY( -Math.PI90 );
+                    geo.wheelR.rotateY( Math.PI90 );
 
                 }
                 
@@ -511,7 +636,10 @@ View.prototype = {
 
         }
 
-        this.tmpName = [];
+        // test round geom
+        //geo['box'] = new THREE.RoundedBoxGeometry(1,1,1, 0.01, 2)
+
+        tmpName = [];
         this.loadCallback();
 
     },
@@ -550,65 +678,25 @@ View.prototype = {
 
     },
 
-    addMesh: function ( m ) {
+    add: function ( m ) {
 
-        m.castShadow = true;
-        m.receiveShadow = true;
+        extraMesh.add( m );
 
-        this.extraMesh.add( m );
+    },
+
+    addMesh: function ( m, castS, receiveS ) {
+
+        m.castShadow = castS !== undefined ? castS : true;
+        m.receiveShadow = receiveS !== undefined ? receiveS : true;
+
+        extraMesh.add( m );
 
     },
 
     testMesh: function ( geom ) {
 
-        var mesh = new THREE.Mesh( geom, this.mat.basic );
-        this.addMesh(mesh);
-
-    },
-
-   
-
-    //-----------------------------
-
-    // GET
-
-	getFps: function () { return this.fps; },
-	getEnvMap: function () { return this.envmap; },
-    getSun: function (){ return this.sun.position.clone().normalize(); },
-    getAzimuthal: function (){ return -this.controler.getAzimuthalAngle(); },
-    getGeo: function () { return this.geo; },
-    getMat: function () { return this.mat; },
-    getScene: function () { return this.scene; },
-	getBody: function () { return this.bodys; },
-    getHero: function () { return this.heros; },
-
-	getControls: function () { return this.controler; },
-    getCamera: function () { return this.camera; },
-    getMouse: function () { return this.mouse; },
-    //getDom: function () { return this.canvas; },
-    getDom: function () { return this.renderer.domElement; },
-    //getOffset: function () { return this.offset; },
-
-
-	needFocus: function () {
-
-        if( !editor ) return;
-        this.canvas.addEventListener('mouseover', editor.unFocus, false );
-
-    },
-
-    haveFocus: function () {
-
-        if( !editor ) return;
-        this.canvas.removeEventListener('mouseover', editor.unFocus, false );
-
-    },
-
-	testMobile: function () {
-
-        var n = navigator.userAgent;
-        if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
-        else return false;  
+        var mesh = new THREE.Mesh( geom, mat.basic );
+        this.addMesh( mesh );
 
     },
 
@@ -621,7 +709,7 @@ View.prototype = {
 
     initGeometry: function (){
 
-        var geo = {
+        geo = {
 
             agent: new THREE.CircleBufferGeometry( 1, 3 ),
             circle: new THREE.CircleBufferGeometry( 1, 6 ),
@@ -644,10 +732,8 @@ View.prototype = {
         geo.plane.rotateX( -Math.PI90 );
         geo.wheel.rotateZ( -Math.PI90 );
 
-
-        this.geo = geo;
-
     },
+
 
     //-----------------------------
     //
@@ -659,17 +745,17 @@ View.prototype = {
 
         var name = option.name;
 
-        if( this.tmpMat[ name ] ){
+        if( tmpMat[ name ] ){
 
             for( var o in option ){
                 if( o === 'color' ) this.tmpMat[ name ].color.setHex( option[o] );
-                else this.tmpMat[ name ][o] = option[o];
+                else tmpMat[ name ][o] = option[o];
             }
 
-            return this.tmpMat[ name ];
+            return tmpMat[ name ];
         }
 
-        type = type || this.matType;
+        type = type || matType;
 
         if( type !== 'Phong' ){
             delete( option.shininess ); 
@@ -683,11 +769,11 @@ View.prototype = {
             delete( option.envMapIntensity );
         }
 
-        option.envMap = this.envmap;
+        option.envMap = envmap;
         
         option.shadowSide = option.shadowSide || null;
 
-        this.tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
+        tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
 
         /*if( type === 'Standard' ){
             this.tmpMat[ name ].onBeforeCompile = function ( shader ) {
@@ -695,13 +781,13 @@ View.prototype = {
             }
         }*/
 
-        return this.tmpMat[ name ];
+        return tmpMat[ name ];
 
     },
 
     makeMaterial: function ( option, type ){
 
-        type = type || this.matType;
+        type = type || matType;
 
         if( type !== 'Phong' ){
             delete( option.shininess ); 
@@ -712,9 +798,13 @@ View.prototype = {
             option.reflectivity = option.metalness || 0.5;
             delete( option.metalness ); 
             delete( option.roughness );
+            
+        } else {
+            option.envMapIntensity = setting.envIntensity;
         }
 
-        option.envMap = this.envmap;
+        option.envMap = envmap;
+        
         //option.shadowSide = false;
 
         return new THREE['Mesh'+type+'Material']( option );
@@ -733,13 +823,18 @@ View.prototype = {
 
     initMaterial: function (){
 
-        this.check = new THREE.Texture();//this.loader.load( './assets/textures/check.jpg' );
-        this.check.repeat = new THREE.Vector2( 2, 2 );
-        this.check.wrapS = this.check.wrapT = THREE.RepeatWrapping;
+        //check = new THREE.Texture( this.makeCheck() );
+
+        check = this.makeCheck();
+        //check.needsUpdate = true;
+        //check.repeat = new THREE.Vector2( 2, 2 );
+        //check.wrapS = check.wrapT = THREE.RepeatWrapping;
 
         //http://www.color-hex.com/popular-colors.php
 
-        this.mat = {
+        mat = {
+
+            white: this.makeMaterial({ color:0xFFFFFF, name:'basic',  metalness:0.5, roughness:0.5 }),
 
             ttest: new THREE.MeshBasicMaterial( { color: 0xffffff, depthTest:true, depthWrite:false } ),//this.makeMaterial({ color:0xFFFFFF, name:'basic', envMap:this.envmap, metalness:0, roughness:0 }),
            
@@ -747,18 +842,20 @@ View.prototype = {
             contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', metalness:0.8, roughness:0.5 }),
             contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', metalness:0.8, roughness:0.5 }),
 
-            check: this.makeMaterial({ map:this.check, name:'check', metalness:0.5, roughness:0.5 }),
-            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.5, roughness:0.5 }),
-            sleep: this.makeMaterial({ color:0x433F3C, name:'sleep', metalness:0.5, roughness:0.5 }),
-            move: this.makeMaterial({ color:0xCBBEB5, name:'move', metalness:0.5, roughness:0.5 }),
+            check: this.makeMaterial({ map:check, color:0x808080, name:'check', metalness:0.75, roughness:0.25 }),
+            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.7, roughness:0.5 }),
             movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', metalness:0.5, roughness:0.5 }),
-            speed: this.makeMaterial({ color:0xff4040, name:'speed', metalness:0.5, roughness:0.5 }),
+            
+
+            sleep: this.makeMaterial({ color:0x8080CC, name:'sleep', metalness:0.5, roughness:0.5 }),
+            move: this.makeMaterial({  color:0xCCCCCC, name:'move', metalness:0.5, roughness:0.5 }),
+            speed: this.makeMaterial({  color:0xCCAA80, name:'speed', metalness:0.5, roughness:0.5 }),
 
             statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
-            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.6, roughness:0.4 }),
+            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.7, roughness:0.3, premultipliedAlpha:true }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
-            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4, shininess:40, specular:0xFAF7F0 }, 'Phong' ),//0xD4AF37
+            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4 } ),//0xD4AF37
             donut: this.makeMaterial({ name:'donut', color:0xAA9933,  metalness:0.6, roughness:0.4 }),
 
             hide: this.makeMaterial({ color:0x000000, name:'hide', wireframe:true, visible:false }, 'Basic'),
@@ -766,46 +863,47 @@ View.prototype = {
             skyUp: this.makeMaterial({ color:0xFFFFFF }, 'Basic'),
 
             hero: this.makeMaterial({ color:0xffffff, name:'hero', metalness:0.4, roughness:0.6, skinning:true }), 
-            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
+            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, side: THREE.DoubleSide }),
 
             shadow: new THREE.ShadowMaterial({ name:'shadow', opacity:0.4, depthWrite:false }), 
 
         }
 
-        for( var m in this.mat ) this.mat[m].shadowSide = false;
+        for( var m in mat ) mat[m].shadowSide = false;
 
     },
 
-    addMaterial: function( option ) {
+    /*addMaterial: function( option ) {
 
         var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
 
         var i = maptype.length;
         while(i--){
             if( option[maptype[i]] ){ 
-                option[maptype[i]] = this.loader.load( './assets/textures/' + option[maptype[i]] );
+                option[maptype[i]] = loader.load( './assets/textures/' + option[maptype[i]] );
                 option[maptype[i]].flipY = false;
             }
         }
         
-        option.envMap = this.envmap;
+        option.envMap = envmap;
         
 
-        this.mat[option.name] = this.makeMaterial( option );
+        mat[option.name] = this.makeMaterial( option );
 
-    },
+    },*/
 
     addMap: function( url, name ) {
 
-        if(this.mat[name]) return;
+        if(mat[name]) return;
 
-        var map = this.loader.load( './assets/textures/' + url );
+        var map = loader.load( './assets/textures/' + url );
         //map.wrapS = THREE.RepeatWrapping;
         //map.wrapT = THREE.RepeatWrapping;
         map.flipY = false;
-        this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
+        mat[name] = this.makeMaterial({ name:name, map:map, envMap:envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
 
     },
+
 
     //-----------------------------
     //
@@ -819,9 +917,9 @@ View.prototype = {
 
     	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') );
 
-        if( this.tmpTxt[ n ] ) return this.tmpTxt[ n ];
+        if( tmpTxt[ n ] ) return tmpTxt[ n ];
 
-    	this.tmpTxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
+    	tmpTxt[ n ] = loader.load( './assets/textures/' + name, function ( tx ) {
 
             tx.flipY = o.flip !== undefined ? o.flip : false;
 
@@ -835,47 +933,32 @@ View.prototype = {
 
     	});
 
-    	return this.tmpTxt[ n ];
+    	return tmpTxt[ n ];
 
     },
-
     
 
     //-----------------------------
     //
-    // TONE
+    // TONE MAPING
     //
     //-----------------------------
 
-	addTone : function( o ) {
+	setTone : function( o ) {
 
         o = o || {};
 
-        var toneMappings = {
-            None: THREE.NoToneMapping,
-            Linear: THREE.LinearToneMapping,
-            Reinhard: THREE.ReinhardToneMapping,
-            Uncharted2: THREE.Uncharted2ToneMapping,
-            Cineon: THREE.CineonToneMapping,
-            Filmic: THREE.ACESFilmicToneMapping,
-        };
+        for( var v in setting ) setting[v] = o[v] !== undefined ? o[v] : setting[v];
 
-        //
-        /*this.renderer.gammaInput = o.gammaInput !== undefined ? o.gammaInput : true;
-        this.renderer.gammaOutput = o.gammaOutput !== undefined ? o.gammaOutput : true;
-
-        this.renderer.toneMapping = toneMappings[ o.tone !== undefined ? o.tone : 'Uncharted2' ];
-        this.renderer.toneMappingExposure = o.exposure !== undefined ? o.exposure : 2.0;
-        this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;*/
-        this.renderer.physicallyCorrectLights = o.correctLight !== undefined ? o.correctLight : false;
-        this.renderer.gammaInput = o.gammaInput !== undefined ? o.gammaInput : true;
-        this.renderer.gammaOutput = o.gammaOutput !== undefined ? o.gammaOutput : true;
-
-        this.renderer.toneMapping = toneMappings[ o.tone !== undefined ? o.tone : 'Filmic' ];
-        this.renderer.toneMappingExposure = o.exposure !== undefined ? o.exposure : 1.0;
-        this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;
+        renderer.physicallyCorrectLights = setting.correctLight;
+        renderer.gammaInput = setting.gammaInput;
+        renderer.gammaOutput = setting.gammaOutput;
+        renderer.toneMapping = toneMappings[ setting.type ];
+        renderer.toneMappingExposure = setting.exposure;
+        renderer.toneMappingWhitePoint = setting.whitePoint;
 
     },
+
 
     //-----------------------------
     //
@@ -885,11 +968,11 @@ View.prototype = {
 
     debug: function () {
 
-        if( !this.isDebug ){
+        if( !isDebug ){
 
-            this.helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
-            this.helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
-            this.helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
+            helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
+            helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
+            helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
 
 
             /*this.vMid = new THREE.Vector3( 1,0.1,0 );
@@ -904,24 +987,25 @@ View.prototype = {
 
             
 
-            this.sun.add( this.helper[0] )
-            this.moon.add( this.helper[1] )
-            this.followGroup.add( this.helper[2] )
+            sun.add( helper[0] )
+            moon.add( helper[1] )
+            followGroup.add( helper[2] )
 
-            this.isDebug = true;
+            isDebug = true;
 
         } else {
 
-            this.sun.remove( this.helper[0] )
-            this.moon.remove( this.helper[1] )
-            this.followGroup.remove( this.helper[2] )
+            sun.remove( helper[0] )
+            moon.remove( helper[1] )
+            followGroup.remove( helper[2] )
 
-            this.isDebug = false;
+            isDebug = false;
 
         }
         
 
     },
+
 
     //-----------------------------
     //
@@ -931,31 +1015,32 @@ View.prototype = {
 
     addFog: function ( o ) {
         
-        if( this.isWithFog ) return;
+        if( isFog ) return;
 
         o = o || {};
 
-        this.fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
-        this.scene.fog = this.fog;
-        this.isWithFog = true;
+        fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
+        scene.fog = fog;
+        isFog = true;
 
     },
 
     setFogColor: function ( color ) {
         
-        if( !this.isWithFog ) return;
-        this.fog.color = color;
+        if( !isFog ) return;
+        fog.color = color;
 
     },
 
     removeFog: function () {
         
-        if( !this.isWithFog ) return;
-        this.fog = null;
-        this.scene.fog = null;
-        this.isWithFog = false;
+        if( !isFog ) return;
+        fog = null;
+        scene.fog = null;
+        isFog = false;
 
     },
+
 
     //-----------------------------
     //
@@ -965,47 +1050,54 @@ View.prototype = {
 
     resetLight: function () {
 
-        if( !this.isWithLight ) return;
+        if( !isLight ) return;
 
-        this.followGroup.position.set(0,0,0);
+        followGroup.position.set(0,0,0);
 
-        this.lightDistance = 200;
+        lightDistance = 200;
 
-        this.sun.color.setHex(0xffffff);
-        this.sun.intensity = 1.3;
+        sun.color.setHex(0xffffff);
+        sun.intensity = setting.sunIntensity;
 
-        this.moon.color.setHex(0x919091);
-        this.moon.intensity = 0.3;
+        moon.color.setHex(0x919091);
+        moon.intensity = setting.moonIntensity;
 
-        this.sun.position.set( 0, this.lightDistance, 10 );
-        this.moon.position.set( 0, -this.lightDistance, -10 );
+        sun.position.set( 0, lightDistance, 10 );
+        moon.position.set( 0, -lightDistance, -10 );
 
     },
 
     addLights: function () {
 
-        if( this.isWithLight ) return;
+        if( isLight ) return;
 
-    	this.sun = new THREE.DirectionalLight( 0xffffff, 1.3 );
-    	this.sun.position.set( 0, this.lightDistance, 10 );
+    	sun = new THREE.DirectionalLight( 0xffffff, setting.sunIntensity );
+    	sun.position.set( 0, lightDistance, 10 );
 
-    	this.moon = new THREE.DirectionalLight( 0x919091, 0.3 );//new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
-    	this.moon.position.set( 0, -this.lightDistance, -10 );
+    	moon = new THREE.DirectionalLight( 0x919091, setting.moonIntensity );//new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
+    	moon.position.set( 0, -lightDistance, -10 );
 
         /*if( this.isWithSphereLight ){
             this.sphereLight = new THREE.HemisphereLight( 0xff0000, this.bg, 0.6 );
             this.sphereLight.position.set( 0, 1, 0 );
             this.followGroup.add( this.sphereLight );
-        }
+        }*/
 
-    	this.ambient = new THREE.AmbientLight( this.bg );*/
+        //sphereLight = new THREE.HemisphereLight( 0xff0000, bg, 0.0 );
+        //sphereLight.position.set( 0, 0, 0 );
+        //followGroup.add( sphereLight );
 
+        //probe = new THREE.LightProbe();
+        //followGroup.add( probe );
+
+    	//ambient = new THREE.AmbientLight( 0x202020 );
+        //followGroup.add( ambient );
         //this.ambient.position.set( 0, 50, 0 );
 
-    	this.followGroup.add( this.sun );
-        this.followGroup.add( this.sun.target );
-    	this.followGroup.add( this.moon );
-        this.followGroup.add( this.moon.target );
+    	followGroup.add( sun );
+        followGroup.add( sun.target );
+    	followGroup.add( moon );
+        followGroup.add( moon.target );
 
     	//this.scene.add( this.ambient );
 
@@ -1013,9 +1105,10 @@ View.prototype = {
         this.scene.add( this.moon );
         this.scene.add( this.ambient );*/
 
-        this.isWithLight = true;
+        isLight = true;
 
     },
+
 
     //-----------------------------
     //
@@ -1027,112 +1120,109 @@ View.prototype = {
 
         o = o || {};
 
-    	if( this.isWithShadow ) return;
-        if( !this.isWithLight ) this.addLights();
+    	if( isWithShadow ) return;
+        if( !isLight ) this.addLights();
 
-        if( this.shadowMat === null ){ 
+        if( shadowMat === null ){ 
 
-            this.shadowMat = new THREE.ShadowMaterial({ opacity:0.5, depthTest:true, depthWrite:false });
+            shadowMat = new THREE.ShadowMaterial({ opacity:0.5, depthTest:true, depthWrite:false });
 
-            // overwrite shadowmap code
-            /*var shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
-            shaderShadow = shaderShadow.replace( '#ifdef USE_SHADOWMAP', THREE.ShadowPCSS );
-            shaderShadow = shaderShadow.replace( '#if defined( SHADOWMAP_TYPE_PCF )',[ "return PCSS( shadowMap, shadowCoord );", "#if defined( SHADOWMAP_TYPE_PCF )"].join( "\n" ) );
+            if(isHighShadow){
 
-            this.shadowMat.onBeforeCompile = function ( shader ) {
+                // overwrite shadowmap code
+                var shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
+                shaderShadow = shaderShadow.replace( '#ifdef USE_SHADOWMAP', ShadowPCSS );
+                shaderShadow = shaderShadow.replace( '#if defined( SHADOWMAP_TYPE_PCF )',[ "return PCSS( shadowMap, shadowCoord );", "#if defined( SHADOWMAP_TYPE_PCF )"].join( "\n" ) );
 
-                var fragment = shader.fragmentShader;
-                fragment = fragment.replace( '#include <shadowmap_pars_fragment>', shaderShadow );
-                shader.fragmentShader = fragment;
+                shadowMat.onBeforeCompile = function ( shader ) {
 
-            }*/
+                    var fragment = shader.fragmentShader;
+                    fragment = fragment.replace( '#include <shadowmap_pars_fragment>', shaderShadow );
+                    shader.fragmentShader = fragment;
+
+                }
+
+            }
 
 
         }
 
-        this.isWithShadow = true;
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.soft = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        isWithShadow = true;
+        renderer.shadowMap.enabled = true;
 
-        this.shadowGround = new THREE.Mesh( this.geo.plane, this.shadowMat );
-        this.shadowGround.scale.set( 200, 1, 200 );
+        if( !isHighShadow ){
+            renderer.shadowMap.soft = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        }
+        
+
+        shadowGround = new THREE.Mesh( geo.plane, shadowMat );
+        shadowGround.scale.set( 200, 1, 200 );
         //this.shadowGround.position.y = 0.001;
-        this.shadowGround.castShadow = false;
-        this.shadowGround.receiveShadow = true;
-        this.scene.add( this.shadowGround );
+        shadowGround.castShadow = false;
+        shadowGround.receiveShadow = true;
+        scene.add( shadowGround );
 
         var d = 150;
         //this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
-        this.camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         //this.followGroup.add( this.camShadow );
-        this.sun.shadow = new THREE.LightShadow( this.camShadow );
+        sun.shadow = new THREE.LightShadow( camShadow );
 
-        this.sun.shadow.mapSize.width = o.resolution || 2048;
-        this.sun.shadow.mapSize.height = o.resolution || 2048;
-        this.sun.shadow.bias = o.bias || 0.00001;
+        sun.shadow.mapSize.width = o.resolution || 2048;
+        sun.shadow.mapSize.height = o.resolution || 2048;
+        sun.shadow.bias = o.bias || 0.00001;
         //this.sun.shadow.bias = 0.0001;
-        this.sun.castShadow = true;
+        sun.castShadow = true;
 
-        //for( var m in this.mat ) this.mat[m].shadowSide = false;
-
-        //
 
     },
 
-    setShadowRange: function ( d, near, far, debug, groundRange, groundPos ) {
+    setShadow: function ( o ) {
 
-        if( !this.isWithShadow ) return;
+        if( !isWithShadow ) return;
 
-        var cam = this.camShadow;
-        d = ( d !== undefined ) ? d : 150;
+        o = o || {};
+
+        var cam = camShadow;
+        var d = ( o.size !== undefined ) ? o.size : 150;
         cam.left =  d;
         cam.right = - d;
         cam.top =  d;
         cam.bottom = - d;
-        /*cam.left = - d;
-        cam.right =  d;
-        cam.top =  d;
-        cam.bottom = - d;*/
-        cam.near = ( near !== undefined ) ? near : 100;
-        cam.far = ( far !== undefined ) ? far : 300;
+        cam.near = ( o.near !== undefined ) ? o.near : 100;
+        cam.far = ( o.far !== undefined ) ? o.far : 300;
+        cam.updateProjectionMatrix();
 
-        var gr = groundRange || 100;
-        var py = groundPos || 0;
+        var gr = o.groundSize || 100;
+        var py = o.groundY || 0;
 
-        this.shadowGround.scale.set( gr*2, 1, gr*2 );
-        this.shadowGround.position.y = py;
+        shadowGround.scale.set( gr*2, 1, gr*2 );
+        shadowGround.position.y = py;
 
-        this.camShadow.updateProjectionMatrix();
-
-        if( debug ){
-            this.addShadowDebug();
-        }
-
-        //
+        if( o.debug ) this.addShadowDebug();
 
     },
 
     addShadowDebug: function () {
 
-        if( this.isShadowDebug ) {
-            this.campHelper.update();
+        if( isShadowDebug ) {
+            campHelper.update();
         } else {
-            this.campHelper = new THREE.CameraHelper( this.camShadow )
-            this.followGroup.add( this.campHelper );
-            this.isShadowDebug = true;
+            campHelper = new THREE.CameraHelper( camShadow )
+            followGroup.add( campHelper );
+            isShadowDebug = true;
         }
 
     },
 
     removeShadowDebug: function () {
 
-        if( !this.isShadowDebug ) return;
-        this.followGroup.remove( this.campHelper );
-        this.isShadowDebug = false;
+        if( !isShadowDebug ) return;
+        followGroup.remove( campHelper );
+        isShadowDebug = false;
 
     },
-
     
 
     //-----------------------------
@@ -1144,106 +1234,103 @@ View.prototype = {
     initGrid: function ( o ){
 
         o = o || {};
-
-        this.grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
-        this.grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
+        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
+        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
         //this.grid.position.y = -0.001;
-        //this.grid.rotation.x = -Math.Pi*0.5;
-        this.scene.add( this.grid );
+        scene.add( grid );
 
     },
 
     hideGrid: function ( notGround ) {
 
-        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = false; }
-        else{ this.grid.visible = true; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = true; }
+        if( grid.visible ){ grid.visible = false; if( shadowGround !== null && !notGround ) shadowGround.visible = false; }
+        else{ grid.visible = true; if( shadowGround !== null && !notGround ) shadowGround.visible = true; }
 
     },
+
 
     //-----------------------------
     //
     //  ENVIRONEMENT
+    //  need sky.js
     //
     //-----------------------------
 
-    removeSky: function () {
+    setEnvMap: function ( v ) {
 
-        //if( !this.isWithSky ) return;
-
-        this.environement.clear();
-        //this.isWithSky = false;
-
-        // default envmap spherical
-        //this.initEnvMap();
-        //this.updateEnvMap();
+        envmap = v;
 
     },
 
-    setSky: function () {
+    removeSky: function () {
+
+        if( envmap ) envmap.dispose();
+        envmap = null;
+
+        sky.clear();
+
+    },
+
+    setSky: function ( o ) {
+
+        if( !isLight ) this.addLights();
+        sky.setSky( o );
 
     },
 
     addSky: function ( o ) {
 
-        o = o || {};
-
-        //if( this.isWithSky ) return;
-        if( !this.isWithLight ) this.addLights();
-        //if( o.hdr && this.isMobile ) o.hdr = false;
-
-        this.environement.setSky( o );
-
-        //this.sky = new SuperSky( this, o );
-        //this.isWithSky = true;
+        if( !isLight ) this.addLights();
+        sky.setSky( o );
 
     },
 
     skyTimelap: function ( t, frame ) {
 
-        this.environement.timelap( t, frame );
+        sky.timelap( t, frame );
 
     },
 
     updateSky: function ( o ) {
 
-        //if( !this.isWithSky ) return;
-
-        this.environement.setOption( o );
+        sky.setOption( o );
 
     },
 
-    updateEnvMap: function (  ) {
+    updateEnvMap: function () {
 
-        var hdr = this.environement.isHdr;
-        var mat;
+        var hdr = sky.getHdr();
+        var mt;
 
         // intern material
-        for( var m in this.mat ){
+        for( var m in mat ){
 
-            mat = this.mat[m];
+            mt = mat[m];
 
-            if( mat.envMap !== undefined ){
-                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
-                else mat.envMap =  hdr ? null : this.envmap;
-                mat.needsUpdate = true;
+            if( mt.envMap !== undefined ){
+                if( mt.type === 'MeshStandardMaterial' ) mt.envMap = envmap;
+                else mt.envMap =  hdr ? null : envmap;
+                if( mt.wireframe ) mt.envMap = null;
+                mt.needsUpdate = true;
             }
 
         }
 
         // tmp material
-        for( var m in this.tmpMat ){
+        for( var m in tmpMat ){
 
-            mat = this.tmpMat[m];
+            mt = tmpMat[m];
 
-            if( mat.envMap !== undefined ){
-                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
-                else mat.envMap =  hdr ? null : this.envmap;
-                mat.needsUpdate = true;
+            if( mt.envMap !== undefined ){
+                if( mt.type === 'MeshStandardMaterial' ) mt.envMap = envmap;
+                else mt.envMap =  hdr ? null : envmap;
+                if( mt.wireframe ) mt.envMap = null;
+                mt.needsUpdate = true;
             }
 
         }
 
-        this.extraUpdateMat( this.envmap, hdr );
+        this.extraUpdateMat( envmap, hdr );
 
     },
 
@@ -1260,20 +1347,21 @@ View.prototype = {
 
     moveCam: function ( o, callback ) {
 
-        this.controler.moveCam( o, callback );
+        controler.moveCam( o, callback );
 
     },
 
     setFollow: function( name, o ){
 
-        if( name === 'none' ) this.controler.resetFollow();
+        if( name === 'none' ) controler.resetFollow();
         if( !this.byName[ name ] ) return;
         o = o || {};
 
-        this.controler.initFollow( this.byName[ name ], o );
+        controler.initFollow( this.byName[ name ], o );
         //this.controler.enableDamping = false;
 
     },
+
 
     //-----------------------------
     //
@@ -1283,61 +1371,61 @@ View.prototype = {
 
     activeRay: function ( callback, debug, size ) {
 
-        if( this.isWithRay ) return;
+        if( isRay ) return;
 
-        this.ray = new THREE.Raycaster();
+        ray = new THREE.Raycaster();
 
-        this.dragPlane = new THREE.Mesh( 
+        dragPlane = new THREE.Mesh( 
             debug ?  new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ) : new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
             new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:debug ? 0.3 : 0, depthTest:false, depthWrite:false, wireframe: debug ? true : false })
         );
 
-        this.dragPlane.castShadow = false;
-        this.dragPlane.receiveShadow = false;
+        dragPlane.castShadow = false;
+        dragPlane.receiveShadow = false;
         this.setDragPlane( null, size );
-        this.scene.add( this.dragPlane );
+        scene.add( dragPlane );
 
         this.fray = function(e){ this.rayTest(e); }.bind( this );
-        this.mDown = function(e){ this.rayTest(e); this.mouse.z = 1; }.bind( this );
-        this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
+        this.mDown = function(e){ this.rayTest(e); mouse.z = 1; }.bind( this );
+        this.mUp = function(e){ mouse.z = 0; }.bind( this );
 
-        this.canvas.addEventListener( 'mousemove', this.fray, false );
-        this.canvas.addEventListener( 'mousedown', this.mDown, false );
+        canvas.addEventListener( 'mousemove', this.fray, false );
+        canvas.addEventListener( 'mousedown', this.mDown, false );
         document.addEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = callback;
-        this.isWithRay = true;
+        isRay = true;
 
     },
 
     removeRay: function () {
 
-        if( !this.isWithRay ) return;
+        if( !isRay ) return;
 
-        this.canvas.removeEventListener( 'mousemove', this.fray, false );
-        this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+        canvas.removeEventListener( 'mousemove', this.fray, false );
+        canvas.removeEventListener( 'mousedown', this.mDown, false );
         document.removeEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = function(){};
 
-        this.scene.remove( this.dragPlane );
+        scene.remove( dragPlane );
 
-        this.isWithRay = false;
-        this.offset.set( 0,0,0 );
+        isRay = false;
+        offset.set( 0,0,0 );
 
     },
 
     rayTest: function ( e ) {
 
-        this.mouse.x = ( (e.clientX - this.vs.x )/ this.vs.w ) * 2 - 1;
-        this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
+        mouse.x = ( (e.clientX - vs.x )/ vs.w ) * 2 - 1;
+        mouse.y = - ( e.clientY / vs.h ) * 2 + 1;
 
-        this.ray.setFromCamera( this.mouse, this.camera );
+        ray.setFromCamera( mouse, camera );
         //var intersects = this.ray.intersectObjects( this.content.children, true );
-        var intersects = this.ray.intersectObject( this.dragPlane );
+        var intersects = ray.intersectObject( dragPlane );
         if ( intersects.length ){ 
-            this.offset.copy( intersects[0].point );
-            this.rayCallBack( this.offset );
+            offset.copy( intersects[0].point );
+            this.rayCallBack( offset );
         }
 
     },
@@ -1345,17 +1433,18 @@ View.prototype = {
     setDragPlane: function ( pos, size ) {
 
         size = size || 200;
-        this.dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
+        dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
         if( pos ){
-            this.dragPlane.position.fromArray( pos );
-            this.dragPlane.rotation.set( 0, this.controler.getAzimuthalAngle(), 0 );
+            dragPlane.position.fromArray( pos );
+            dragPlane.rotation.set( 0, controler.getAzimuthalAngle(), 0 );
             //this.dragPlane.lookAt( this.camera.position );
         } else {
-            this.dragPlane.position.set( 0, 0, 0 );
-            this.dragPlane.rotation.set( -Math.PI90, 0, 0 );
+            dragPlane.position.set( 0, 0, 0 );
+            dragPlane.rotation.set( -Math.PI90, 0, 0 );
         }
 
     },
+
 
     //--------------------------------------
     //
@@ -1393,38 +1482,49 @@ View.prototype = {
 
     },
 
+
     //--------------------------------------
     //
     //   Joystick support html / mobile
     //
     //--------------------------------------
 
-
     addJoystick: function ( o ) {
 
         if( !editor ) return;
-        if( this.isWithJoystick ) return;
+        if( isWithJoystick ) return;
 
         editor.addJoystick( o );
-        this.isWithJoystick = true;
+        isWithJoystick = true;
 
     },
 
     removeJoystick: function () {
 
         if( !editor ) return;
-        if( !this.isWithJoystick ) return;
+        if( !isWithJoystick ) return;
 
         editor.removeJoystick();
-        this.isWithJoystick = false;
+        isWithJoystick = false;
 
     },
 
-    distanceFromCenter: function () {
+    //--------------------------------------
+    //
+    //   FOLLOW
+    //
+    //--------------------------------------
 
-        var p = this.followGroup.position;
+    getCenterPosition: function () {
+
+        return followGroup.position;
+
+    },
+
+    getDistanceToCenter: function () {
+
+        var p = followGroup.position;
         return Math.sqrt( p.x * p.x + p.z * p.z );
-
 
     },
 
@@ -1437,16 +1537,17 @@ View.prototype = {
 
     needAudio: function () {
 
-        this.autoAddAudio = this.autoAudio.bind( this )
-        this.canvas.addEventListener( 'click', this.autoAddAudio, false );
+        autoAddAudio = this.autoAudio.bind( this )
+
+        canvas.addEventListener( 'click', view.autoAddAudio, false );
 
     },
 
     autoAudio: function( e ){ 
 
         this.addAudio();
-        this.canvas.removeEventListener( 'click', this.autoAddAudio );
-        this.autoAddAudio = null;
+        canvas.removeEventListener( 'click', view.autoAddAudio );
+        autoAddAudio = null;
 
     },
 
@@ -1454,9 +1555,9 @@ View.prototype = {
 
         //this.needsAudio = true;
 
-        if( this.listener !== null ) return;
-        this.listener = new THREE.AudioListener();
-        this.camera.add( this.listener );
+        if( listener !== null ) return;
+        listener = new THREE.AudioListener();
+        camera.add( listener );
 
     },
 
@@ -1464,28 +1565,65 @@ View.prototype = {
 
         //this.needsAudio = false;
 
-        if( this.listener === null ) return;
+        if( listener === null ) return;
         
-        this.camera.remove( this.listener );
-        this.listener = null;
+        camera.remove( listener );
+        listener = null;
 
     },
 
 
     addSound: function ( name ){
 
-        if( this.listener === null ) this.addAudio();
+        if( listener === null ) this.addAudio();
 
         if(!pool.buffer[name]) return null;
 
-        var audio = new THREE.PositionalAudio( this.listener );
+        var audio = new THREE.PositionalAudio( listener );
         //audio.volume = 1;
         audio.setBuffer( pool.buffer[name] );
         return audio;
 
     },
 
-    shaderHack: function (){
+
+    //--------------------------------------
+    //
+    //   SHADER
+    //
+    //--------------------------------------
+
+    makeCheck: function () {
+
+        var c = document.createElement('canvas');
+        c.width = c.height = 128;
+        var ctx = c.getContext("2d");
+
+        ctx.beginPath();
+        ctx.rect(0, 0, 128, 128);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.rect(0, 0, 64, 64);
+        ctx.rect(64, 64, 64, 64);
+        ctx.fillStyle = "#CCCCCC";
+        ctx.fill();
+
+        var img = new Image( 128, 128 );
+        img.src = c.toDataURL( 'image/png' );
+
+        var t = new THREE.Texture( img );
+        t.repeat = new THREE.Vector2( 2, 2 );
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+
+        img.onload = function(){ t.needsUpdate = true; }
+
+        return t;
+
+    },
+
+    shaderHack: function () {
 
         THREE.ShaderChunk.aomap_fragment = [
             '#ifdef USE_AOMAP',
@@ -1498,11 +1636,14 @@ View.prototype = {
             '#endif',
         ].join("\n");
 
-
-        console.log('Shader hack')
-
-
     },
+
+
+    //--------------------------------------
+    //
+    //   JSON
+    //
+    //--------------------------------------
 
     loadJson: function ( link, callback ) {
 
@@ -1525,4 +1666,101 @@ View.prototype = {
 
     },
 
+    ////
+
 }
+
+return view;
+
+})();
+
+
+var ShadowPCSS = [
+
+    "#ifdef USE_SHADOWMAP",
+    "#define LIGHT_WORLD_SIZE 0.005",//0.005
+    "#define LIGHT_FRUSTUM_WIDTH 3.75",//3.75 // 1.75
+    "#define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)",
+    "#define NEAR_PLANE 9.5",
+    " ",
+    "#define NUM_SAMPLES 17",//17
+    "#define NUM_RINGS 11",//11
+    "#define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES",
+    "#define PCF_NUM_SAMPLES NUM_SAMPLES",
+    " ",
+    "vec2 poissonDisk[NUM_SAMPLES];",
+    " ",
+    "void initPoissonSamples( const in vec2 randomSeed ) {",
+    "   float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );",
+    "   float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );",
+
+    // jsfiddle that shows sample pattern: https://jsfiddle.net/a16ff1p7/
+    "   float angle = rand( randomSeed ) * PI2;",
+    "   float radius = INV_NUM_SAMPLES;",
+    "   float radiusStep = radius;",
+
+    "   for( int i = 0; i < NUM_SAMPLES; i ++ ) {",
+    "       poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( abs(radius), 0.75 );",
+    "       radius += radiusStep;",
+    "       angle += ANGLE_STEP;",
+    "   }",
+    "}",
+
+    "float penumbraSize( const in float zReceiver, const in float zBlocker ) { ",// Parallel plane estimation
+    "   return (zReceiver - zBlocker) / zBlocker;",
+    "}",
+
+    "float findBlocker( sampler2D shadowMap, const in vec2 uv, const in float zReceiver ) {",
+        // This uses similar triangles to compute what
+        // area of the shadow map we should search
+    "   float searchRadius = LIGHT_SIZE_UV * ( zReceiver - NEAR_PLANE ) / zReceiver;",
+    "   float blockerDepthSum = 0.0;",
+    "   int numBlockers = 0;",
+
+    "   for( int i = 0; i < BLOCKER_SEARCH_NUM_SAMPLES; i++ ) {",
+    "       float shadowMapDepth = unpackRGBAToDepth(texture2D(shadowMap, uv + poissonDisk[i] * searchRadius));",
+    "       if ( shadowMapDepth < zReceiver ) {",
+    "           blockerDepthSum += shadowMapDepth;",
+    "           numBlockers ++;",
+    "       }",
+    "   }",
+
+    "    if( numBlockers == 0 ) return -1.0;",
+
+    "    return blockerDepthSum / float( numBlockers );",
+    "}",
+
+    "float PCF_Filter( sampler2D shadowMap, vec2 uv, float zReceiver, float filterRadius ) {",
+    "    float sum = 0.0;",
+    "    for( int i = 0; i < PCF_NUM_SAMPLES; i ++ ) {",
+    "        float depth = unpackRGBAToDepth( texture2D( shadowMap, uv + poissonDisk[ i ] * filterRadius ) );",
+    "        if( zReceiver <= depth ) sum += 1.0;",
+    "    }",
+    "    for( int i = 0; i < PCF_NUM_SAMPLES; i ++ ) {",
+    "        float depth = unpackRGBAToDepth( texture2D( shadowMap, uv + -poissonDisk[ i ].yx * filterRadius ) );",
+    "        if( zReceiver <= depth ) sum += 1.0;",
+    "    }",
+    "    return sum / ( 2.0 * float( PCF_NUM_SAMPLES ) );",
+    "}",
+
+    "float PCSS ( sampler2D shadowMap, vec4 coords ) {",
+    "    vec2 uv = coords.xy;",
+    "    float zReceiver = coords.z;", // Assumed to be eye-space z in this code
+
+    "    initPoissonSamples( uv );",
+        // STEP 1: blocker search
+    "    float avgBlockerDepth = findBlocker( shadowMap, uv, zReceiver );",
+
+        //There are no occluders so early out (this saves filtering)
+    "    if( avgBlockerDepth == -1.0 ) return 1.0;",
+
+        // STEP 2: penumbra size
+    "    float penumbraRatio = penumbraSize( zReceiver, avgBlockerDepth );",
+    "    float filterRadius = penumbraRatio * LIGHT_SIZE_UV * NEAR_PLANE / zReceiver;",
+        
+        // STEP 3: filtering
+        // return avgBlockerDepth;
+    "    return PCF_Filter( shadowMap, uv, zReceiver, filterRadius );",
+    "}",
+
+].join( "\n" );

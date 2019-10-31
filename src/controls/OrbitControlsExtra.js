@@ -6,6 +6,8 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	this.followTarget = null;
     this.camTween = null;
 
+    this.isDecal = false;
+
 	this.cam = {
 
 	    isFollow: false,
@@ -26,7 +28,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         offset: new THREE.Vector3(),
         decal:[0,0,0],
 
-        isDecal:false,
+        //isDecal: false,
         start: false
 
 	}
@@ -112,7 +114,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var sph = this.getSpherical();
         
 
-        if( cam.isDecal ){
+        if( this.isDecal ){
 
             this.followGroup.position.sub(cam.old);
             //console.log(cam.old)
@@ -179,7 +181,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         if( !cam.start ) cam.old.copy( p );
 
-        if( cam.isDecal ) cam.isDecal = false
+        if( this.isDecal ) this.isDecal = false
         //cam.oldObj.copy( this.object.position );
 
     },
@@ -221,7 +223,9 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     	var self = this;
         var c = this.getInfo();
 
-        if( o.constructor === Array ){ 
+        if( o === undefined ) o = {}
+
+        /*if( o.constructor === Array ){ 
            //var t = o;
             var tmp = {};
 
@@ -236,11 +240,13 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
             o = tmp;
 
-        } else if( !o ) o = {};
+        } else if( !o ) o = {};*/
 
-        o.x = o.x !== undefined ? o.x : this.target.x;
-    	o.y = o.y !== undefined ? o.y : this.target.y;
-    	o.z = o.z !== undefined ? o.z : this.target.z;
+        o.x = o.x !== undefined ? o.x : c.x;
+    	o.y = o.y !== undefined ? o.y : c.y;
+    	o.z = o.z !== undefined ? o.z : c.z;
+
+        o.distance = o.distance !== undefined ? o.distance : c.distance;
 
         if(o.target){
             o.x = o.target[0];

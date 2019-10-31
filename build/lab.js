@@ -1,4 +1,4 @@
-var view, demos, editor, unPause;
+var demos, editor, unPause;
 var process, exports, define, module, atob, DracoDecoderModule; 
 var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, ImageBitmap, createImageBitmap, fetch, WeakMap, OffscreenCanvas, XRDevice;
 var __THREE_DEVTOOLS__;
@@ -14196,9 +14196,9 @@ var WebGL2ComputeRenderingContext;
 
 	var tonemapping_pars_fragment = "#ifndef saturate\n#define saturate(a) clamp( a, 0.0, 1.0 )\n#endif\nuniform float toneMappingExposure;\nuniform float toneMappingWhitePoint;\nvec3 LinearToneMapping( vec3 color ) {\n\treturn toneMappingExposure * color;\n}\nvec3 ReinhardToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\treturn saturate( color / ( vec3( 1.0 ) + color ) );\n}\n#define Uncharted2Helper( x ) max( ( ( x * ( 0.15 * x + 0.10 * 0.50 ) + 0.20 * 0.02 ) / ( x * ( 0.15 * x + 0.50 ) + 0.20 * 0.30 ) ) - 0.02 / 0.30, vec3( 0.0 ) )\nvec3 Uncharted2ToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\treturn saturate( Uncharted2Helper( color ) / Uncharted2Helper( vec3( toneMappingWhitePoint ) ) );\n}\nvec3 OptimizedCineonToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\tcolor = max( vec3( 0.0 ), color - 0.004 );\n\treturn pow( ( color * ( 6.2 * color + 0.5 ) ) / ( color * ( 6.2 * color + 1.7 ) + 0.06 ), vec3( 2.2 ) );\n}\nvec3 ACESFilmicToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\treturn saturate( ( color * ( 2.51 * color + 0.03 ) ) / ( color * ( 2.43 * color + 0.59 ) + 0.14 ) );\n}";
 
-	var uv_pars_fragment = "#ifdef USE_UV\n\tvarying vec2 vUv;\n#endif";
+	var uv_pars_fragment = "#if ( defined( USE_UV ) && ! defined( UVS_VERTEX_ONLY ) )\n\tvarying vec2 vUv;\n#endif";
 
-	var uv_pars_vertex = "#ifdef USE_UV\n\tvarying vec2 vUv;\n\tuniform mat3 uvTransform;\n#endif";
+	var uv_pars_vertex = "#ifdef USE_UV\n\t#ifdef UVS_VERTEX_ONLY\n\t\tvec2 vUv;\n\t#else\n\t\tvarying vec2 vUv;\n\t#endif\n\tuniform mat3 uvTransform;\n#endif";
 
 	var uv_vertex = "#ifdef USE_UV\n\tvUv = ( uvTransform * vec3( uv, 1 ) ).xy;\n#endif";
 
@@ -17761,6 +17761,7 @@ var WebGL2ComputeRenderingContext;
 				parameters.vertexTangents ? '#define USE_TANGENT' : '',
 				parameters.vertexColors ? '#define USE_COLOR' : '',
 				parameters.vertexUvs ? '#define USE_UV' : '',
+				parameters.uvsVertexOnly ? '#define UVS_VERTEX_ONLY' : '',
 
 				parameters.flatShading ? '#define FLAT_SHADED' : '',
 
@@ -17886,6 +17887,7 @@ var WebGL2ComputeRenderingContext;
 				parameters.vertexTangents ? '#define USE_TANGENT' : '',
 				parameters.vertexColors ? '#define USE_COLOR' : '',
 				parameters.vertexUvs ? '#define USE_UV' : '',
+				parameters.uvsVertexOnly ? '#define UVS_VERTEX_ONLY' : '',
 
 				parameters.gradientMap ? '#define USE_GRADIENTMAP' : '',
 
@@ -18224,7 +18226,7 @@ var WebGL2ComputeRenderingContext;
 			"map", "mapEncoding", "matcap", "matcapEncoding", "envMap", "envMapMode", "envMapEncoding", "envMapCubeUV",
 			"lightMap", "aoMap", "emissiveMap", "emissiveMapEncoding", "bumpMap", "normalMap", "objectSpaceNormalMap", "tangentSpaceNormalMap", "clearcoatNormalMap", "displacementMap", "specularMap",
 			"roughnessMap", "metalnessMap", "gradientMap",
-			"alphaMap", "combine", "vertexColors", "vertexTangents", "vertexUvs", "fog", "useFog", "fogExp2",
+			"alphaMap", "combine", "vertexColors", "vertexTangents", "vertexUvs", "uvsVertexOnly", "fog", "useFog", "fogExp2",
 			"flatShading", "sizeAttenuation", "logarithmicDepthBuffer", "skinning",
 			"maxBones", "useVertexTexture", "morphTargets", "morphNormals",
 			"maxMorphTargets", "maxMorphNormals", "premultipliedAlpha",
@@ -18371,6 +18373,7 @@ var WebGL2ComputeRenderingContext;
 				vertexTangents: ( material.normalMap && material.vertexTangents ),
 				vertexColors: material.vertexColors,
 				vertexUvs: !! material.map || !! material.bumpMap || !! material.normalMap || !! material.specularMap || !! material.alphaMap || !! material.emissiveMap || !! material.roughnessMap || !! material.metalnessMap || !! material.clearcoatNormalMap || !! material.displacementMap,
+				uvsVertexOnly: ! ( !! material.map || !! material.bumpMap || !! material.normalMap || !! material.specularMap || !! material.alphaMap || !! material.emissiveMap || !! material.roughnessMap || !! material.metalnessMap || !! material.clearcoatNormalMap ) && !! material.displacementMap,
 
 				fog: !! fog,
 				useFog: material.fog,
@@ -28169,16 +28172,6 @@ var WebGL2ComputeRenderingContext;
 	ParametricGeometry.prototype = Object.create( Geometry.prototype );
 	ParametricGeometry.prototype.constructor = ParametricGeometry;
 
-	ParametricGeometry.prototype.toJSON = function () {
-
-		var data = Geometry.prototype.toJSON.call( this );
-
-		data.func = this.parameters.func.toString();
-
-		return data;
-
-	};
-
 	// ParametricBufferGeometry
 
 	function ParametricBufferGeometry( func, slices, stacks ) {
@@ -28304,16 +28297,6 @@ var WebGL2ComputeRenderingContext;
 
 	ParametricBufferGeometry.prototype = Object.create( BufferGeometry.prototype );
 	ParametricBufferGeometry.prototype.constructor = ParametricBufferGeometry;
-
-	ParametricBufferGeometry.prototype.toJSON = function () {
-
-		var data = BufferGeometry.prototype.toJSON.call( this );
-
-		data.func = this.parameters.func.toString();
-
-		return data;
-
-	};
 
 	/**
 	 * @author clockworkgeek / https://github.com/clockworkgeek
@@ -39890,19 +39873,6 @@ var WebGL2ComputeRenderingContext;
 							geometry = new Geometries[ data.type ](
 								geometryShapes,
 								data.options
-							);
-
-							break;
-
-						case 'ParametricGeometry':
-						case 'ParametricBufferGeometry':
-
-							var func = new Function( 'return ' + data.func )();
-
-							geometry = new Geometries[ data.type ](
-								func,
-								data.slices,
-								data.stacks
 							);
 
 							break;
@@ -61249,6 +61219,8 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	this.followTarget = null;
     this.camTween = null;
 
+    this.isDecal = false;
+
 	this.cam = {
 
 	    isFollow: false,
@@ -61269,7 +61241,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         offset: new THREE.Vector3(),
         decal:[0,0,0],
 
-        isDecal:false,
+        //isDecal: false,
         start: false
 
 	}
@@ -61355,7 +61327,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var sph = this.getSpherical();
         
 
-        if( cam.isDecal ){
+        if( this.isDecal ){
 
             this.followGroup.position.sub(cam.old);
             //console.log(cam.old)
@@ -61422,7 +61394,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         if( !cam.start ) cam.old.copy( p );
 
-        if( cam.isDecal ) cam.isDecal = false
+        if( this.isDecal ) this.isDecal = false
         //cam.oldObj.copy( this.object.position );
 
     },
@@ -61464,7 +61436,9 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     	var self = this;
         var c = this.getInfo();
 
-        if( o.constructor === Array ){ 
+        if( o === undefined ) o = {}
+
+        /*if( o.constructor === Array ){ 
            //var t = o;
             var tmp = {};
 
@@ -61479,11 +61453,13 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
             o = tmp;
 
-        } else if( !o ) o = {};
+        } else if( !o ) o = {};*/
 
-        o.x = o.x !== undefined ? o.x : this.target.x;
-    	o.y = o.y !== undefined ? o.y : this.target.y;
-    	o.z = o.z !== undefined ? o.z : this.target.z;
+        o.x = o.x !== undefined ? o.x : c.x;
+    	o.y = o.y !== undefined ? o.y : c.y;
+    	o.z = o.z !== undefined ? o.z : c.z;
+
+        o.distance = o.distance !== undefined ? o.distance : c.distance;
 
         if(o.target){
             o.x = o.target[0];
@@ -63117,29 +63093,25 @@ THREE.TransformControlsPlane.prototype = Object.assign( Object.create( THREE.Mes
 } );
 
 /**
-* @author herzig / http://github.com/herzig
-*
-* Description: reads BVH files and outputs a single THREE.Skeleton and an THREE.AnimationClip
-*
-* Currently only supports bvh files containing a single root.
-*
-*/
+ * @author herzig / http://github.com/herzig
+ * @author Mugen87 / https://github.com/Mugen87
+ *
+ * Description: reads BVH files and outputs a single THREE.Skeleton and an THREE.AnimationClip
+ *
+ * Currently only supports bvh files containing a single root.
+ *
+ */
 
-THREE.BVHLoader = function( manager ) {
+THREE.BVHLoader = function ( manager ) {
 
-	this.numFrames = 0;
-	this.frameTime = 0;
-
-
+	THREE.Loader.call( this, manager );
 
 	this.animateBonePositions = true;
 	this.animateBoneRotations = true;
 
-	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
-
 };
 
-THREE.BVHLoader.prototype = {
+THREE.BVHLoader.prototype = Object.assign( Object.create( THREE.Loader.prototype ), {
 
 	constructor: THREE.BVHLoader,
 
@@ -63148,33 +63120,31 @@ THREE.BVHLoader.prototype = {
 		var scope = this;
 
 		var loader = new THREE.FileLoader( scope.manager );
-		loader.setResponseType( 'arraybuffer' );
-		loader.load( url, function( buffer ) {
+		loader.setPath( scope.path );
+		loader.load( url, function ( text ) {
 
-			onLoad( scope.parse( buffer ) );
+			onLoad( scope.parse( text ) );
 
 		}, onProgress, onError );
 
 	},
 
-	parse: function ( buffer ) {
-
-		var self = this;
-        var hipToFoot = 0;
+	parse: function ( text ) {
 
 		/*
 			reads a string array (lines) from a BVH file
 			and outputs a skeleton structure including motion data
 
 			returns thee root node:
-			{ name: "", channels: [], children: [] }
+			{ name: '', channels: [], children: [] }
 		*/
 		function readBvh( lines ) {
 
 			// read model structure
-			if ( nextLine( lines ) !== "HIERARCHY" ) {
 
-				throw "HIERARCHY expected";
+			if ( nextLine( lines ) !== 'HIERARCHY' ) {
+
+				console.error( 'THREE.BVHLoader: HIERARCHY expected.' );
 
 			}
 
@@ -63182,40 +63152,41 @@ THREE.BVHLoader.prototype = {
 			var root = readNode( lines, nextLine( lines ), list );
 
 			// read motion data
-			if ( nextLine( lines ) != "MOTION" ) {
 
-				throw "MOTION  expected";
+			if ( nextLine( lines ) !== 'MOTION' ) {
+
+				console.error( 'THREE.BVHLoader: MOTION expected.' );
 
 			}
 
 			// number of frames
+
 			var tokens = nextLine( lines ).split( /[\s]+/ );
 			var numFrames = parseInt( tokens[ 1 ] );
+
 			if ( isNaN( numFrames ) ) {
 
-				throw "Failed to read number of frames.";
+				console.error( 'THREE.BVHLoader: Failed to read number of frames.' );
 
 			}
-
-			self.numFrames = numFrames;
 
 			// frame time
+
 			tokens = nextLine( lines ).split( /[\s]+/ );
 			var frameTime = parseFloat( tokens[ 2 ] );
+
 			if ( isNaN( frameTime ) ) {
 
-				throw "Failed to read frame time.";
+				console.error( 'THREE.BVHLoader: Failed to read frame time.' );
 
 			}
 
-			self.frameTime = frameTime;
-
 			// read frame data line by line
-			for ( var i = 0; i < numFrames; ++ i ) {
+
+			for ( var i = 0; i < numFrames; i ++ ) {
 
 				tokens = nextLine( lines ).split( /[\s]+/ );
-
-				readFrameData( tokens, i * frameTime, root, list );
+				readFrameData( tokens, i * frameTime, root );
 
 			}
 
@@ -63236,64 +63207,62 @@ THREE.BVHLoader.prototype = {
 		function readFrameData( data, frameTime, bone ) {
 
 			// end sites have no motion data
-			if ( bone.type === "ENDSITE" ) {
 
-				return;
-
-			}
+			if ( bone.type === 'ENDSITE' ) return;
 
 			// add keyframe
+
 			var keyframe = {
 				time: frameTime,
-				position: { x: 0, y: 0, z: 0 },
-				rotation: new THREE.Quaternion(),
+				position: new THREE.Vector3(),
+				rotation: new THREE.Quaternion()
 			};
 
 			bone.frames.push( keyframe );
 
 			var quat = new THREE.Quaternion();
 
-            var torad = 0.0174532925199432957; // Math.PI / 180
-
 			var vx = new THREE.Vector3( 1, 0, 0 );
 			var vy = new THREE.Vector3( 0, 1, 0 );
 			var vz = new THREE.Vector3( 0, 0, 1 );
 
 			// parse values for each channel in node
-			for ( var i = 0; i < bone.channels.length; ++ i ) {
+
+			for ( var i = 0; i < bone.channels.length; i ++ ) {
 
 				switch ( bone.channels[ i ] ) {
 
-				case "Xposition":
-					keyframe.position.x = parseFloat( data.shift().trim() );
-					break;
-				case "Yposition":
-					keyframe.position.y = parseFloat( data.shift().trim() );
-					break;
-				case "Zposition":
-					keyframe.position.z = parseFloat( data.shift().trim() );
-					break;
-				case "Xrotation":
-					quat.setFromAxisAngle( vx, parseFloat( data.shift().trim() ) * torad );
-					keyframe.rotation.multiply( quat );
-					break;
-				case "Yrotation":
-					quat.setFromAxisAngle( vy, parseFloat( data.shift().trim() ) * torad );
-					keyframe.rotation.multiply( quat );
-					break;
-				case "Zrotation":
-					quat.setFromAxisAngle( vz, parseFloat( data.shift().trim() ) * torad );
-					keyframe.rotation.multiply( quat );
-					break;
-				default:
-					throw "invalid channel type";
+					case 'Xposition':
+						keyframe.position.x = parseFloat( data.shift().trim() );
+						break;
+					case 'Yposition':
+						keyframe.position.y = parseFloat( data.shift().trim() );
+						break;
+					case 'Zposition':
+						keyframe.position.z = parseFloat( data.shift().trim() );
+						break;
+					case 'Xrotation':
+						quat.setFromAxisAngle( vx, parseFloat( data.shift().trim() ) * Math.PI / 180 );
+						keyframe.rotation.multiply( quat );
+						break;
+					case 'Yrotation':
+						quat.setFromAxisAngle( vy, parseFloat( data.shift().trim() ) * Math.PI / 180 );
+						keyframe.rotation.multiply( quat );
+						break;
+					case 'Zrotation':
+						quat.setFromAxisAngle( vz, parseFloat( data.shift().trim() ) * Math.PI / 180 );
+						keyframe.rotation.multiply( quat );
+						break;
+					default:
+						console.warn( 'THREE.BVHLoader: Invalid channel type.' );
 
 				}
 
 			}
 
 			// parse child nodes
-			for ( var i = 0; i < bone.children.length; ++ i ) {
+
+			for ( var i = 0; i < bone.children.length; i ++ ) {
 
 				readFrameData( data, frameTime, bone.children[ i ] );
 
@@ -63301,29 +63270,28 @@ THREE.BVHLoader.prototype = {
 
 		}
 
-
-
 		/*
 		 Recursively parses the HIERACHY section of the BVH file
 
 		 - lines: all lines of the file. lines are consumed as we go along.
-		 - firstline: line containing the node type and name e.g. "JOINT hip"
+		 - firstline: line containing the node type and name e.g. 'JOINT hip'
 		 - list: collects a flat list of nodes
 
 		 returns: a BVH node including children
 		*/
-		function readNode( lines, firstline, list, isEnd ) {
+		function readNode( lines, firstline, list ) {
 
-			var node = { name: "", type: "", frames: [] };
+			var node = { name: '', type: '', frames: [] };
 			list.push( node );
 
-			// parse node type and name.
+			// parse node type and name
+
 			var tokens = firstline.split( /[\s]+/ );
 
-			if ( tokens[ 0 ].toUpperCase() === "END" && tokens[ 1 ].toUpperCase() === "SITE" ) {
+			if ( tokens[ 0 ].toUpperCase() === 'END' && tokens[ 1 ].toUpperCase() === 'SITE' ) {
 
-				node.type = "ENDSITE";
-				node.name = "ENDSITE"; // bvh end sites have no name
+				node.type = 'ENDSITE';
+				node.name = 'ENDSITE'; // bvh end sites have no name
 
 			} else {
 
@@ -63332,54 +63300,51 @@ THREE.BVHLoader.prototype = {
 
 			}
 
-			if ( nextLine( lines ) != "{" ) {
+			if ( nextLine( lines ) !== '{' ) {
 
-				throw "Expected opening { after type & name";
+				console.error( 'THREE.BVHLoader: Expected opening { after type & name' );
 
 			}
 
 			// parse OFFSET
+
 			tokens = nextLine( lines ).split( /[\s]+/ );
 
-			if ( tokens[ 0 ] !== "OFFSET" ) {
+			if ( tokens[ 0 ] !== 'OFFSET' ) {
 
-				throw "Expected OFFSET, but got: " + tokens[ 0 ];
-
-			}
-
-			if ( tokens.length != 4 ) {
-
-				throw "OFFSET: Invalid number of values";
+				console.error( 'THREE.BVHLoader: Expected OFFSET but got: ' + tokens[ 0 ] );
 
 			}
 
-			var offset = {
-				x: parseFloat( tokens[ 1 ] ),
-				y: parseFloat( tokens[ 2 ] ),
-				z: parseFloat( tokens[ 3 ] )
-			};
+			if ( tokens.length !== 4 ) {
+
+				console.error( 'THREE.BVHLoader: Invalid number of values for OFFSET.' );
+
+			}
+
+			var offset = new THREE.Vector3(
+				parseFloat( tokens[ 1 ] ),
+				parseFloat( tokens[ 2 ] ),
+				parseFloat( tokens[ 3 ] )
+			);
 
 			if ( isNaN( offset.x ) || isNaN( offset.y ) || isNaN( offset.z ) ) {
 
-				throw "OFFSET: Invalid values";
+				console.error( 'THREE.BVHLoader: Invalid values of OFFSET.' );
 
 			}
 
 			node.offset = offset;
 
-            if( node.name == 'lThigh' || node.name == 'lShin' || node.name == 'lFoot' || isEnd ) hipToFoot += offset.y;
-            //if(  node.name == 'lShin' || node.name == 'lFoot' || isEnd ) hipToFoot += offset.y;
-
-            //if(isEnd) console.log( hipToFoot );
-
 			// parse CHANNELS definitions
-			if ( node.type != "ENDSITE" ) {
+
+			if ( node.type !== 'ENDSITE' ) {
 
 				tokens = nextLine( lines ).split( /[\s]+/ );
 
-				if ( tokens[ 0 ] != "CHANNELS" ) {
+				if ( tokens[ 0 ] !== 'CHANNELS' ) {
 
-					throw "Expected CHANNELS definition";
+					console.error( 'THREE.BVHLoader: Expected CHANNELS definition.' );
 
 				}
 
@@ -63389,41 +63354,25 @@ THREE.BVHLoader.prototype = {
 
 			}
 
-            var isEndFoot = node.name == 'lFoot' ? true : false;
-
 			// read children
+
 			while ( true ) {
 
 				var line = nextLine( lines );
 
-				if ( line === "}" ) {
+				if ( line === '}' ) {
 
 					return node;
 
 				} else {
 
-					node.children.push( readNode( lines, line, list, isEndFoot ) );
+					node.children.push( readNode( lines, line, list ) );
 
 				}
 
 			}
 
 		}
-
-        function getHeight(){
-
-            /*var node, name;
-
-            for(var i=0; i<list.length; i++ ){
-
-                node = list[i];
-                name = node.name;
-
-            }*/
-
-
-            
-        }
 
 		/*
 			recursively converts the internal bvh node structure to a THREE.Bone hierarchy
@@ -63433,7 +63382,6 @@ THREE.BVHLoader.prototype = {
 
 			returns the root THREE.Bone
 		*/
-
 		function toTHREEBone( source, list ) {
 
 			var bone = new THREE.Bone();
@@ -63442,9 +63390,9 @@ THREE.BVHLoader.prototype = {
 			bone.position.add( source.offset );
 			bone.name = source.name;
 
-			if ( source.type != "ENDSITE" ) {
+			if ( source.type !== 'ENDSITE' ) {
 
-				for ( var i = 0; i < source.children.length; ++ i ) {
+				for ( var i = 0; i < source.children.length; i ++ ) {
 
 					bone.add( toTHREEBone( source.children[ i ], list ) );
 
@@ -63463,24 +63411,26 @@ THREE.BVHLoader.prototype = {
 
 			returns: a THREE.AnimationClip containing position and quaternion tracks
 		*/
-
 		function toTHREEAnimation( bones ) {
 
 			var tracks = [];
 
 			// create a position and quaternion animation track for each node
-			for ( var i = 0; i < bones.length; ++ i ) {
+
+			for ( var i = 0; i < bones.length; i ++ ) {
 
 				var bone = bones[ i ];
 
-				if ( bone.type == "ENDSITE" ) continue;
+				if ( bone.type === 'ENDSITE' )
+					continue;
 
 				// track data
+
 				var times = [];
 				var positions = [];
 				var rotations = [];
 
-				for ( var j = 0; j < bone.frames.length; ++ j ) {
+				for ( var j = 0; j < bone.frames.length; j ++ ) {
 
 					var frame = bone.frames[ j ];
 
@@ -63488,6 +63438,7 @@ THREE.BVHLoader.prototype = {
 
 					// the animation system animates the position property,
 					// so we have to add the joint offset to all values
+
 					positions.push( frame.position.x + bone.offset.x );
 					positions.push( frame.position.y + bone.offset.y );
 					positions.push( frame.position.z + bone.offset.z );
@@ -63501,25 +63452,19 @@ THREE.BVHLoader.prototype = {
 
 				if ( scope.animateBonePositions ) {
 
-					tracks.push( new THREE.VectorKeyframeTrack(
-						".bones[" + bone.name + "].position", times, positions ) );
+					tracks.push( new THREE.VectorKeyframeTrack( '.bones[' + bone.name + '].position', times, positions ) );
 
 				}
 
 				if ( scope.animateBoneRotations ) {
 
-					tracks.push( new THREE.QuaternionKeyframeTrack(
-						".bones[" + bone.name + "].quaternion", times, rotations ) );
+					tracks.push( new THREE.QuaternionKeyframeTrack( '.bones[' + bone.name + '].quaternion', times, rotations ) );
 
 				}
 
 			}
 
-			var clip = new THREE.AnimationClip( "animation", - 1, tracks );
-			clip.frames = self.numFrames;
-			clip.frameTime = self.frameTime;
-
-			return clip;
+			return new THREE.AnimationClip( 'animation', - 1, tracks );
 
 		}
 
@@ -63537,340 +63482,26 @@ THREE.BVHLoader.prototype = {
 
 		var scope = this;
 
-		// convert buffer to ASCII string
-		var text = "";
-		var raw = new Uint8Array( buffer );
-		for ( var i = 0; i < raw.length; ++ i ) {
-
-			text += String.fromCharCode( raw[ i ] );
-
-		}
-
 		var lines = text.split( /[\r\n]+/g );
 
 		var bones = readBvh( lines );
 
 		var threeBones = [];
-		toTHREEBone( bones[ 0 ], threeBones );
+		//toTHREEBone( bones[ 0 ], threeBones );
+		
+		if(this.toBone) this.toBone( bones[ 0 ], threeBones );
+		else toTHREEBone( bones[ 0 ], threeBones )
 
 		var threeClip = toTHREEAnimation( bones );
 
 		return {
 			skeleton: new THREE.Skeleton( threeBones ),
-			clip: threeClip,
-            leg: hipToFoot
+			clip: threeClip
 		};
 
-	},
+	}
 
-
-	// ADDON
-
-
-	findTime: function( times, value ){
-
-        var lng = times.length, i, t, n = 0;
-
-        for( i=0; i<lng; i++ ){
-
-            t = times[i];
-            if( t > value ) break;
-            n = i;
-
-        }
-
-        return n;
-
-    },
-
-    applyToModel: function ( model, clip, tPose, seq, leg ) {
-
-        leg = leg || 1;
-        var hipos = model.userData.posY || 1;
-        var ratio = hipos / Math.abs( leg );
-
-        var lng, lngB, lngS, n, i, j, k, bone, name, tmptime, tracks;
-
-
-
-        var modelName = model.name;
-
-        //console.log(model.position)
-        //model.position.copy(position)
-
-        var utils = THREE.AnimationUtils;
-
-        var bones = model.skeleton.bones;
-        var baseTracks = clip.tracks;
-        var nodeTracks = []; // 0:position, 1:quaternion
-
-        var times, positions, resultPositions, rotations, resultRotations, pos, rot;
-
-        var matrixWorldInv = new THREE.Matrix4().getInverse( model.matrixWorld );
-
-       // var pp = new THREE.Vector3(0,0,0).setFromMatrixPosition( model.matrixWorld );
-        //console.log(pp)
-        //if(rootMatrix) matrixWorldInv = rootMatrix.clone();
-
-        var globalQuat = new THREE.Quaternion();
-        var globalPos = new THREE.Vector3();
-        var globalMtx = new THREE.Matrix4();
-        var localMtx = new THREE.Matrix4();
-        var parentMtx;
-        
-        var resultQuat = new THREE.Quaternion();
-        var resultPos = new THREE.Vector3();
-        var resultScale = new THREE.Vector3();
-
-       // var testPos = new THREE.Vector3();
-       // var hipPos = new THREE.Vector3();
-        //var minY = 10000;
-        //var maxY = 0;
-        //var distance = 0;
-
-
-        //py = py || 0;
-
-        
-
-        //rootMtx.setPosition( new THREE.Vector3(0,0,0) );
-
-        // 1° get bones worldMatxix in Tpose
-
-        if( tPose === undefined ){
-
-            tPose = [];
-            lngB = bones.length;
-
-            for( i = 0; i < lngB; i++ ){ 
-
-                tPose[i] = bones[ i ].matrixWorld.clone();
-
-            }
-
-        }
-
-        // 2° find same name bones track 
-
-        lngB = bones.length
-
-        for ( i = 0; i < lngB; ++ i ) {
-
-            bone = bones[ i ];
-            name = bone.name;
-
-            if( name === 'root' ) bone.matrixWorld.copy( tPose[i] );
-            if( name === 'hip' ) bone.matrixWorld.copy( tPose[i] );
-
-            nodeTracks[ i ] = this.findBoneTrack( name, baseTracks );
-
-        }
-
-        // 3° divide track in sequency
-
-        var fp = Math.floor(clip.frameTime * 1000);
-        var frametime = 1/30;
-        if( fp === 33 ) frametime = 1/30;
-        if( fp === 16 ) frametime = 1/60;
-        if( fp === 11 ) frametime = 1/90;
-        if( fp === 8 ) frametime = 1/120;
-
-        //clip.frameTime;
-
-        var clipName = clip.name;
-        var clipStart = 0;
-        var clipEnd = 0;
-        var timeStart = 0;
-        var timeEnd = 0;
-        var startId = 0;
-        var endId = 0;
-        var clipLoop = 1;
-
-        var hipId;
-
-        var sequences = [[ clip.name, 0, clip.frames ]];
-
-        if(seq) sequences = seq;
-
-        lngS = sequences.length;
-
-        for( k = 0; k < lngS; k++ ){
-
-            clipName = sequences[k][0];
-            clipStart = sequences[k][1];
-            clipEnd = sequences[k][2];//+1;
-            clipLoop = sequences[k][3] !== undefined ? sequences[k][3] : 1;
-
-            timeStart = clipStart * frametime;
-            timeEnd = clipEnd * frametime;
-
-            tracks = [];
-
-            // 4° copy track to track with correct matrix
-
-            lngB = bones.length;
-
-            for ( i = 0; i < lngB; i ++ ) {
-
-                bone = bones[ i ];
-                name = bone.name;
-
-                if( name === 'hip' ) hipId = i;
-
-                if( nodeTracks[i].length === 2 ){
-
-                    parentMtx = bone.parent ? bone.parent.matrixWorld : matrixWorldInv;
-
-                    // rotation
-
-                    rot = nodeTracks[i][1];
-
-                    startId = this.findTime( baseTracks[rot].times, timeStart );
-                    endId = this.findTime( baseTracks[rot].times, timeEnd ) + 1;
-
-                    tmptime = utils.arraySlice( baseTracks[rot].times, startId, endId );
-                    rotations = utils.arraySlice( baseTracks[rot].values, startId * 4, endId * 4 );
-
-                    resultRotations = [];
-                    times = [];
-
-
-                    lng  = tmptime.length;
-
-                    for( j = 0; j < lng; j ++ ){
-
-                        times[j] = tmptime[j] - timeStart;
-
-                        n = j*4;
-
-                        globalQuat.set( rotations[n], rotations[n+1], rotations[n+2], rotations[n+3] );
-
-                        globalMtx.identity().makeRotationFromQuaternion( globalQuat );
-                        globalMtx.multiply( tPose[i] );
-
-                        localMtx.identity().getInverse( parentMtx );
-                        localMtx.multiply( globalMtx );
-                        localMtx.decompose( resultPos, resultQuat, resultScale );
-
-                        resultQuat.normalize();
-
-                        resultRotations[n] = resultQuat.x;
-                        resultRotations[n+1] = resultQuat.y;
-                        resultRotations[n+2] = resultQuat.z;
-                        resultRotations[n+3] = resultQuat.w;
-
-                    }
-
-                    if( times.length > 0 ) tracks.push( new THREE.QuaternionKeyframeTrack( ".bones[" + name + "].quaternion", times, resultRotations ) );
-
-                }
-
-            }
-
-            // HIP position 
-
-            i = hipId;
-            bone = bones[ i ];
-            name = bone.name;
-
-            if( nodeTracks[i].length === 2 ){
-
-                parentMtx = bone.parent ? bone.parent.matrixWorld : matrixWorldInv;
-
-                pos = nodeTracks[i][0];
-                
-                startId = this.findTime( baseTracks[pos].times, timeStart );
-                endId = this.findTime( baseTracks[pos].times, timeEnd ) + 1;
-
-                tmptime = utils.arraySlice( baseTracks[pos].times, startId, endId );
-                positions = utils.arraySlice( baseTracks[pos].values, startId * 3, endId * 3 );
-
-                times = [];
-                resultPositions = [];
-
-                lng = tmptime.length;
-
-                for( j = 0; j < lng; j++ ){
-
-                    times[j] = tmptime[j] - timeStart;
-
-                    n = j*3;
-
-                    globalPos.set( positions[n], positions[n+1], positions[n+2] );
-                    globalPos.set( positions[n], positions[n+1] * ratio, positions[n+2] );
-                    //globalPos.multiplyScalar( ratio );
-
-                    globalMtx.identity();
-                    globalMtx.setPosition( globalPos );
-                   
-                    localMtx.identity().getInverse( parentMtx );
-                    localMtx.multiply( globalMtx );
-
-                    localMtx.decompose( resultPos, resultQuat, resultScale );
-
-                    resultPositions[n] = resultPos.x;
-                    resultPositions[n+1] = resultPos.y;
-                    resultPositions[n+2] = resultPos.z;
-
-                }
-
-                if( times.length > 0 ) tracks.push( new THREE.VectorKeyframeTrack( ".bones[" + name + "].position", times, resultPositions ) );
-
-            }
-
-
-
-
-            //}
-
-            // 5° apply new clip to model
-
-            //var newClip = new THREE.AnimationClip( clipName, timeEnd-timeStart, tracks );
-            var newClip = new THREE.AnimationClip( clipName, -1, tracks );
-            newClip.frameTime = frametime;
-            newClip.repeat = clipLoop === 1 ? true : false;
-            newClip.timeScale = 1;
-
-            model.addAnimation( newClip );
-
-            //console.log( ratio );
-
-           // if( clipName === 'idle'){ model.playw( 'idle', 1 ); }
-            //else model.play( 0 );
-
-
-
-            
-
-        }
-
-        // replace model
-        //model.position.copy( oldPosition );
-
-    },
-
-    findBoneTrack: function( name, tracks ){
-
-        var n, nodeName, type, result = [];
-        for ( var i = 0; i < tracks.length; ++ i ) {
-
-            n = tracks[i].name;
-            nodeName = n.substring( n.indexOf('[')+1, n.indexOf(']') );
-            type = n.substring( n.lastIndexOf('.')+1 );
-
-            if( name === nodeName ){
-                if(type === 'position') result[0] = i;
-                else result[1] = i;
-            } 
-
-        }
-
-        return result;
-
-    }
-
-
-};
+} );
 
 /**
  * @author Nikos M. / https://github.com/foo123/
@@ -63879,395 +63510,525 @@ THREE.BVHLoader.prototype = {
 // https://github.com/mrdoob/three.js/issues/5552
 // http://en.wikipedia.org/wiki/RGBE_image_format
 
-THREE.HDRLoader = THREE.RGBELoader = function ( manager ) {
+THREE.RGBELoader = function ( manager ) {
 
-	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+	THREE.DataTextureLoader.call( this, manager );
+
 	this.type = THREE.UnsignedByteType;
 
 };
 
-// extend THREE.DataTextureLoader
-THREE.RGBELoader.prototype = Object.create( THREE.DataTextureLoader.prototype );
+THREE.RGBELoader.prototype = Object.assign( Object.create( THREE.DataTextureLoader.prototype ), {
 
-// adapted from http://www.graphics.cornell.edu/~bjw/rgbe.html
-THREE.RGBELoader.prototype._parser = function ( buffer ) {
+	constructor: THREE.RGBELoader,
 
-	var
-		/* return codes for rgbe routines */
-		RGBE_RETURN_SUCCESS = 0,
-		RGBE_RETURN_FAILURE = - 1,
+	// adapted from http://www.graphics.cornell.edu/~bjw/rgbe.html
 
-		/* default error routine.  change this to change error handling */
-		rgbe_read_error = 1,
-		rgbe_write_error = 2,
-		rgbe_format_error = 3,
-		rgbe_memory_error = 4,
-		rgbe_error = function ( rgbe_error_code, msg ) {
+	parse: function ( buffer ) {
 
-			switch ( rgbe_error_code ) {
+		var
+			/* return codes for rgbe routines */
+			//RGBE_RETURN_SUCCESS = 0,
+			RGBE_RETURN_FAILURE = - 1,
 
-				case rgbe_read_error: console.error( "THREE.RGBELoader Read Error: " + ( msg || '' ) );
-					break;
-				case rgbe_write_error: console.error( "THREE.RGBELoader Write Error: " + ( msg || '' ) );
-					break;
-				case rgbe_format_error: console.error( "THREE.RGBELoader Bad File Format: " + ( msg || '' ) );
-					break;
-				default:
-				case rgbe_memory_error: console.error( "THREE.RGBELoader: Error: " + ( msg || '' ) );
+			/* default error routine.  change this to change error handling */
+			rgbe_read_error = 1,
+			rgbe_write_error = 2,
+			rgbe_format_error = 3,
+			rgbe_memory_error = 4,
+			rgbe_error = function ( rgbe_error_code, msg ) {
 
-			}
-			return RGBE_RETURN_FAILURE;
+				switch ( rgbe_error_code ) {
 
-		},
+					case rgbe_read_error: console.error( "THREE.RGBELoader Read Error: " + ( msg || '' ) );
+						break;
+					case rgbe_write_error: console.error( "THREE.RGBELoader Write Error: " + ( msg || '' ) );
+						break;
+					case rgbe_format_error: console.error( "THREE.RGBELoader Bad File Format: " + ( msg || '' ) );
+						break;
+					default:
+					case rgbe_memory_error: console.error( "THREE.RGBELoader: Error: " + ( msg || '' ) );
 
-		/* offsets to red, green, and blue components in a data (float) pixel */
-		RGBE_DATA_RED = 0,
-		RGBE_DATA_GREEN = 1,
-		RGBE_DATA_BLUE = 2,
+				}
+				return RGBE_RETURN_FAILURE;
 
-		/* number of floats per pixel, use 4 since stored in rgba image format */
-		RGBE_DATA_SIZE = 4,
+			},
 
-		/* flags indicating which fields in an rgbe_header_info are valid */
-		RGBE_VALID_PROGRAMTYPE = 1,
-		RGBE_VALID_FORMAT = 2,
-		RGBE_VALID_DIMENSIONS = 4,
+			/* offsets to red, green, and blue components in a data (float) pixel */
+			//RGBE_DATA_RED = 0,
+			//RGBE_DATA_GREEN = 1,
+			//RGBE_DATA_BLUE = 2,
 
-		NEWLINE = "\n",
+			/* number of floats per pixel, use 4 since stored in rgba image format */
+			//RGBE_DATA_SIZE = 4,
 
-		fgets = function ( buffer, lineLimit, consume ) {
+			/* flags indicating which fields in an rgbe_header_info are valid */
+			RGBE_VALID_PROGRAMTYPE = 1,
+			RGBE_VALID_FORMAT = 2,
+			RGBE_VALID_DIMENSIONS = 4,
 
-			lineLimit = ! lineLimit ? 1024 : lineLimit;
-			var p = buffer.pos,
-				i = - 1, len = 0, s = '', chunkSize = 128,
-				chunk = String.fromCharCode.apply( null, new Uint16Array( buffer.subarray( p, p + chunkSize ) ) )
-			;
-			while ( ( 0 > ( i = chunk.indexOf( NEWLINE ) ) ) && ( len < lineLimit ) && ( p < buffer.byteLength ) ) {
+			NEWLINE = "\n",
 
-				s += chunk; len += chunk.length;
-				p += chunkSize;
-				chunk += String.fromCharCode.apply( null, new Uint16Array( buffer.subarray( p, p + chunkSize ) ) );
+			fgets = function ( buffer, lineLimit, consume ) {
 
-			}
+				lineLimit = ! lineLimit ? 1024 : lineLimit;
+				var p = buffer.pos,
+					i = - 1, len = 0, s = '', chunkSize = 128,
+					chunk = String.fromCharCode.apply( null, new Uint16Array( buffer.subarray( p, p + chunkSize ) ) )
+				;
+				while ( ( 0 > ( i = chunk.indexOf( NEWLINE ) ) ) && ( len < lineLimit ) && ( p < buffer.byteLength ) ) {
 
-			if ( - 1 < i ) {
+					s += chunk; len += chunk.length;
+					p += chunkSize;
+					chunk += String.fromCharCode.apply( null, new Uint16Array( buffer.subarray( p, p + chunkSize ) ) );
 
-				/*for (i=l-1; i>=0; i--) {
-					byteCode = m.charCodeAt(i);
-					if (byteCode > 0x7f && byteCode <= 0x7ff) byteLen++;
-					else if (byteCode > 0x7ff && byteCode <= 0xffff) byteLen += 2;
-					if (byteCode >= 0xDC00 && byteCode <= 0xDFFF) i--; //trail surrogate
-				}*/
-				if ( false !== consume ) buffer.pos += len + i + 1;
-				return s + chunk.slice( 0, i );
+				}
 
-			}
-			return false;
+				if ( - 1 < i ) {
 
-		},
+					/*for (i=l-1; i>=0; i--) {
+						byteCode = m.charCodeAt(i);
+						if (byteCode > 0x7f && byteCode <= 0x7ff) byteLen++;
+						else if (byteCode > 0x7ff && byteCode <= 0xffff) byteLen += 2;
+						if (byteCode >= 0xDC00 && byteCode <= 0xDFFF) i--; //trail surrogate
+					}*/
+					if ( false !== consume ) buffer.pos += len + i + 1;
+					return s + chunk.slice( 0, i );
 
-		/* minimal header reading.  modify if you want to parse more information */
-		RGBE_ReadHeader = function ( buffer ) {
+				}
+				return false;
 
-			var line, match,
+			},
 
-				// regexes to parse header info fields
-				magic_token_re = /^#\?(\S+)$/,
-				gamma_re = /^\s*GAMMA\s*=\s*(\d+(\.\d+)?)\s*$/,
-				exposure_re = /^\s*EXPOSURE\s*=\s*(\d+(\.\d+)?)\s*$/,
-				format_re = /^\s*FORMAT=(\S+)\s*$/,
-				dimensions_re = /^\s*\-Y\s+(\d+)\s+\+X\s+(\d+)\s*$/,
+			/* minimal header reading.  modify if you want to parse more information */
+			RGBE_ReadHeader = function ( buffer ) {
 
-				// RGBE format header struct
-				header = {
+				var line, match,
 
-					valid: 0, /* indicate which fields are valid */
+					// regexes to parse header info fields
+					magic_token_re = /^#\?(\S+)$/,
+					gamma_re = /^\s*GAMMA\s*=\s*(\d+(\.\d+)?)\s*$/,
+					exposure_re = /^\s*EXPOSURE\s*=\s*(\d+(\.\d+)?)\s*$/,
+					format_re = /^\s*FORMAT=(\S+)\s*$/,
+					dimensions_re = /^\s*\-Y\s+(\d+)\s+\+X\s+(\d+)\s*$/,
 
-					string: '', /* the actual header string */
+					// RGBE format header struct
+					header = {
 
-					comments: '', /* comments found in header */
+						valid: 0, /* indicate which fields are valid */
 
-					programtype: 'RGBE', /* listed at beginning of file to identify it after "#?". defaults to "RGBE" */
+						string: '', /* the actual header string */
 
-					format: '', /* RGBE format, default 32-bit_rle_rgbe */
+						comments: '', /* comments found in header */
 
-					gamma: 1.0, /* image has already been gamma corrected with given gamma. defaults to 1.0 (no correction) */
+						programtype: 'RGBE', /* listed at beginning of file to identify it after "#?". defaults to "RGBE" */
 
-					exposure: 1.0, /* a value of 1.0 in an image corresponds to <exposure> watts/steradian/m^2. defaults to 1.0 */
+						format: '', /* RGBE format, default 32-bit_rle_rgbe */
 
-					width: 0, height: 0 /* image dimensions, width/height */
+						gamma: 1.0, /* image has already been gamma corrected with given gamma. defaults to 1.0 (no correction) */
 
-				};
+						exposure: 1.0, /* a value of 1.0 in an image corresponds to <exposure> watts/steradian/m^2. defaults to 1.0 */
 
-			if ( buffer.pos >= buffer.byteLength || ! ( line = fgets( buffer ) ) ) {
+						width: 0, height: 0 /* image dimensions, width/height */
 
-				return rgbe_error( rgbe_read_error, "no header found" );
+					};
 
-			}
-			/* if you want to require the magic token then uncomment the next line */
-			if ( ! ( match = line.match( magic_token_re ) ) ) {
+				if ( buffer.pos >= buffer.byteLength || ! ( line = fgets( buffer ) ) ) {
 
-				return rgbe_error( rgbe_format_error, "bad initial token" );
+					return rgbe_error( rgbe_read_error, "no header found" );
 
-			}
-			header.valid |= RGBE_VALID_PROGRAMTYPE;
-			header.programtype = match[ 1 ];
-			header.string += line + "\n";
+				}
+				/* if you want to require the magic token then uncomment the next line */
+				if ( ! ( match = line.match( magic_token_re ) ) ) {
 
-			while ( true ) {
+					return rgbe_error( rgbe_format_error, "bad initial token" );
 
-				line = fgets( buffer );
-				if ( false === line ) break;
+				}
+				header.valid |= RGBE_VALID_PROGRAMTYPE;
+				header.programtype = match[ 1 ];
 				header.string += line + "\n";
 
-				if ( '#' === line.charAt( 0 ) ) {
+				while ( true ) {
 
-					header.comments += line + "\n";
-					continue; // comment line
+					line = fgets( buffer );
+					if ( false === line ) break;
+					header.string += line + "\n";
 
-				}
+					if ( '#' === line.charAt( 0 ) ) {
 
-				if ( match = line.match( gamma_re ) ) {
-
-					header.gamma = parseFloat( match[ 1 ], 10 );
-
-				}
-				if ( match = line.match( exposure_re ) ) {
-
-					header.exposure = parseFloat( match[ 1 ], 10 );
-
-				}
-				if ( match = line.match( format_re ) ) {
-
-					header.valid |= RGBE_VALID_FORMAT;
-					header.format = match[ 1 ];//'32-bit_rle_rgbe';
-
-				}
-				if ( match = line.match( dimensions_re ) ) {
-
-					header.valid |= RGBE_VALID_DIMENSIONS;
-					header.height = parseInt( match[ 1 ], 10 );
-					header.width = parseInt( match[ 2 ], 10 );
-
-				}
-
-				if ( ( header.valid & RGBE_VALID_FORMAT ) && ( header.valid & RGBE_VALID_DIMENSIONS ) ) break;
-
-			}
-
-			if ( ! ( header.valid & RGBE_VALID_FORMAT ) ) {
-
-				return rgbe_error( rgbe_format_error, "missing format specifier" );
-
-			}
-			if ( ! ( header.valid & RGBE_VALID_DIMENSIONS ) ) {
-
-				return rgbe_error( rgbe_format_error, "missing image size specifier" );
-
-			}
-
-			return header;
-
-		},
-
-		RGBE_ReadPixels_RLE = function ( buffer, w, h ) {
-
-			var data_rgba, offset, pos, count, byteValue,
-				scanline_buffer, ptr, ptr_end, i, l, off, isEncodedRun,
-				scanline_width = w, num_scanlines = h, rgbeStart
-			;
-
-			if (
-				// run length encoding is not allowed so read flat
-				( ( scanline_width < 8 ) || ( scanline_width > 0x7fff ) ) ||
-				// this file is not run length encoded
-				( ( 2 !== buffer[ 0 ] ) || ( 2 !== buffer[ 1 ] ) || ( buffer[ 2 ] & 0x80 ) )
-			) {
-
-				// return the flat buffer
-				return new Uint8Array( buffer );
-
-			}
-
-			if ( scanline_width !== ( ( buffer[ 2 ] << 8 ) | buffer[ 3 ] ) ) {
-
-				return rgbe_error( rgbe_format_error, "wrong scanline width" );
-
-			}
-
-			data_rgba = new Uint8Array( 4 * w * h );
-
-			if ( ! data_rgba || ! data_rgba.length ) {
-
-				return rgbe_error( rgbe_memory_error, "unable to allocate buffer space" );
-
-			}
-
-			offset = 0; pos = 0; ptr_end = 4 * scanline_width;
-			rgbeStart = new Uint8Array( 4 );
-			scanline_buffer = new Uint8Array( ptr_end );
-
-			// read in each successive scanline
-			while ( ( num_scanlines > 0 ) && ( pos < buffer.byteLength ) ) {
-
-				if ( pos + 4 > buffer.byteLength ) {
-
-					return rgbe_error( rgbe_read_error );
-
-				}
-
-				rgbeStart[ 0 ] = buffer[ pos ++ ];
-				rgbeStart[ 1 ] = buffer[ pos ++ ];
-				rgbeStart[ 2 ] = buffer[ pos ++ ];
-				rgbeStart[ 3 ] = buffer[ pos ++ ];
-
-				if ( ( 2 != rgbeStart[ 0 ] ) || ( 2 != rgbeStart[ 1 ] ) || ( ( ( rgbeStart[ 2 ] << 8 ) | rgbeStart[ 3 ] ) != scanline_width ) ) {
-
-					return rgbe_error( rgbe_format_error, "bad rgbe scanline format" );
-
-				}
-
-				// read each of the four channels for the scanline into the buffer
-				// first red, then green, then blue, then exponent
-				ptr = 0;
-				while ( ( ptr < ptr_end ) && ( pos < buffer.byteLength ) ) {
-
-					count = buffer[ pos ++ ];
-					isEncodedRun = count > 128;
-					if ( isEncodedRun ) count -= 128;
-
-					if ( ( 0 === count ) || ( ptr + count > ptr_end ) ) {
-
-						return rgbe_error( rgbe_format_error, "bad scanline data" );
+						header.comments += line + "\n";
+						continue; // comment line
 
 					}
 
-					if ( isEncodedRun ) {
+					if ( match = line.match( gamma_re ) ) {
 
-						// a (encoded) run of the same value
-						byteValue = buffer[ pos ++ ];
-						for ( i = 0; i < count; i ++ ) {
+						header.gamma = parseFloat( match[ 1 ], 10 );
 
-							scanline_buffer[ ptr ++ ] = byteValue;
+					}
+					if ( match = line.match( exposure_re ) ) {
+
+						header.exposure = parseFloat( match[ 1 ], 10 );
+
+					}
+					if ( match = line.match( format_re ) ) {
+
+						header.valid |= RGBE_VALID_FORMAT;
+						header.format = match[ 1 ];//'32-bit_rle_rgbe';
+
+					}
+					if ( match = line.match( dimensions_re ) ) {
+
+						header.valid |= RGBE_VALID_DIMENSIONS;
+						header.height = parseInt( match[ 1 ], 10 );
+						header.width = parseInt( match[ 2 ], 10 );
+
+					}
+
+					if ( ( header.valid & RGBE_VALID_FORMAT ) && ( header.valid & RGBE_VALID_DIMENSIONS ) ) break;
+
+				}
+
+				if ( ! ( header.valid & RGBE_VALID_FORMAT ) ) {
+
+					return rgbe_error( rgbe_format_error, "missing format specifier" );
+
+				}
+				if ( ! ( header.valid & RGBE_VALID_DIMENSIONS ) ) {
+
+					return rgbe_error( rgbe_format_error, "missing image size specifier" );
+
+				}
+
+				return header;
+
+			},
+
+			RGBE_ReadPixels_RLE = function ( buffer, w, h ) {
+
+				var data_rgba, offset, pos, count, byteValue,
+					scanline_buffer, ptr, ptr_end, i, l, off, isEncodedRun,
+					scanline_width = w, num_scanlines = h, rgbeStart
+				;
+
+				if (
+					// run length encoding is not allowed so read flat
+					( ( scanline_width < 8 ) || ( scanline_width > 0x7fff ) ) ||
+					// this file is not run length encoded
+					( ( 2 !== buffer[ 0 ] ) || ( 2 !== buffer[ 1 ] ) || ( buffer[ 2 ] & 0x80 ) )
+				) {
+
+					// return the flat buffer
+					return new Uint8Array( buffer );
+
+				}
+
+				if ( scanline_width !== ( ( buffer[ 2 ] << 8 ) | buffer[ 3 ] ) ) {
+
+					return rgbe_error( rgbe_format_error, "wrong scanline width" );
+
+				}
+
+				data_rgba = new Uint8Array( 4 * w * h );
+
+				if ( ! data_rgba || ! data_rgba.length ) {
+
+					return rgbe_error( rgbe_memory_error, "unable to allocate buffer space" );
+
+				}
+
+				offset = 0; pos = 0; ptr_end = 4 * scanline_width;
+				rgbeStart = new Uint8Array( 4 );
+				scanline_buffer = new Uint8Array( ptr_end );
+
+				// read in each successive scanline
+				while ( ( num_scanlines > 0 ) && ( pos < buffer.byteLength ) ) {
+
+					if ( pos + 4 > buffer.byteLength ) {
+
+						return rgbe_error( rgbe_read_error );
+
+					}
+
+					rgbeStart[ 0 ] = buffer[ pos ++ ];
+					rgbeStart[ 1 ] = buffer[ pos ++ ];
+					rgbeStart[ 2 ] = buffer[ pos ++ ];
+					rgbeStart[ 3 ] = buffer[ pos ++ ];
+
+					if ( ( 2 != rgbeStart[ 0 ] ) || ( 2 != rgbeStart[ 1 ] ) || ( ( ( rgbeStart[ 2 ] << 8 ) | rgbeStart[ 3 ] ) != scanline_width ) ) {
+
+						return rgbe_error( rgbe_format_error, "bad rgbe scanline format" );
+
+					}
+
+					// read each of the four channels for the scanline into the buffer
+					// first red, then green, then blue, then exponent
+					ptr = 0;
+					while ( ( ptr < ptr_end ) && ( pos < buffer.byteLength ) ) {
+
+						count = buffer[ pos ++ ];
+						isEncodedRun = count > 128;
+						if ( isEncodedRun ) count -= 128;
+
+						if ( ( 0 === count ) || ( ptr + count > ptr_end ) ) {
+
+							return rgbe_error( rgbe_format_error, "bad scanline data" );
 
 						}
-						//ptr += count;
 
-					} else {
+						if ( isEncodedRun ) {
 
-						// a literal-run
-						scanline_buffer.set( buffer.subarray( pos, pos + count ), ptr );
-						ptr += count; pos += count;
+							// a (encoded) run of the same value
+							byteValue = buffer[ pos ++ ];
+							for ( i = 0; i < count; i ++ ) {
+
+								scanline_buffer[ ptr ++ ] = byteValue;
+
+							}
+							//ptr += count;
+
+						} else {
+
+							// a literal-run
+							scanline_buffer.set( buffer.subarray( pos, pos + count ), ptr );
+							ptr += count; pos += count;
+
+						}
 
 					}
 
-				}
 
+					// now convert data from buffer into rgba
+					// first red, then green, then blue, then exponent (alpha)
+					l = scanline_width; //scanline_buffer.byteLength;
+					for ( i = 0; i < l; i ++ ) {
 
-				// now convert data from buffer into rgba
-				// first red, then green, then blue, then exponent (alpha)
-				l = scanline_width; //scanline_buffer.byteLength;
-				for ( i = 0; i < l; i ++ ) {
+						off = 0;
+						data_rgba[ offset ] = scanline_buffer[ i + off ];
+						off += scanline_width; //1;
+						data_rgba[ offset + 1 ] = scanline_buffer[ i + off ];
+						off += scanline_width; //1;
+						data_rgba[ offset + 2 ] = scanline_buffer[ i + off ];
+						off += scanline_width; //1;
+						data_rgba[ offset + 3 ] = scanline_buffer[ i + off ];
+						offset += 4;
 
-					off = 0;
-					data_rgba[ offset ] = scanline_buffer[ i + off ];
-					off += scanline_width; //1;
-					data_rgba[ offset + 1 ] = scanline_buffer[ i + off ];
-					off += scanline_width; //1;
-					data_rgba[ offset + 2 ] = scanline_buffer[ i + off ];
-					off += scanline_width; //1;
-					data_rgba[ offset + 3 ] = scanline_buffer[ i + off ];
-					offset += 4;
+					}
 
-				}
-
-				num_scanlines --;
-
-			}
-
-			return data_rgba;
-
-		}
-	;
-
-	var byteArray = new Uint8Array( buffer ),
-		byteLength = byteArray.byteLength;
-	byteArray.pos = 0;
-	var rgbe_header_info = RGBE_ReadHeader( byteArray );
-
-	if ( RGBE_RETURN_FAILURE !== rgbe_header_info ) {
-
-		var w = rgbe_header_info.width,
-			h = rgbe_header_info.height,
-			image_rgba_data = RGBE_ReadPixels_RLE( byteArray.subarray( byteArray.pos ), w, h )
-		;
-		if ( RGBE_RETURN_FAILURE !== image_rgba_data ) {
-
-			if ( this.type === THREE.UnsignedByteType ) {
-
-				var data = image_rgba_data;
-				var format = THREE.RGBEFormat; // handled as THREE.RGBAFormat in shaders
-				var type = THREE.UnsignedByteType;
-
-			} else if ( this.type === THREE.FloatType ) {
-
-				var RGBEByteToRGBFloat = function ( sourceArray, sourceOffset, destArray, destOffset ) {
-
-					var e = sourceArray[ sourceOffset + 3 ];
-					var scale = Math.pow( 2.0, e - 128.0 ) / 255.0;
-
-					destArray[ destOffset + 0 ] = sourceArray[ sourceOffset + 0 ] * scale;
-					destArray[ destOffset + 1 ] = sourceArray[ sourceOffset + 1 ] * scale;
-					destArray[ destOffset + 2 ] = sourceArray[ sourceOffset + 2 ] * scale;
-
-				};
-
-				var numElements = ( image_rgba_data.length / 4 ) * 3;
-				var floatArray = new Float32Array( numElements );
-
-				for ( var j = 0; j < numElements; j ++ ) {
-
-					RGBEByteToRGBFloat( image_rgba_data, j * 4, floatArray, j * 3 );
+					num_scanlines --;
 
 				}
 
-				var data = floatArray;
-				var format = THREE.RGBFormat;
-				var type = THREE.FloatType;
+				return data_rgba;
 
-
-			} else {
-
-				console.error( 'THREE.RGBELoader: unsupported type: ', this.type );
-
-			}
-
-			return {
-				width: w, height: h,
-				data: data,
-				header: rgbe_header_info.string,
-				gamma: rgbe_header_info.gamma,
-				exposure: rgbe_header_info.exposure,
-				format: format,
-				type: type
 			};
 
+		var RGBEByteToRGBFloat = function ( sourceArray, sourceOffset, destArray, destOffset ) {
+
+			var e = sourceArray[ sourceOffset + 3 ];
+			var scale = Math.pow( 2.0, e - 128.0 ) / 255.0;
+
+			destArray[ destOffset + 0 ] = sourceArray[ sourceOffset + 0 ] * scale;
+			destArray[ destOffset + 1 ] = sourceArray[ sourceOffset + 1 ] * scale;
+			destArray[ destOffset + 2 ] = sourceArray[ sourceOffset + 2 ] * scale;
+
+		};
+
+		var RGBEByteToRGBHalf = ( function () {
+
+			// Source: http://gamedev.stackexchange.com/questions/17326/conversion-of-a-number-from-single-precision-floating-point-representation-to-a/17410#17410
+
+			var floatView = new Float32Array( 1 );
+			var int32View = new Int32Array( floatView.buffer );
+
+			/* This method is faster than the OpenEXR implementation (very often
+			 * used, eg. in Ogre), with the additional benefit of rounding, inspired
+			 * by James Tursa?s half-precision code. */
+			function toHalf( val ) {
+
+				floatView[ 0 ] = val;
+				var x = int32View[ 0 ];
+
+				var bits = ( x >> 16 ) & 0x8000; /* Get the sign */
+				var m = ( x >> 12 ) & 0x07ff; /* Keep one extra bit for rounding */
+				var e = ( x >> 23 ) & 0xff; /* Using int is faster here */
+
+				/* If zero, or denormal, or exponent underflows too much for a denormal
+				 * half, return signed zero. */
+				if ( e < 103 ) return bits;
+
+				/* If NaN, return NaN. If Inf or exponent overflow, return Inf. */
+				if ( e > 142 ) {
+
+					bits |= 0x7c00;
+					/* If exponent was 0xff and one mantissa bit was set, it means NaN,
+							 * not Inf, so make sure we set one mantissa bit too. */
+					bits |= ( ( e == 255 ) ? 0 : 1 ) && ( x & 0x007fffff );
+					return bits;
+
+				}
+
+				/* If exponent underflows but not too much, return a denormal */
+				if ( e < 113 ) {
+
+					m |= 0x0800;
+					/* Extra rounding may overflow and set mantissa to 0 and exponent
+					 * to 1, which is OK. */
+					bits |= ( m >> ( 114 - e ) ) + ( ( m >> ( 113 - e ) ) & 1 );
+					return bits;
+
+				}
+
+				bits |= ( ( e - 112 ) << 10 ) | ( m >> 1 );
+				/* Extra rounding. An overflow will set mantissa to 0 and increment
+				 * the exponent, which is OK. */
+				bits += m & 1;
+				return bits;
+
+			}
+
+			return function ( sourceArray, sourceOffset, destArray, destOffset ) {
+
+				var e = sourceArray[ sourceOffset + 3 ];
+				var scale = Math.pow( 2.0, e - 128.0 ) / 255.0;
+
+				destArray[ destOffset + 0 ] = toHalf( sourceArray[ sourceOffset + 0 ] * scale );
+				destArray[ destOffset + 1 ] = toHalf( sourceArray[ sourceOffset + 1 ] * scale );
+				destArray[ destOffset + 2 ] = toHalf( sourceArray[ sourceOffset + 2 ] * scale );
+
+			};
+
+		} )();
+
+		var byteArray = new Uint8Array( buffer );
+		byteArray.pos = 0;
+		var rgbe_header_info = RGBE_ReadHeader( byteArray );
+
+		if ( RGBE_RETURN_FAILURE !== rgbe_header_info ) {
+
+			var w = rgbe_header_info.width,
+				h = rgbe_header_info.height,
+				image_rgba_data = RGBE_ReadPixels_RLE( byteArray.subarray( byteArray.pos ), w, h );
+
+			if ( RGBE_RETURN_FAILURE !== image_rgba_data ) {
+
+				switch ( this.type ) {
+
+					case THREE.UnsignedByteType:
+
+						var data = image_rgba_data;
+						var format = THREE.RGBEFormat; // handled as THREE.RGBAFormat in shaders
+						var type = THREE.UnsignedByteType;
+						break;
+
+					case THREE.FloatType:
+
+						var numElements = ( image_rgba_data.length / 4 ) * 3;
+						var floatArray = new Float32Array( numElements );
+
+						for ( var j = 0; j < numElements; j ++ ) {
+
+							RGBEByteToRGBFloat( image_rgba_data, j * 4, floatArray, j * 3 );
+
+						}
+
+						var data = floatArray;
+						var format = THREE.RGBFormat;
+						var type = THREE.FloatType;
+						break;
+
+					case THREE.HalfFloatType:
+
+						var numElements = ( image_rgba_data.length / 4 ) * 3;
+						var halfArray = new Uint16Array( numElements );
+
+						for ( var j = 0; j < numElements; j ++ ) {
+
+							RGBEByteToRGBHalf( image_rgba_data, j * 4, halfArray, j * 3 );
+
+						}
+
+						var data = halfArray;
+						var format = THREE.RGBFormat;
+						var type = THREE.HalfFloatType;
+						break;
+
+					default:
+
+						console.error( 'THREE.RGBELoader: unsupported type: ', this.type );
+						break;
+
+				}
+
+				return {
+					width: w, height: h,
+					data: data,
+					header: rgbe_header_info.string,
+					gamma: rgbe_header_info.gamma,
+					exposure: rgbe_header_info.exposure,
+					format: format,
+					type: type
+				};
+
+			}
+
 		}
+
+		return null;
+
+	},
+
+	setDataType: function ( value ) {
+
+		this.type = value;
+		return this;
+
+	},
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		function onLoadCallback( texture, texData ) {
+
+			switch ( texture.type ) {
+
+				case THREE.UnsignedByteType:
+
+					texture.encoding = THREE.RGBEEncoding;
+					texture.minFilter = THREE.NearestFilter;
+					texture.magFilter = THREE.NearestFilter;
+					texture.generateMipmaps = false;
+					texture.flipY = true;
+					break;
+
+				case THREE.FloatType:
+
+					texture.encoding = THREE.LinearEncoding;
+					texture.minFilter = THREE.LinearFilter;
+					texture.magFilter = THREE.LinearFilter;
+					texture.generateMipmaps = false;
+					texture.flipY = true;
+					break;
+
+				case THREE.HalfFloatType:
+
+					texture.encoding = THREE.LinearEncoding;
+					texture.minFilter = THREE.LinearFilter;
+					texture.magFilter = THREE.LinearFilter;
+					texture.generateMipmaps = false;
+					texture.flipY = true;
+					break;
+
+			}
+
+			if ( onLoad ) onLoad( texture, texData );
+
+		}
+
+		return THREE.DataTextureLoader.prototype.load.call( this, url, onLoadCallback, onProgress, onError );
 
 	}
 
-	return null;
-
-};
-
-THREE.RGBELoader.prototype.setType = function ( value ) {
-
-	this.type = value;
-	return this;
-
-};
-
-
+} );
 
 /**
  * @author lo.th / https://github.com/lo-th
@@ -68788,1161 +68549,6 @@ THREE.Lensflare.Geometry = ( function () {
 
 } )();
 
-/**   _  _____ _   _   
-*    | ||_   _| |_| |
-*    | |_ | | |  _  |
-*    |___||_| |_| |_|
-*    @author lo.th / https://github.com/lo-th
-*/
-
-function Environement ( view ) {
-
-    this.mapReady = 0;
-    this.shaderReady = false;
-    this.isPreload = false;
-    this.isPreloadShader = false;
-    this.callback = function (){};
-
-
-	this.isAutoSky = false;
-	this.isBasicSky = false;
-
-    this.viewBg = true;
-
-	this.view = view;
-
-    // textures Loader
-    this.loader = view.loader;
-
-    this.basicEnvmap = new THREE.Texture();
-
-
-
-    // basic map
-
-	/*this.basicEnvmap = this.loader.load( './assets/textures/spherical/sky.jpg', function ( texture ) { texture.mapping = THREE.SphericalReflectionMapping; this.mapReady++; this.callback(); }.bind(this) );
-    this.noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.mapReady++; this.callback(); }.bind(this)  );
-    this.nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.mapReady++; this.callback(); }.bind(this)  );
-
-    // shader Loader
-    this.shader = new THREE.ShaderLoader();
-    this.shader.path = './assets/shaders/';
-    this.shader.load(['sky_v.vs', 'sky_f.fs', 'basic_sky_f.fs'], function () { 
-        
-        BasicSky.vertexShader = this.shader.shader.sky_v;
-        BasicSky.fragmentShader = this.shader.shader.basic_sky_f;
-        SuperSkyShader.vertexShader = this.shader.shader.sky_v;
-        SuperSkyShader.fragmentShader = this.shader.shader.sky_f;
-
-        this.shaderReady = true; 
-        this.callback();
-
-    }.bind(this) );*/
-
-	this.isHdr = false;
-
-	this.n = 0;
-
-	this.debug = true;
-
-	this.needsUpdate = false;
-
-	// contant sun color
-	this.sv0 = new THREE.Vector3( 0, .99, 0 );
-    this.sv1 = new THREE.Vector3( .188, .458, .682 );
-
-    this.lup = new THREE.Vector3( 0, 1.0, 0 );
-
-    this.torad = 0.0174532925199432957;
-
-    this.colors = {
-        sun:new THREE.Color(1,1,1),
-        moon:new THREE.Color(1,1,1),
-        ground:new THREE.Color(0,0,0),
-        sky:new THREE.Color(0,0,0),
-        fog:new THREE.Color(0,0,0),
-        fogbase:new THREE.Color(0,0,0),
-    };
-
-    
-    this.bg = false;
-    this.tmpBg = false;
-
-    this.q = this.view.isMobile ? 2 : 4;
-	this.resolution = 128*this.q;
-
-    
-	this.setting = {
-
-		distance: 10000,
-		resolution: this.resolution,
-
-		timelap:0,
-		fog:0.1,
-		cloud_size: .45,
-		cloud_covr: .3,
-		cloud_dens: 40,
-
-		sample:32*this.q,
-		iteration:2*this.q,
-
-		inclination: 45,
-		azimuth: 90,
-		hour: 12,
-
-		toneMapping: 'No',
-		exposure:1.22,
-		whitePoint:1.25,
-
-		cloudColor: 0xFFFFFF,
-		groundColor: 0x3b4c5a,
-		fogColor: 0x9fabb2,
-
-	}
-
-    //console.log(this.resolution, this.setting.sample)
-
-	this.astralDistance = 1;
-
-	this.material = new THREE.ShaderMaterial({});
-
-	this.sunPosition = new THREE.Vector3();
-    this.moonPosition = new THREE.Vector3();
-
-    this.sunSphere = new THREE.Spherical();
-    this.moonSphere = new THREE.Spherical();
-
-    
-    
-
-    this.scene = new THREE.Scene();
-	this.sphere = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 32, 32 ), this.material );
-	this.scene.add( this.sphere );
-	
-	var options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
-	//if( this.isHdr ) options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding , format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
-	//else options = { type:THREE.UnsignedByteType, format: THREE.RGBAFormat, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter };
-	this.camera = new THREE.CubeCamera( 0.1, 1, this.resolution, options );
-	this.scene.add( this.camera );
-
-    //this.initColorTest();
-
-	
-
-	THREE.Group.call( this );
-	this.view.followGroup.add( this );
-
-}
-
-
-Environement.prototype = Object.assign( Object.create( THREE.Group.prototype ), {
-
-    constructor: Environement,
-
-    setResolution: function ( r ) {
-
-        this.resolution = r;
-        var options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
-        this.camera = new THREE.CubeCamera( 0.1, 1, this.resolution, options );
-
-
-    },
-
-    defaultSky: function () {
-        
-        //this.material.dispose();
-
-        
-        
-
-        this.isAutoSky = false;
-        this.isBasicSky = false;
-        this.tmpBg = false;
-        this.isHdr = false;
-
-        this.view.scene.background = null;
-        this.view.envmap = this.basicEnvmap;
-        this.view.updateEnvMap();
-
-        //console.log( 'reset', this.isAutoSky, this.isBasicSky )
-        
-    },
-
-    setSky: function ( o ) {
-
-        o = o || {}
-
-        this.tmpBg = o.bg !== undefined ? o.bg : true;
-        this.isHdr = o.hdr !== undefined ? o.hdr : false;
-        //this.setting.hour = o.hour !== undefined ? o.hour : 12;
-
-        for ( var name in o ) {
-            if ( this.setting[ name ] !== undefined ) this.setting[ name ] = o[ name ];
-        }
-
-        this.viewBg = o.visible !== undefined ? o.visible : true;
-
-        if( o.url !== undefined ){
-            this.load( o.url );
-        } else {
-            this.initAutoSky();
-        }
-
-        //if( o.visible !== undefined ) 
-
-    },
-
-    parse: function ( buffer, type ) {
-
-        var loader, texture, o;
-
-        if( type === 'hdr' ){
-
-            loader = new THREE.RGBELoader();
-            o = loader._parser( buffer );
-
-            texture = new THREE.DataTexture( o.data, o.width, o.height, o.format, o.type, 300, 1001, 1001, THREE.NearestFilter, THREE.NearestFilter, 1, THREE.RGBEEncoding )
-            texture.encoding = THREE.RGBEEncoding;
-            
-            texture.needsUpdate = true;
-            this.update( texture );
-
-        }
-
-        if( type === 'jpg' ){
-
-            var img = new Image();
-            img.src = buffer;
-
-            img.onload = function (){
-
-                var texture = new THREE.Texture( img );
-                texture.needsUpdate = true;
-                this.initBasicSky( texture );
-
-            }.bind(this)
-           
-        }
-
-    },
-
-	load: function ( url ) {
-
-		//this.callback = callback || new function(){};
-
-        var loader;
-        var mapHdr = false;
-        var type = url.substring( url.lastIndexOf('.')+1 );
-
-        if( type === 'jpg' || type === 'png' ){
-        	mapHdr = false;
-            loader = new THREE.TextureLoader();
-        }
-
-        if( type === 'hdr' ){
-        	mapHdr = true;
-            loader = new THREE.RGBELoader();
-        }
-
-        var self = this;
- 
-        loader.load( './assets/textures/envmap/'+url, function ( texture ){ 
-
-            if( mapHdr ){
-
-            	texture.type = THREE.UnsignedByteType;
-            	texture.encoding = THREE.RGBEEncoding;
-            	texture.format = THREE.RGBAFormat;
-                texture.minFilter = THREE.NearestFilter;
-                texture.magFilter = THREE.NearestFilter;
-                //texture.minFilter = THREE.LinearFilter;
-                //texture.magFilter = THREE.LinearFilter;
-                texture.generateMipmaps = false;
-                texture.anisotropy = 0;
-
-            }
-            //texture.flipY = isHdr; texture.minFilter = THREE.NearestFilter; 
-
-            self.initBasicSky( texture, mapHdr ); 
-
-        });
-
-	},
-
-    initBasicSky: function ( texture, mapHdr ) {
-
-        if( texture !== undefined ) this.tmptexture = texture;
-        if( mapHdr !== undefined ) this.tmpMapHdr = mapHdr !== undefined ? mapHdr : false;
-
-        //if( !this.isPreloadShader ) this.preloadderShader();
-
-    	if( !this.isBasicSky ){
-
-            /*if( !this.shaderReady ){
-                this.callback = this.initBasicSky;
-                return;
-            } else {
-                this.callback = function (){};
-            }*/
-
-    		this.material.dispose();
-	    	this.material = new THREE.ShaderMaterial( BasicSky );
-	    	this.sphere.material = this.material;
-	    	this.isBasicSky = true;
-
-    	}
-
-    	this.material.uniforms.map.value = this.tmptexture;
-        this.material.uniforms.isHdr.value = this.tmpMapHdr ? 1 : 0;
-        //this.needsUpdate = true;
-
-        this.render();
-
-        //this.showBackground( this.viewBg )
-
-    },
-
-    preloadderShader: function () {
-
-        this.isPreloadShader = true;
-
-        // shader Loader
-        this.shader = new THREE.ShaderLoader();
-        this.shader.path = './assets/shaders/';
-        this.shader.load(['sky_f.fs'], function () { 
-            
-            //BasicSky.vertexShader = this.shader.shader.sky_v;
-            //BasicSky.fragmentShader = this.shader.shader.basic_sky_f;
-            SuperSkyShader.vertexShader = BasicSky.vertexShader;//this.shader.shader.sky_v;
-            SuperSkyShader.fragmentShader = this.shader.shader.sky_f;
-
-            this.shaderReady = true; 
-            this.callback();
-
-        }.bind(this) );
-
-    },
-
-    preloadder: function () {
-
-        this.isPreload = true;
-
-        // basic map
-
-        //this.basicEnvmap = this.loader.load( './assets/textures/spherical/sky.jpg', function ( texture ) { texture.mapping = THREE.SphericalReflectionMapping; this.mapReady++; this.callback(); }.bind(this) );
-        this.noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.mapReady++; this.callback(); }.bind(this)  );
-        this.nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.mapReady++; this.callback(); }.bind(this)  );
-
-
-    },
-
-    initAutoSky: function () {
-
-
-    	if( !this.isAutoSky ){
-
-            if( !this.isPreload ) this.preloadder();
-            if( !this.isPreloadShader ) this.preloadderShader();
-
-            //console.log(this.mapReady)
-
-            if( this.mapReady !== 2 || !this.shaderReady ){
-                this.callback = this.initAutoSky;
-                return;
-            } else {
-                this.callback = function (){};
-            }
-
-	    	this.material.dispose();
-
-	    	var setting = this.setting;
-
-	    	//var noiseMap = this.loader.load( "assets/textures/sky/noise.png", function ( texture ) { texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.flipY = false; this.needsUpdate = true; }.bind(this) );
-		    //var nightMap = loader.load( "assets/textures/sky/milkyway.png" );
-
-		    //var nightSpaceMap = this.loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; this.needsUpdate = true; }.bind(this) );
-
-		    var lens0 = this.loader.load( "assets/textures/sky/lens0.png" );
-		    var lens1 = this.loader.load( "assets/textures/sky/lens1.png" );
-		    var lensSun = this.loader.load( "assets/textures/sky/lensSun.png" );
-		    var lensMoon = this.loader.load( "assets/textures/sky/lensMoon.png" );
-
-	    	// fake sun / moon
-	        //this.sun = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensSun, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
-	        //this.moon = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensMoon, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
-            //this.add( this.moon );
-
-	    	this.lensflare = new THREE.Lensflare();
-		    var c = this.colors.sun;
-			this.lensflare.addElement( new THREE.LensflareElement( lensSun, 30, 0, c ) );
-			this.lensflare.addElement( new THREE.LensflareElement( lens0, 700, 0.01, c ) );
-			this.lensflare.addElement( new THREE.LensflareElement( lens1, 60, 0.6, c ) );
-			this.lensflare.addElement( new THREE.LensflareElement( lens1, 70, 0.7, c ) );
-			this.lensflare.addElement( new THREE.LensflareElement( lens1, 120, 0.9, c ) );
-			this.lensflare.addElement( new THREE.LensflareElement( lens1, 70, 1, c ) );
-			this.add( this.lensflare );
-
-			
-			
-
-		    var uniforms = SuperSkyShader.uniforms;
-		    uniforms.noiseMap.value = this.noiseMap;
-		    uniforms.nightMap.value = this.nightSpaceMap;
-		    uniforms.isHdr.value = this.isHdr? 1:0;
-		    uniforms.lightdir.value = this.sunPosition;
-		    uniforms.cloud_size.value = setting.cloud_size;
-		    uniforms.cloud_covr.value = setting.cloud_covr;
-		    uniforms.cloud_dens.value = setting.cloud_dens;
-		    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
-		    uniforms.groundColor.value = new THREE.Color( setting.groundColor );
-		    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
-
-            var fogColor = new THREE.Color( setting.fogColor );
-		    uniforms.fogColor.value = fogColor;
-		    uniforms.fog.value = setting.fog;
-            this.view.setFogColor( fogColor );
-
-            this.colors.fogbase.copy( fogColor );
-            this.colors.fog.copy( fogColor );
-		    
-		    uniforms.nSample.value = setting.sample;
-		    uniforms.iteration.value = setting.iteration;
-            uniforms.iteration.value = setting.iteration
-
-            setting.timelap = setting.hour;
-            uniforms.timelap.value = setting.timelap;
-
-            
-
-            this.material = new THREE.ShaderMaterial( SuperSkyShader );
-
-            
-            //this.material.uniforms.timelap.value = s.timelap;
-
-            //console.log(this.material.uniforms) 
-
-            this.sphere.material = this.material;
-
-            this.isAutoSky = true;
-            
-			//this.initColorTest();
-			this.setSize();
-			this.updateAutoSky();
-
-		}
-
-	},
-
-    showBackground: function ( b ) {
-
-        //if( b !== this.bg ){
-
-            this.bg = b;
-            this.view.scene.background = this.bg ? this.camera.renderTarget : null;
-
-        //}
-
-    },
-
-    
-
-    clear: function () {
-
-        if( this.isAutoSky ){
-
-
-
-        	//this.remove( this.sun );
-        	//this.remove( this.moon );
-            this.remove( this.lensflare );
-        	//this.remove( this.dome );
-
-        	//this.view.followGroup.remove( this );
-        }
-
-        this.defaultSky();
-
-    },
-
-    setSize: function ( v ) {
-
-    	if( v !== undefined ) this.setting.distance = v;
-    	var s = this.setting.distance * 0.05;
-    	//console.log(s)
-    	this.astralDistance = this.setting.distance; //- s;
-    	//console.log( this.astralDistance )
-    	//this.dome.scale.set( 1,1,1 ).multiplyScalar( this.setting.distance );
-    	//this.sun.scale.set( s,s,1 );
-    	//this.moon.scale.set( s,s,1 );
-
-    	//console.log(s)
-
-    },
-
-    k: function ( e, p ) {
-
-    	var n = p.dot(p), a = 2 * p.dot(e), o = e.dot(e) - 1, 
-    	    r = a * a - 4 * n * o,
-            i = Math.sqrt(r), l = (-a - i) * 0.5;
-        return o / l;
-
-    },
-
-    calculateSunColor: function ( position ) {
-
-    	var c = { r:0, g:0, b:0 };
-    	var e = 0.028 / this.k( this.sv0, position );
-    	var t = 1.8;
-    	var r = position.y >= 0 ? 1 : 0;
-    	c.r = (t - t * Math.pow( this.sv1.x, e )) * r;
-    	c.g = (t - t * Math.pow( this.sv1.y, e )) * r;
-    	c.b = (t - t * Math.pow( this.sv1.z, e )) * r;
-    	c.r = c.r > 1.0 ? 1.0 : c.r;
-        c.g = c.g > 1.0 ? 1.0 : c.g;
-        c.b = c.b > 1.0 ? 1.0 : c.b;
-    	this.colors.sun.setRGB( c.r, c.g, c.b );
-
-        var mr = 1 - c.r;
-        var mg = 1 - c.g;
-        var mb = 1 - c.b;
-        
-        this.colors.moon.setRGB( mr, mg, mb );
-
-    },
-
-    timelap: function ( t, frame ) {
-
-        frame = frame || 16;
-
-    	var s = this.setting;
-    	s.hour += t;
-    	if(s.hour>24) s.hour = 0;
-        if(s.hour<0) s.hour = 24;
-
-        this.n ++;
-
-        if( this.n === frame ){
-        	this.n = 0;
-            this.updateAutoSky();
-        }
-
-    },
-
-    setOption: function ( o ){
-
-    	o = o || {};
-    	var s = this.setting;
-
-    	for( var i in o ){
-			if( s[i] !== undefined ) s[i] = o[i];
-		}
-
-		this.updateAutoSky();
-
-    },
-
-    updateAutoSky: function () {
-
-        if( !this.isAutoSky ) return;
-
-    	var s = this.setting;
-    	var r = this.torad;
-
-    	s.inclination = ( s.hour * 15 ) - 90;
-    	s.timelap = s.hour;
-
-    	this.sunSphere.phi = ( s.inclination - 90 ) * r;
-        this.sunSphere.theta = ( s.azimuth - 90 ) * r;
-        this.sunPosition.setFromSpherical( this.sunSphere );
-
-        
-        this.moonSphere.phi = ( s.inclination + 90 ) * r;
-        this.moonSphere.theta = ( s.azimuth - 90 ) * r;
-        this.moonPosition.setFromSpherical( this.moonSphere );
-
-        
-
-        // fake sun / moon
-        //this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
-        //this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
-        this.lensflare.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
-
-
-
-        this.calculateSunColor( this.sunPosition );
-
-       // this.sun.material.color.copy( this.colors.sun );
-       // this.moon.material.color.copy( this.colors.moon );
-
-        
-
-        // light
-
-        this.view.sun.position.copy( this.sunPosition ).multiplyScalar( this.view.lightDistance );
-        this.view.moon.position.copy( this.moonPosition ).multiplyScalar( this.view.lightDistance );
-        //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
-
-        this.view.sun.color.copy( this.colors.sun );
-        this.view.sun.intensity = this.colors.sun.r + (this.colors.sun.r*0.3);
-        this.view.moon.color.copy( this.colors.moon );
-        this.view.moon.intensity = this.colors.moon.r - (this.colors.moon.r*0.6);
-
-        var fg = this.colors.moon.r * 0.6;
-        this.colors.fog.setRGB( this.colors.fogbase.r-fg, this.colors.fogbase.g-fg, this.colors.fogbase.b-fg );
-        this.view.setFogColor( this.colors.fog );
-
-		this.material.uniforms.timelap.value = s.timelap;
-		this.material.uniforms.fog.value = s.fog;
-		this.material.uniforms.cloud_size.value = s.cloud_size;
-		this.material.uniforms.cloud_covr.value = s.cloud_covr;
-		this.material.uniforms.cloud_dens.value = s.cloud_dens;
-
-        this.render();
-
-    },
-
-    render: function () {
-
-        var view = this.view;
-
-
-
-		this.camera.update( view.renderer, this.scene );
-
-       // 
-       //this.getColor();
-			
-		//if( view.envmap ) view.envmap.dispose();
-		view.envmap = this.isHdr ? this.convertToHdr() : this.camera.renderTarget.texture;
-
-		
-
-        //view.scene.background = this.tmpBg ? this.camera.renderTarget : null;
-
-        this.showBackground( this.viewBg );
-
-		view.updateEnvMap();
-
-
-    },
-
-    convertToHdr: function () {
-
-    	var pmremGenerator = new THREE.PMREMGenerator( this.camera.renderTarget.texture, 32, 256 );
-        pmremGenerator.update( this.view.renderer );
-
-        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
-        pmremCubeUVPacker.update( this.view.renderer );
-
-        var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
-
-        pmremGenerator.dispose();
-        pmremCubeUVPacker.dispose();
-
-        return hdrCubeRenderTarget.texture;
-
-    },
-
-    initColorTest: function () {
-
-    	//if( !this.view.isWithSphereLight ) return;
-
-    	this.pixelRender = new THREE.WebGLRenderTarget( 2,2, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: this.view.isGl2 ? THREE.UnsignedByteType : THREE.FloatType } );
-        this.vMid = new THREE.Vector3( 0,0,1 );
-        this.vUp = new THREE.Vector3( 0,1,0 );
-        this.vDown = new THREE.Vector3( 0,-1,0 );
-        var x = 0.1;
-        this.camPixel = new THREE.OrthographicCamera( -x, x, x, -x, 0.1, 1 );
-        this.scene.add( this.camPixel );
-
-    },
-
-    getColor: function () {
-
-        var currentRenderTarget = this.view.renderer.getRenderTarget();
-
-        var rgb = this.view.isGl2 ? Math.inv255 : 1;
-        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
-
-        //var read = new Float32Array( 4 );
-        //view.renderer.readRenderTargetPixels( hdrCubeRenderTarget, 0, 128, 1, 1, read );
-        //this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
-
-    	/*if( this.view.isWithFog ) {
-
-
-	    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
-	        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
-
-	        this.camPixel.lookAt( this.vMid );
-	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
-
-	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-	        this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
-
-	        //console.log(this.colors.fog.getHexString())
-
-	        //this.view.fog.color.copy( this.colors.fog );
-            this.view.setFogColor( this.colors.fog );
-	    }*/
-
-        //if( this.view.isWithSphereLight ) {
-
-            //this.view.renderer.clear();
-
-	        /*this.camPixel.lookAt( this.vUp );
-            this.view.renderer.setRenderTarget( this.pixelRender );
-	        this.view.renderer.render( this.scene, this.camPixel );
-	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-	        this.colors.sky.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
-
-	        this.camPixel.lookAt( this.vDown );
-	        this.view.renderer.render( this.scene, this.camPixel );
-	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-	        this.colors.ground.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );*/
-
-            this.camPixel.lookAt( this.vUp );
-            this.view.renderer.setRenderTarget( this.pixelRender );
-            this.view.renderer.render( this.scene, this.camPixel );
-            this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
-            this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
-
-            this.view.setFogColor( this.colors.fog );
-
-	        
-          //  this.view.sphereLight.color.copy( this.colors.sky );
-	       // this.view.sphereLight.groundColor.copy( this.colors.ground );
-	        //this.view.sphereLight.intensity = 0.6;
-           
-
-	        //this.view.ambient.color.copy( this.colors.ground );
-
-	    //}
-
-        this.view.renderer.setRenderTarget( currentRenderTarget );
-
-    },
-
-    /*getEnvMap: function () {
-
-    	return this.camera.renderTarget.texture;
-
-    },*/
-
-    /*updateMatrixWorld: function ( force ) {
-
-    	this.render();
-
-		if ( this.matrixAutoUpdate ) this.updateMatrix();
-
-		if ( this.matrixWorldNeedsUpdate || force ) {
-
-			if ( this.parent === null ) {
-
-				this.matrixWorld.copy( this.matrix );
-
-			} else {
-
-				this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
-
-			}
-
-			this.matrixWorldNeedsUpdate = false;
-
-			force = true;
-
-		}
-
-		// update children
-
-		var children = this.children;
-
-		for ( var i = 0, l = children.length; i < l; i ++ ) {
-
-			children[ i ].updateMatrixWorld( force );
-
-		}
-
-	},*/
-
- });
-
-
-
-
-var BasicSky = {
-
-    uniforms:{
-        map: { value: null },
-        decode: { value: 0 },
-        isHdr: { value: 1 },
-        rev: { value: 0 },
-        alpha:{ value: 0.5 },
-    },
-
-    //vertexShader: this.shader.shader.sky_v,
-    //fragmentShader: this.shader.shader.basic_sky_f,
-
-
-    vertexShader: [
-    'varying vec2 vUv;',
-    'varying vec3 worldPosition;',
-    'void main() {',
-        'vUv = uv;',
-        'worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
-        'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-    '}'
-    ].join("\n"),
-
-    fragmentShader: [
-
-    '#include <common>',
-
-    '#define GOLDEN 1.61803398875',
-
-    'vec4 ToRGBE( in vec4 value ) {',
-		'float maxComponent = max( max( value.r, value.g ), value.b );',
-		'float fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );',
-		'return vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );',
-	'}',
-
-    'vec4 toHDR( in vec4 c ) {',
-        'vec3 v = c.rgb;',
-        'v = pow( abs(v), vec3( GOLDEN ));',// exposure and gamma increase to match HDR
-        'return ToRGBE( vec4(v.r, v.g, v.b, 1.0) );',
-    '}',
-
-    'uniform sampler2D map;',
-    'uniform int decode;',
-    'uniform int isHdr;',
-    'uniform int rev;',
-    'varying vec2 vUv;',
-    'uniform float alpha;',
-
-    'void main() {',
-        'int flip = isHdr;',
-        'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, flip == 1 ? 1.0 - vUv.y : vUv.y );',
-        'vec4 c = texture2D( map, uVx );',
-        'vec4 color = isHdr == 1 ? c : toHDR( c );',
-        
-        'gl_FragColor = decode == 1 ? RGBEToLinear( color ) : color;',
-    '}'
-    ].join("\n"),
-
-    depthTest: false,
-    depthWrite: false,
-    side: THREE.BackSide,
-    fog:false,
-
-};
-
-
-// @author Artur Vill _ @shaderology
-
-var SuperSkyShader = {
-
-	uniforms: {
-
-		isHdr: {value: 0},
-
-		nightMap: { value: null },
-		noiseMap: { value: null },
-		lightdir: { value: new THREE.Vector3() },
-		
-        cloud_size: { value: 0.3 },
-        cloud_covr: { value: 0.45 },
-        cloud_dens: { value: 40 },
-        cloudColor: { value: new THREE.Color() },
-        groundColor: { value: new THREE.Color() },
-        fogColor: { value: new THREE.Color() },
-        fog: { value: 0 },
-        timelap: { value: 0 },
-
-        nSample: { value: 0 },
-        iteration: { value: 0 }
-
-	},
-
-    
-
-	/*vertexShader:[
-	    'varying vec2 vUv;',
-		'varying vec3 worldPosition;',
-		'void main(){',
-		'   vUv = uv;',
-		'	worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
-		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-		'}'
-	].join( '\n' ),
-
-	fragmentShader: [
-
-	    '#define GOLDEN 1.61803398875',
-
-	    'varying vec3 worldPosition;',
-	    'varying vec2 vUv;',
-
-	    'uniform int isHdr;',
-		'uniform vec3 fogColor;',
-		'uniform vec3 groundColor;',
-		'uniform vec3 cloudColor;',
-		'uniform sampler2D noiseMap;',
-		'uniform sampler2D nightMap;',
-		'uniform vec3 lightdir;',
-		'uniform float fog;',
-		'uniform float cloud_size;',
-		'uniform float cloud_covr;',
-		'uniform float cloud_dens;',
-		'uniform float timelap;',
-
-		'uniform float nSample;',
-		'uniform float iteration;',
-
-		'const float c = 6.36e6;',
-		'const float d = 6.38e6;',
-		'const float g = 0.76;',
-		'const float h = g*g;',
-		'const float icc = 1.0/8e3;',
-		'const float jcc = 1.0/1200.0;',
-		'const float pi = 3.141592653589793;',
-		'const vec3 vm = vec3( 0,-c,0 );',
-		'const vec3 vn = vec3( 2.1e-5 );',
-		'const vec3 vo = vec3( 5.8e-6, 1.35e-5, 3.31e-5 );',
-
-		//#define USE_PROCEDURAL
-
-		'#ifdef USE_PROCEDURAL',
-
-		'float hash( float n ) { return fract(sin(n)*753.5453123); }',
-
-		'float noise( in vec3 x ){',
-
-		'    vec3 p = floor(x);',
-		'    vec3 f = fract(x);',
-		'    f = f*f*(3.0-2.0*f);',
-		    
-		'    float n = p.x + p.y*157.0 + 113.0*p.z;',
-		'    return mix(mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),',
-		'                   mix( hash(n+157.0), hash(n+158.0),f.x),f.y),',
-		'               mix(mix( hash(n+113.0), hash(n+114.0),f.x),',
-		'                   mix( hash(n+270.0), hash(n+271.0),f.x),f.y),f.z);',
-		'}',
-
-		'#else',
-
-		// optimized noise from map
-
-		'float noise( in vec3 x ){',
-
-		'    vec3 p = floor(x);',
-		'    vec3 f = fract(x);',
-		'    f = f*f*(3.0-2.0*f);',
-		    
-		'    vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;',
-		'    vec2 rg = texture2D( noiseMap, (uv+0.5)/256.0, -16.0 ).yx;',
-		'    return mix( rg.x, rg.y, f.z );',
-		'}',
-
-		'#endif',
-
-
-		'float NOISE( vec3 r ){',
-
-		'	r.xz += timelap;',
-		'	r *= 0.5;',
-		'	float s;',
-		'	s = 0.5 * noise(r);',
-		'	r = r * 2.52;',
-		'	s += 0.25 * noise(r);',
-		'	r = r * 2.53;',
-		'	s += 0.125 * noise(r);',
-		'	r = r * 2.51;',
-		'	s += 0.0625 * noise(r);',
-		'	r = r * 2.53;',
-		'	s += 0.03125 * noise(r);',
-		'	r = r * 2.52;',
-		'	s += 0.015625 * noise(r);',
-		'	return s;',
-
-		'}',
-
-		'float MakeNoise( vec3 r ){',
-
-		'	float s,t;',
-		'	s = NOISE( r * 2e-4 * ( 1.0 - cloud_size ) );',
-		'	t = ( 1.0 - cloud_covr ) * 0.5 + 0.2;',
-		'	s = smoothstep( t, t+.2 , s );',
-		'	s *= 0.5 * cloud_dens;',
-		'	return s;',
-
-		'}',
-
-		'void cloudLayer( in vec3 r,out float s,out float t,out float u ){',
-
-		'	float v,w;',
-		'	v = length( r-vm ) - c;',
-		'	w = 0.0;',
-		'	if( 5e3 < v && v < 1e4 ) w = MakeNoise( r ) * sin( pi*(v-5e3)/5e3 );',
-		'	s = exp(-v*icc) + fog;',
-		'	t = exp(-v*jcc) + w + fog;',
-		'	u = w + fog;',
-
-		'}',
-
-		'float ca( in vec3 r,in vec3 s,in float t ){',
-
-		'	vec3 u = r-vm;',
-		'	float v,w,x,y,z,A;',
-		'	v = dot(u,s);',
-		'	w = dot(u,u)-t*t;',
-		'	x = v*v-w;',
-		'	if( x<0.0 ) return -1.0;',
-		'	y = sqrt(x);',
-		'	z = -v-y;',
-		'	A = -v+y;',
-		'	return z >= 0.0 ? z : A;',
-
-		'}',
-
-		'vec3 makeSky( in vec3 r, in vec3 s, out float t){',
-
-		'   int SAMPLE = int( nSample );',
-		'   int STEP = int ( iteration ) ;',
-			
-		'	float u,v,w,x,y,z,A,B,C,m,F;',
-		'	vec3 p = normalize( lightdir );',
-		'	u = ca(r,s,d);',
-		'	v = dot(s,p);',
-		'	w = 1.0+v*v;',
-		'	x = 0.0596831*w;',
-		'	y = 0.0253662*(1.0-h)*w/((2.0+h)*pow(abs(1.0+h-2.0*g*v),1.5));',
-		'	z = 50. * pow( abs(1.+dot(s,-p)),2.0 ) * dot( vec3(0,1,0), p ) * ( 1.0-cloud_covr ) * ( 1.0 - min( fog, 1.0 ) );',
-		'	A = 0.0;',
-		'	B = 0.0;',
-		'	C = 0.0;',
-		'	m = 0.0;',
-		'	vec3 D,E;',
-			//float H,J,K,L,M, N,O,P,Q, S,U,V,W;
-		'	D = vec3(0);',
-		'	E = vec3(0);',
-		'	F = u / float( SAMPLE );',
-
-		'	for( int G=0; G<SAMPLE; ++G ){',
-		'		float H,J,K,L,M;',
-		'		H = float(G)*F;',
-		'		vec3 I = r + s * H;',
-		'		L = 0.0;',
-		'		cloudLayer( I, J, K, L );',
-		'		J *= F;',
-		'		K *= F;',
-		'		A += J;',
-		'		B += K;',
-		'		C += L;',
-		'		M = ca(I,p,d);',
-		'		if( M > 0.0 ){',
-		'			float N,O,P,Q;',
-		'			N=M/float(STEP);',
-		'			O=0.0;',
-		'			P=0.0;',
-		'			Q=0.0;',
-		'			for( int R=0; R<STEP; ++R ){',
-		'				float S,U,V,W;',
-		'				S = float(R)*N;',
-		'				vec3 T=I+p*S;',
-		'				W = 0.0;',
-		'				cloudLayer( T, U, V, W );',
-		'				O+=U*N;',
-		'				P+=V*N;',
-		'				Q+=W*N;',
-		'			}',
-		'			vec3 S = exp(-(vo*(O+A)+vn*(P+B)));',
-		'			m+=L;',
-		'			D+=S*J;',
-		'			E+=S*K+z*m;',
-		'		}',
-		'		else return vec3(0.0);',
-		'	}',
-		'	t = m * 0.0125;',
-		'	return ( (D * vo * x) + (E * vn * y)) * 15.0;',
-		'}',
-
-		'vec2 Q(vec3 e){',
-		'	return vec2(.5+atan(e.z,e.x)/(2.*pi),.5+atan(e.y,length(e.xz))/pi);',
-		'}',
-
-		'vec2 QQ(vec3 e){',
-		'	return vec2(vUv.x+atan(e.z,e.x)/(2.*pi),vUv.y+atan(e.y,length(e.xz))/pi);',
-		'}',
-
-		'mat3 R(vec3 e,vec3 f){',
-		'	vec3 g,h;',
-		'	g = normalize(cross(f,e));',
-		'	h = normalize(cross(e,g));',
-		'	return mat3(g.x,g.y,g.z,h.x,h.y,h.z,e.x,e.y,e.z);',
-		'}',
-
-		'vec4 ToRGBE( in vec4 value ) {',
-			'float maxComponent = max( max( value.r, value.g ), value.b );',
-			'float fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );',
-			'return vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );',
-		    //'return vec4( value.brg, ( 3.0 + 128.0 ) / 256.0 );',
-		'}',
-
-
-		'vec4 toHDRX( in vec4 c ) {',
-	        'vec3 v = c.rgb;',
-	        'v = pow( abs(v), vec3( GOLDEN ));',// exposure and gamma increase to match HDR
-	        'return ToRGBE( vec4(v.r, v.g, v.b, 1.0) );',
-	    '}',
-
-
-		'void main(){',
-
-		'	vec3 light = normalize( lightdir );',
-		'	vec3 r = normalize( worldPosition );',
-		'	vec3 f = R( light, vec3(0,1,0) )*r;',
-		'	float uvy = acos( r.y ) / pi;',
-
-		'	float top = uvy <= 0.505 ? 1.0 : smoothstep(1.0, 0.0, (uvy-0.505)*25.0);',
-		'	float low = uvy > 0.505 ? 1.0 : smoothstep(1.0, 0.0, (0.505-uvy)*100.0);',
-
-		'	vec3 s = vec3( 0, 0.99, 0 );',
-		'	float m = 0.0;',
-		'	vec3 sky = clamp( makeSky( s, r, m ), vec3( 0.0 ), vec3( 10000.0 ) );',
-
-			//float u = pow( abs( 1.0 - abs(r.y) ), 10.0 );
-			//float top = r.y >= 0.0 ? 1.0 : u; 
-			//float low = r.y <= 0.0 ? 1.0 : 
-		'	float luma = 0.005 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
-			//x = ;
-			//sky = mix(vec3(x),t,v*0.8);
-			// cloudColor
-		'	sky = mix( groundColor*luma, sky , top);',
-			//sky = smoothstep( groundColor*x, sky , vec3(v));
-		'	float alpha = clamp( m + low, 0.0 , 0.99 ) + 0.01;',
-
-			//'vec3 f = R( light, vec3(0,1,0) )*r;',
-		//'   vec3 star = texture2D( nightMap, QQ(f) ).rgb;',
-		'   vec3 star = texture2D( nightMap, vec2( vUv.x+(timelap/24.0), vUv.y ) ).rgb*0.5;',
-		//'   star = pow( abs(star), vec3( GOLDEN ));',
-		'   star = ((star) - 0.5) * (1.15) + 0.5;',
-		//'	star = pow( abs( star ), vec3( .5 ) );',
-		'	star = star*(1.0-alpha)*clamp(pow(abs(1.-light.y),10.),0.,1.);',
-		//'	star = star*(1.0-cubi.a)*clamp(pow(abs(1.-light.y),10.),0.,1.);',
-
-		'	vec3 color = pow( abs( sky ), vec3( 0.5 ) );',
-		'   vec4 final = vec4( star + color, 1.0 );',
-		'	gl_FragColor = LinearToRGBE( final );',
-
-		'}'
-	].join( '\n' ),*/
-
-	depthWrite: false,
-	depthTest: false,
-	side:THREE.BackSide,
-	fog:false,
-	
-};
 THREE.Instance = function  ( o ) {
 
 	o = o || {};
@@ -70673,6 +69279,153 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
     },
 
 });
+
+/**
+ * Camera for rendering cube maps
+ *	- renders scene into axis-aligned cube
+ *
+ * @author alteredq / http://alteredqualia.com/
+ */
+
+function CubeCamera( near, far, cubeResolution, options ) {
+
+	THREE.Object3D.call( this );
+
+	this.type = 'CubeCamera';
+
+	this.cam = [];
+	var vup = [ [0,-1,0], [0,-1,0], [0,0,1], [0,0,-1], [0,-1,0], [0,-1,0] ];
+	var look = [ [1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1] ];
+
+	var c, v = new THREE.Vector3();
+
+	for ( var i = 0; i<6; i++ ){
+
+		c = new THREE.PerspectiveCamera( 90, 1, near, far );
+	    c.up.fromArray( vup[i] );
+	    c.lookAt( v.fromArray( look[i] ) );
+	    this.add( c );
+	    this.cam.push(c);
+
+	}
+
+	options = options || { format: THREE.RGBFormat, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter };
+
+	this.renderTarget = new THREE.WebGLRenderTargetCube( cubeResolution, cubeResolution, options );
+	this.renderTarget.texture.name = "CubeCamera";
+
+}
+
+CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
+
+    constructor: CubeCamera,
+
+    update: function ( renderer, scene ) {
+
+		if ( this.parent === null ) this.updateMatrixWorld();
+
+		var currentRenderTarget = renderer.getRenderTarget();
+
+		var renderTarget = this.renderTarget;
+		var generateMipmaps = renderTarget.texture.generateMipmaps;
+
+		renderTarget.texture.generateMipmaps = false;
+
+		for ( var i = 0; i < 6; i ++ ) {
+
+			if(i===5) renderTarget.texture.generateMipmaps = generateMipmaps;
+			renderer.setRenderTarget( renderTarget, i );
+			renderer.render( scene, this.cam[i] );
+
+		}
+
+		renderer.setRenderTarget( currentRenderTarget );
+
+	},
+
+	clear: function ( renderer, color, depth, stencil ) {
+
+		var currentRenderTarget = renderer.getRenderTarget();
+
+		var renderTarget = this.renderTarget;
+
+		for ( var i = 0; i < 6; i ++ ) {
+
+			renderer.setRenderTarget( renderTarget, i );
+			renderer.clear( color, depth, stencil );
+
+		}
+
+		renderer.setRenderTarget( currentRenderTarget );
+
+	},
+
+	getPixel: function ( renderer, scene, w, h, gl2 ){
+
+		w = w || 2;
+		h = h || 2;
+		gl2 = gl2 || false;
+
+		var inv255 = 1/256;
+
+
+
+		var pixelRender = new THREE.WebGLRenderTarget( w, h, { encoding: THREE.RGBEEncoding, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: gl2 ? THREE.UnsignedByteType : THREE.FloatType } );
+		//pixelRender.texture.generateMipmaps = false;
+		var px = w * h * 4;
+        
+
+        var pixel = [], read;
+
+
+        if ( this.parent === null ) this.updateMatrixWorld();
+
+		var currentRenderTarget = renderer.getRenderTarget();
+
+		var color = new THREE.Color();
+
+		
+
+		for ( var i = 0; i < 6; i ++ ) {
+
+			read = gl2 ? new Uint8Array( px ) : new Float32Array( px );
+
+			renderer.setRenderTarget( pixelRender, i );
+			renderer.render( scene, this.cam[i] );
+			renderer.readRenderTargetPixels( pixelRender, 0, 0, w, h, read );
+
+			if( !gl2 ){
+				var j = read.length; 
+				while(j--) read[j] *= inv255;
+
+				//
+			} else {
+
+				var j = w * h, n, a;
+				while(j--){
+
+					n = j*4
+					a = Math.pow( 2, read[n+3] - 128 );
+					read[n+0] *= a;
+					read[n+1] *= a;
+					read[n+2] *= a;
+					read[n+3] = 255;
+
+				}
+			}
+
+			pixel.push( read );
+
+		}
+
+		renderer.setRenderTarget( currentRenderTarget );
+
+		return pixel
+
+	},
+
+});
+
 THREE.CarHelper = function ( p, center, deep ) {
 
     var s = 0.2;
@@ -70791,6 +69544,640 @@ THREE.PointHelper = function ( size, color ) {
 
 THREE.PointHelper.prototype = Object.create( THREE.LineSegments.prototype );
 THREE.PointHelper.prototype.constructor = THREE.PointHelper;
+/**   _  _____ _   _   
+*    | ||_   _| |_| |
+*    | |_ | | |  _  |
+*    |___||_| |_| |_|
+*    @author lo.th / https://github.com/lo-th
+*
+*    Description: reads BVH files and outputs a single THREE.Skeleton and an THREE.AnimationClip
+*
+*/
+
+THREE.BVHLoader.prototype = Object.assign( Object.create( THREE.BVHLoader.prototype ), {
+
+    /*
+        recursively converts the internal bvh node structure to a THREE.Bone hierarchy
+
+        source: the bvh root node
+        list: pass an empty array, collects a flat list of all converted THREE.Bones
+
+        returns the root THREE.Bone
+    */
+
+    toBone: function ( source, list ) {
+
+        var first = list.length === 0 ? true : false;
+
+        var bone = new THREE.Bone();
+
+        list.push( bone );
+
+        if( first ){
+
+            bone.userData.offset = source.offset.clone();
+            source.offset.set(0,0,0); 
+
+        }
+
+        bone.position.add( source.offset );
+
+        ///
+        
+        var name = this.transposeName( source.name );
+
+        if( name === 'rShin' || name === 'rFoot' ) bone.userData.offset = source.offset;
+
+        ///
+
+        bone.name = name;
+
+        if ( source.type !== 'ENDSITE' ) {
+
+            for ( var i = 0; i < source.children.length; i ++ ) {
+
+                bone.add( this.toBone( source.children[ i ], list ) );
+
+            }
+
+        }
+
+        return bone;
+
+    },
+
+    /*
+        compatibility for multipe BVH source
+        transpose bvh name to standard TrueBones
+
+    */
+
+    transposeName: function( name ){
+
+        // center
+
+        if( name === 'Hips' || name==="SpineBase" ) name = 'hip';
+        
+        if( name === 'neckLower' || name === 'Neck' || name === 'Neck2') name = 'neck';
+        if( name === 'Head' ) name = 'head';
+
+        // arm
+        //LeftArm
+
+        /*if( this.isMixamoType ) {
+
+            if( name === 'Spine' ) name = 'abdomen';
+            if( name === 'Spine1' ) name = 'none';
+            if( name === 'Spine2' ) name = 'chest';
+
+            if( name === 'RightShoulder' ) name = 'rCollar';
+            if( name === 'RightArm' ) name = 'rShldr';
+            
+            if( name === 'LeftShoulder' ) name = 'lCollar';
+            if( name === 'LeftArm' ) name = 'lShldr';
+
+        } else {*/
+
+            if( name === 'abdomen2' || name === 'abdomenLower' || name === 'upperback' || name === 'Spine1' || name==='SpineBase2' ) name = 'abdomen';
+            if( name === 'chestLower' || name === 'Spine2' || name === 'Chest' || name === 'SpineMid') name = 'chest';
+
+            // collar
+
+            if( name === 'RightCollar' || name === 'CollarRight' ) name = 'rCollar';
+            if( name === 'LeftCollar' || name === 'CollarLeft' ) name = 'lCollar';
+
+            // shoulder arm 
+
+            if( name === 'rShldrTwist' || name === 'rShldrBend' || name === 'RightShoulder' || name ==='ShoulderRight' ) name = 'rShldr';
+            if( name === 'lShldrTwist' || name === 'lShldrBend' || name === 'LeftShoulder' || name ==='ShoulderLeft' ) name = 'lShldr';
+           
+        //}
+
+        // fore arm
+
+        if( name === 'rForearmTwist' || name === 'rForearmBend' || name === 'RightForeArm' || name === 'RightElbow' || name === 'ElbowRight' ) name = 'rForeArm';
+        if( name === 'lForearmTwist' || name === 'lForearmBend' || name === 'LeftForeArm' || name === 'LeftElbow' || name === 'ElbowLeft' ) name = 'lForeArm';
+
+        // hand
+
+        if( name === 'RightHand' || name === 'HandRight' ) name = 'rHand';
+        if( name === 'LeftHand' || name === 'HandLeft' ) name = 'lHand';
+
+        // leg
+
+        if( name === 'rThighBend' || name === 'RightUpLeg' || name === 'RightHip' || name === 'HipRight' ) name = 'rThigh';
+        if( name === 'RightLeg' || name === 'RightKnee' || name === 'KneeRight' ) name = 'rShin';
+        if( name === 'RightAnkle' || name === 'AnkleRight' || name === 'RightFoot' || name === 'FootRight') name = 'rFoot';
+        if( name === 'rToe' || name === 'RightToeBase' || name === 'RightToe' || name === 'RightLeft' ) name = 'rToes';
+
+        if( name === 'lThighBend' || name === 'LeftUpLeg' ||name === 'LeftHip' || name === 'HipLeft'  ) name = 'lThigh';
+        if( name === 'LeftLeg' || name === 'LeftKnee' || name === 'KneeLeft'  ) name = 'lShin';
+        if( name === 'LeftAnkle' || name === 'AnkleLeft' || name === 'LeftFoot' || name === 'LeftRight') name = 'lFoot';
+        if( name === 'lToe' || name === 'LeftToeBase' || name === 'LeftToe' || name === 'ToeLeft' ) name = 'lToes';
+
+        /*var noFinger = true;
+
+        
+        if( noFinger ){
+            var figerList = [ 'Index', 'Mid', 'Ring', 'Pinky', 'Thumb' ];
+            var figerNew = [ 'I', 'M', 'R', 'P', 'T' ];
+            var side = name.substring( 0, 1);
+            var end = name.substring( name.length-1 );
+            var fname = name.substring( 1, name.length-1);
+            var id = figerList.indexOf(fname);
+
+            if(id!==-1){ 
+
+                name = side + figerNew[id] + end;
+                
+            }
+
+        }*/
+
+        return name;
+        
+
+    },
+
+
+    ///
+
+    parseData: function( data ){
+
+        if (typeof data === 'string' || data instanceof String) return this.parse( data );
+        else return this.parse( new TextDecoder("utf-8").decode( new Uint8Array( data ) ) );
+
+    },
+
+    findTime: function( times, value ){
+
+        var lng = times.length, i, t, n = 0;
+
+        for( i=0; i<lng; i++ ){
+
+            t = times[i];
+            if( t > value ) break;
+            n = i;
+
+        }
+
+        return n;
+
+    },
+
+
+    findSize: function( target, source ){
+
+        var ratio = 0.5;
+
+        var hip = source.getBoneByName('hip');
+        var thigh = source.getBoneByName('rThigh');
+        var shin = source.getBoneByName('rShin');
+        var foot = source.getBoneByName('rFoot');
+
+        if( hip !== undefined && thigh !== undefined  && shin !== undefined  && foot !== undefined ){
+
+            var sourceLegDistance = 0;
+            var p = [];
+
+            if( shin.userData.offset ){
+
+                p[1] = new THREE.Vector3();
+                p[2] = shin.userData.offset.clone();
+                p[3] = foot.userData.offset.clone();
+
+                sourceLegDistance = p[1].distanceTo( p[2] ) + p[1].distanceTo( p[3] );
+
+            } else {
+
+                var i = source.bones.length, b, n;
+                var v = new THREE.Vector3();
+
+                // force skeleton update
+                hip.updateMatrixWorld( true );
+
+                p[1] = thigh.getWorldPosition( v.clone() );
+                p[2] = shin.getWorldPosition( v.clone() );
+                p[3] = foot.getWorldPosition( v.clone() );
+
+                sourceLegDistance = p[1].distanceTo( p[2] ) + p[2].distanceTo( p[3] );
+
+            }
+
+            var targetLegDistance = this.sizes[ target.name ];
+
+            ratio = (targetLegDistance / sourceLegDistance).toFixed(2) * 1.0;
+
+        } else {
+
+            console.log( 'Bad bvh name = unexpected result !!' );
+
+        }
+
+        return ratio;
+
+    },
+
+    addModel: function( model, offsets, options ){
+
+       // if( this.tPose === undefined ) this.tPose = {};
+        if( this.sizes === undefined ) this.sizes = {};
+
+        var name = model.name;
+        var bones = model.skeleton.bones;
+        var lng = bones.length, i, b, n, o, m;
+        var v = new THREE.Vector3(), p = [];
+     //   var pose = [], p = [];
+       // var tmpOffsets = {};
+
+    /*    if( offsets !== undefined ){
+
+            for( i = 0; i < offsets.length; i++ ){
+
+                o = offsets[i];
+                tmpOffsets[ o[0] ] = new THREE.Matrix4().makeRotationFromEuler( new THREE.Euler( THREE.Math.degToRad( o[1] ), THREE.Math.degToRad( o[2] ), THREE.Math.degToRad( o[3] ) ) );
+
+            }
+
+        }*/
+
+
+        for( i = 0; i < lng; i++ ){ 
+
+            b = bones[ i ];
+
+            // get id of parent bones
+            if( b.parent ) b.userData['pid'] = bones.indexOf( b.parent );
+            else  b.userData['pid'] = -1;
+
+            //if( options !== undefined ) this.renameBone( b, options.names );
+
+            n = -1;
+            if( b.name === 'rThigh' ) n = 1;
+            if( b.name === 'rShin' ) n = 2;
+            if( b.name === 'rFoot' ) n = 3; 
+            if( n!==-1 ) p[n] = b.getWorldPosition( v.clone() );
+
+           /*if( tmpOffsets[ b.name ] ){ 
+
+                b.matrix.multiply( tmpOffsets[ b.name ] );
+                b.matrix.decompose( b.position, b.quaternion, b.scale );
+                b.updateMatrixWorld();
+
+            }
+
+            m = b.matrixWorld.clone();
+
+            pose.push( m );*/
+
+        }
+
+       // this.tPose[name] = pose;
+        this.sizes[name] = p[1].distanceTo( p[2] ) + p[2].distanceTo( p[3] );
+
+    },
+
+    renameBone: function( bone, names ){
+
+        for( var n in names ){
+            if( bone.name === n ) bone.name = names[n];
+        }
+
+    },
+
+    applyToModel: function ( model, result, seq, Pos, extraModel ) {
+
+        //leg = leg || 1;
+        //var hipos = model.userData.posY || 1;
+        //var ratio = hipos / Math.abs( leg );
+        //var model = this.model;
+
+        // recover the bind-time world matrices
+        var inverses = model.skeleton.boneInverses;
+
+       // var tPose = this.tPose[ model.name ];
+
+        var decal = Pos || new THREE.Vector3();
+
+        var ratio = this.findSize( model, result.skeleton );
+
+        var clip = result.clip;
+
+        var lng, lngB, lngS, n, i, j, k, bone, name, tmptime, tracks; 
+
+        var utils = THREE.AnimationUtils;
+
+        var bones = model.skeleton.bones;
+        var baseTracks = clip.tracks;
+        var nodeTracks = []; // 0:position, 1:quaternion
+
+        var times, positions, resultPositions, rotations, rotations2, resultRotations, pos, rot, rot2;
+
+        var matrixWorld = model.matrixWorld.clone();
+        var matrixWorldInv = new THREE.Matrix4().getInverse( matrixWorld );
+
+       // var pp = new THREE.Vector3(0,0,0).setFromMatrixPosition( model.matrixWorld );
+        //console.log(pp)
+        //if(rootMatrix) matrixWorldInv = rootMatrix.clone();
+
+        var globalQuat = new THREE.Quaternion();
+        var globalPos = new THREE.Vector3();
+        var globalMtx = new THREE.Matrix4();
+        var localMtx = new THREE.Matrix4();
+        var parentMtx = new THREE.Matrix4();
+        var bonesMtx = new THREE.Matrix4();
+        
+        var resultQuat = new THREE.Quaternion();
+        var resultPos = new THREE.Vector3();
+        var resultScale = new THREE.Vector3();
+
+        var extraQuat = new THREE.Quaternion();
+        var extraEuler = new THREE.Euler();;
+        var globalMtx2 = new THREE.Matrix4();
+        // 1° get bones worldMatxix in Tpose
+
+       // if( this.tPose === undefined ) 
+
+        
+
+
+        /*if( tPose === undefined ){
+
+            tPose = [];
+            lngB = bones.length;
+
+            for( i = 0; i < lngB; i++ ){ 
+
+                bone = bones[ i ];
+                name = bone.name;
+
+                if(name === 'spine1') bone.name = 'abdomen';
+                if(name === 'spine2') bone.name = 'chest';
+
+                //if( name !== 'hip' && name !== 'root' ) bone.rotation.set(0,0,0);
+                //if( name === 'lThigh' || name === 'rThigh' ) bone.rotation.set(0,0,0);
+
+                console.log( name, bone.rotation )
+                tPose[i] = bone.matrixWorld.clone();
+
+            }
+
+        }*/
+
+        // 2° find same name bones track 
+
+        lngB = bones.length
+
+        for ( i = 0; i < lngB; ++ i ) {
+
+            bone = bones[ i ];
+            name = bone.name;
+
+            //if( name === 'root' ) bone.matrixWorld.copy( tPose[i] );
+            //if( name === 'hip' ) bone.matrixWorld.copy( tPose[i] );
+
+            //if( name === 'hip' || name === 'root' ) bone.matrixWorld.getInverse( inverses[i] );
+            if( name === 'hip' ) bone.matrixWorld.getInverse( inverses[i] );
+
+            nodeTracks[ i ] = this.findBoneTrack( name, baseTracks );
+
+        }
+
+        // 3° divide track in sequency
+
+        var fp = Math.floor(clip.frameTime * 1000);
+        var frametime = 1/30;
+        if( fp === 33 ) frametime = 1/30;
+        if( fp === 16 ) frametime = 1/60;
+        if( fp === 11 ) frametime = 1/90;
+        if( fp === 8 ) frametime = 1/120;
+
+        //clip.frameTime;
+
+        var clipName = clip.name;
+        var clipStart = 0;
+        var clipEnd = 0;
+        var timeStart = 0;
+        var timeEnd = 0;
+        var startId = 0;
+        var endId = 0;
+        var clipLoop = 1;
+
+        var hipId;
+
+        var sequences = [[ clip.name, 0, clip.frames ]];
+
+        if(seq !== undefined ) if(seq.length) sequences = seq;
+
+        lngS = sequences.length;
+
+        for( k = 0; k < lngS; k++ ){
+
+            clipName = sequences[k][0];
+            clipStart = sequences[k][1];
+            clipEnd = sequences[k][2];//+1;
+            clipLoop = sequences[k][3] !== undefined ? sequences[k][3] : 1;
+
+            timeStart = clipStart * frametime;
+            timeEnd = clipEnd * frametime;
+
+            tracks = [];
+
+            // 4° copy track to track with correct matrix
+
+            lngB = bones.length;
+
+            for ( i = 0; i < lngB; i ++ ) {
+
+                bone = bones[ i ];
+                name = bone.name;
+
+                if( name === 'hip' ) hipId = i;
+
+                if( nodeTracks[i].length >= 2 ){
+
+                    // get parent matrix if existe
+
+                    //parentMtx = bone.userData.pid !== -1 ? tPose[ bone.userData.pid ] : matrixWorldInv;
+                    parentMtx = bone.userData.pid !== -1 ? inverses[ bone.userData.pid ] : matrixWorld;
+
+                    // rotation
+
+                    rot = nodeTracks[i][1];
+
+                    startId = this.findTime( baseTracks[rot].times, timeStart );
+                    endId = this.findTime( baseTracks[rot].times, timeEnd ) + 1;
+
+                    tmptime = utils.arraySlice( baseTracks[rot].times, startId, endId );
+                    rotations = utils.arraySlice( baseTracks[rot].values, startId * 4, endId * 4 );
+
+                    // extra rotation test
+                    rotations2 = [];
+
+                    if( nodeTracks[i].length > 2 ){
+
+                        rot2 = nodeTracks[i][2];
+
+                        startId = this.findTime( baseTracks[rot2].times, timeStart );
+                        endId = this.findTime( baseTracks[rot2].times, timeEnd ) + 1;
+
+                        rotations2 = utils.arraySlice( baseTracks[rot2].values, startId * 4, endId * 4 );
+
+                    }
+
+                    resultRotations = [];
+                    times = [];
+
+                    lng  = tmptime.length;
+
+                    for( j = 0; j < lng; j ++ ){
+
+                        times[j] = tmptime[j] - timeStart;
+
+                        n = j*4;
+
+                        globalQuat.set( rotations[n], rotations[n+1], rotations[n+2], rotations[n+3] );
+
+                        
+
+                         // extra rotation test ??
+                        if( rotations2.length ){ 
+
+                            //bonesMtx.getInverse( inverses[ i ] );
+                            extraQuat.set( rotations2[n], rotations2[n+1], rotations2[n+2], rotations2[n+3] );
+                            //globalMtx2.identity().makeRotationFromQuaternion( extraQuat );
+                            //globalMtx2.multiply( bonesMtx );
+                            //globalQuat.multiply( extraQuat );
+
+                        }
+
+
+
+                        bonesMtx.getInverse( inverses[ i ] );
+                        globalMtx.identity().makeRotationFromQuaternion( globalQuat );
+                        //if( rotations2.length ) globalMtx.multiply( globalMtx2 );
+                        //globalMtx.multiply( tPose[i] );
+                        globalMtx.multiply( bonesMtx );
+
+                       
+
+                        //localMtx.identity().getInverse( parentMtx );
+                        localMtx.copy( parentMtx );
+                        localMtx.multiply( globalMtx );
+                        //if( rotations2.length )localMtx.multiply( globalMtx2 );
+                        localMtx.decompose( resultPos, resultQuat, resultScale );
+
+                        resultQuat.normalize();
+
+                        resultRotations[n] = resultQuat.x;
+                        resultRotations[n+1] = resultQuat.y;
+                        resultRotations[n+2] = resultQuat.z;
+                        resultRotations[n+3] = resultQuat.w;
+
+                    }
+
+                    if( times.length > 0 ) tracks.push( new THREE.QuaternionKeyframeTrack( ".bones[" + name + "].quaternion", times, resultRotations ) );
+
+                }
+
+            }
+
+            // HIP position 
+
+            i = hipId;
+            bone = bones[ i ];
+            name = bone.name;
+
+            if( nodeTracks[i].length === 2 ){
+
+                parentMtx = bone.parent ? bone.parent.matrixWorld : matrixWorldInv;
+
+                pos = nodeTracks[i][0];
+                
+                startId = this.findTime( baseTracks[pos].times, timeStart );
+                endId = this.findTime( baseTracks[pos].times, timeEnd ) + 1;
+
+                tmptime = utils.arraySlice( baseTracks[pos].times, startId, endId );
+                positions = utils.arraySlice( baseTracks[pos].values, startId * 3, endId * 3 );
+
+                times = [];
+                resultPositions = [];
+
+                lng = tmptime.length;
+
+                for( j = 0; j < lng; j++ ){
+
+                    times[j] = tmptime[j] - timeStart;
+
+                    n = j*3;
+
+                    globalPos.set( positions[n], positions[n+1], positions[n+2] );
+                    globalPos.multiplyScalar( ratio );
+                    globalPos.add(decal);
+
+                    globalMtx.identity();
+                    globalMtx.setPosition( globalPos );
+                   
+                    localMtx.identity().getInverse( parentMtx );
+                    localMtx.multiply( globalMtx );
+
+                    localMtx.decompose( resultPos, resultQuat, resultScale );
+
+                    resultPositions[n] = resultPos.x;
+                    resultPositions[n+1] = resultPos.y;
+                    resultPositions[n+2] = resultPos.z;
+
+                }
+
+                if( times.length > 0 ) tracks.push( new THREE.VectorKeyframeTrack( ".bones[" + name + "].position", times, resultPositions ) );
+
+            }
+
+            // 5° apply new clip to model
+
+            var newClip = new THREE.AnimationClip( clipName, -1, tracks );
+            newClip.frameTime = frametime;
+            newClip.repeat = clipLoop === 1 ? true : false;
+            newClip.timeScale = 1;
+
+            if( extraModel ) extraModel.addAnimation( newClip );
+
+            if( model.addAnimation ) model.addAnimation( newClip );
+            else return newClip;
+
+        }
+
+    },
+
+    findBoneTrack: function( name, tracks ){
+
+        var n, nodeName, type, result = [];
+        //var i = tracks.length;
+        //while( i-- ){
+        for ( var i = 0; i < tracks.length; ++ i ) {
+            n = tracks[i].name;
+
+            nodeName =  n.substring( n.indexOf('[')+1, n.indexOf(']') );
+            type = n.substring( n.lastIndexOf('.')+1 );
+
+
+            nodeName = this.transposeName( nodeName );
+
+            if( name === nodeName ){
+                if( type === 'position' ) result[0] = i;
+                else { 
+                    if( result[1] ) { console.log('same bone ?', nodeName ); result[2] = i; }
+                    result[1] = i;
+                }
+            } 
+
+        }
+
+        return result;
+
+    }
+
+});
 var _offsetMatrix = new THREE.Matrix4();
 var _identityMatrix = new THREE.Matrix4();
 
@@ -71004,6 +70391,37 @@ THREE.Skeleton.prototype.update = function () {
 }
 
 //})();
+THREE.SEA3D.SkinnedMesh.prototype.resetAnim = function () {
+
+    this.anim = { name:'', time:0, frame:0, end:0 }
+
+};
+
+THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
+
+    if( !this.anim ) this.resetAnim();
+
+    var animation = this.currentAnimation;
+    if( !animation ) { this.resetAnim(); return; }
+    this.anim.name = animation.name;
+    this.anim.time = animation.clip.frameTime;
+    var f = 1 / this.anim.time;
+    this.anim.frame = Math.round( this.currentAnimationAction.time * f );
+    this.anim.end = Math.round( animation.clip.duration * f );
+
+};
+
+THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f ) {
+
+	var animation = this.currentAnimation;
+	if( !animation ) { return; }
+	var name = animation.name;
+	var frameTime = animation.clip.frameTime;
+	var offset = f * frameTime;
+	this.play( name, 0, offset, 1 );
+	this.pauseAll();
+
+};
 var intro = ( function () {
 
     intro = function () {};
@@ -72581,36 +71999,6 @@ var pool = ( function () {
     return pool;
 
 })();
-THREE.SEA3D.SkinnedMesh.prototype.resetAnim = function () {
-
-    this.anim = { name:'', time:0, frame:0, end:0 }
-
-};
-
-THREE.SEA3D.SkinnedMesh.prototype.getAnim = function () {
-
-    if( !this.anim ) this.resetAnim();
-
-    var animation = this.currentAnimation;
-    if( !animation ) { this.resetAnim(); return; }
-    this.anim.name = animation.name;
-    this.anim.time = animation.clip.frameTime;
-    var r = 1 / this.anim.time;
-    this.anim.frame = Math.round( this.currentAnimationAction.time * r );
-    this.anim.end = Math.round( animation.clip.duration * r );
-
-};
-
-THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, maxFrame ) {
-
-	var animation = this.currentAnimation;
-	if( !animation ) { return; }
-	var name = animation.name;
-	var ftime = animation.duration/maxFrame;
-	this.play( name, 0, f*ftime, 1 )
-	this.pauseAll();
-
-};
 /**   _  _____ _   _   
 *    | ||_   _| |_| |
 *    | |_ | | |  _  |
@@ -72618,372 +72006,1968 @@ THREE.SEA3D.SkinnedMesh.prototype.playFrame = function ( f, maxFrame ) {
 *    @author lo.th / https://github.com/lo-th
 */
 
-function View ( forceV1, bg, alpha ) {
 
-    this.loadCallback = function(){};
-    this.tmpCallback = function(){};
-    this.rayCallBack = function(){};
-    this.resetCallBack = function(){};
-    this.tmpName = [];
+// RGBELoader.js
+// Lensflare.js
+// PMREMCubeUVPacker.js
+// PMREMGenerator.js
 
-    this.pause = false;
-    this.isPause = false;
+var sky = ( function () {
 
-    this.container = null;
+'use strict';
 
-    this.fog = null;
+var setting = {
 
-    this.matType = 'Standard';
+	distance: 10000,
+	resolution: 1024,
 
-    this.refEditor = null;
+	timelap:0,
+	fog:0.1,
+	cloud_size: .45,
+	cloud_covr: .3,
+	cloud_dens: 40,
 
-    this.lightDistance = 200;
-    this.shadowMat = null;
-    this.shadowGround = null;
+	sample:128,
+	iteration:8,
 
-	this.isMobile = this.testMobile();
+	inclination: 45,
+	azimuth: 90,
+	hour: 12,
 
-    this.isDebug = false;
-    this.isWithJoystick = false;
-	this.isNeedUpdate = false;
-	this.isWithShadow = false;
-    this.isShadowDebug = false;
-    this.isWithSky = false;
-    this.isWithLight = false;
-    this.isWithFog = false;
-    this.isWithSphereLight = false;//this.isMobile ? false : true;
-	this.isWithRay = false;
-	this.needResize = false;
-	this.t = [0,0,0,0];
-    this.delta = 0;
-    this.fps = 0;
-	this.bg = bg || 0x222322;
-	this.vs = { w:1, h:1, l:0, x:0, y:0 };
+	toneMapping: 'No',
+	exposure:1.22,
+	whitePoint:1.25,
 
-	this.agents = [];
-    this.heros = [];
-    this.cars = [];
-    this.softs = [];
-	this.bodys = [];
-	this.solids = [];
-	this.extraMesh = [];
-	this.extraGeo = [];
+	cloudColor: 0xFFFFFF,
+	groundColor: 0x3b4c5a,
+	fogColor: 0x9fabb2,
 
-    this.helper = [];
+};
 
-    this.mesh = {};
-    this.geo = {};
-    this.mat = {};
-    this.txt = {};
+var torad = 0.0174532925199432957;
 
-    this.tmpTxt = {};
-    this.tmpMat = {};
+var colors = null;
+var options = null;
 
-    this.isGl2 = false;
-    this.isInContainer = false;
+var isHdr = false;
+var showBackground = false;
+
+var n = 0;
+var debug = true;
 
 
+//var viewBg = false;
 
-	// 1 CANVAS GL1 or GL2
+var sv0 = null;
+var sv1 = null;
+var lup = null;
+var sunPosition = null;
+var moonPosition = null;
+var sunSphere = null;
+var moonSphere = null;
 
-    var options = this.getGL( forceV1, alpha );
+var isPreload = false;
 
-    // 2 RENDERER
-    try {
-
-        this.renderer = new THREE.WebGLRenderer( options );
-        this.isWebGL2 = this.renderer.capabilities.isWebGL2;
-
-    } catch( error ) {
-        if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
-                    + '<p>This application uses WebGL to quickly draw</p>'
-                    + '<p>Physics Labs can be used without WebGL, but unfortunately this application cannot.</p>'
-                    + '<p>Have a great day!</p>');
-        return;
-    }
-
-    console.log('THREE webgl' , this.isWebGL2 ? 2 : 1 );
-
-    this.renderer.setClearColor( this.bg, 1 );
-    this.renderer.setPixelRatio( this.isMobile ? 1 : window.devicePixelRatio );
-
-    // 3 CAMERA / CONTROLER
-
-    this.camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
-    this.camera.position.set( 0, 15, 30 );
-    this.controler = new THREE.OrbitControlsExtra( this.camera, this.renderer.domElement ); //this.canvas );
-    this.controler.target.set( 0, 0, 0 );
-    this.controler.enableKeys = false;
-    this.controler.screenSpacePanning = true;
-    this.controler.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
-    this.controler.dampingFactor = 0.5;//0.25;
-    
-    // 4 SCENE AND GROUP
-
-    this.scene = new THREE.Scene();
-
-    this.content = new THREE.Group();
-    this.scene.add( this.content );
-
-    this.followGroup = this.controler.followGroup;
-    this.scene.add( this.followGroup );
-
-    this.extraMesh = new THREE.Group();
-    this.scene.add( this.extraMesh );
+var noiseMap = null;
+var nightSpaceMap = null;
+var lensflare = null;
 
 
-    // 5 TEXTURE LOADER
+var isAutoSky = false;
+var isBasicSky = false;
+var astralDistance = 1;
 
-    this.loader = new THREE.TextureLoader();
+var loader = null
+var loaderRGBE = null;
+
+var scene = null;
+var camera = null;
+var sphere = null;
+var renderer = null;
+
+var material = null;
+
+//var envmap = null;
+
+var isInit = false;
+
+var ctxPixel = null;
+var ccSize = 2;
+
+sky = {
+
+	mapReady:0,
+	callback: function (){},
+
+	getHdr: function () { return isHdr; },
+	//getEnvmap: function () { return envmap; },
+
+	init: function () {
+
+		if( isInit ) return;
+
+		renderer = view.getRenderer();
 
 
-    this.envmap = null;
-    this.environement = new Environement( this );
-    
+		// contant sun color
+		sv0 = new THREE.Vector3( 0, .99, 0 );
+	    sv1 = new THREE.Vector3( .188, .458, .682 );
+	    lup = new THREE.Vector3( 0, 1.0, 0 );
 
-    // AUDIO
+		colors = {
+		    sun:new THREE.Color(1,1,1),
+		    moon:new THREE.Color(1,1,1),
+		    ground:new THREE.Color(0,0,0),
+		    sky:new THREE.Color(0,0,0),
+		    fog:new THREE.Color(0,0,0),
+		    fogbase:new THREE.Color(0,0,0),
+		};
 
-    this.listener = null;
-    //this.autoAddAudio = this.autoAudio.bind( this )
-    //this.canvas.addEventListener( 'click', this.autoAddAudio, false );
+		sunPosition = new THREE.Vector3();
+	    moonPosition = new THREE.Vector3();
 
-    // 6 RESIZE
+	    sunSphere = new THREE.Spherical();
+	    moonSphere = new THREE.Spherical();
 
-    this.resize();
-    //var _this = this;
-    //window.addEventListener( 'resize', function(e){ _this.resize(e); }, false );
-    window.addEventListener( 'resize', this.resize.bind(this), false );
+		loader = view.getLoader();
+		
 
-    // 7 KEYBOARD & JOSTICK 
+		material = new THREE.ShaderMaterial({});
 
-    if( !this.isMobile && user ) user.init();
+		scene = new THREE.Scene();
 
-    this.mouse = new THREE.Vector3();
-    this.offset = new THREE.Vector3();
+		sphere = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 32, 32 ), material );
+		scene.add( sphere );
+		
+		//options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
+		options = { type:THREE.UnsignedByteType, encoding: THREE.RGBEEncoding, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, anisotropy:1 };
+		
+		camera = new CubeCamera( 0.1, 1, setting.resolution, options );
 
-    
+		scene.add( camera );
 
-    // 8 START RENDER
+		isInit = true;
 
-    this.render( 0 );
+	},
+
+	clear: function () {
+
+        if( isAutoSky ){
+            view.getFollowGroup().remove( lensflare );
+        }
+
+        this.defaultSky();
+
+    },
+
+	setResolution: function ( r ) {
+
+        setting.resolution = r;
+        camera = new THREE.CubeCamera( 0.1, 1, setting.resolution, options );
+
+    },
+
+    defaultSky: function () {
+
+        isAutoSky = false;
+        isBasicSky = false;
+        showBackground = false;
+        isHdr = false;
+
+        view.getScene().background = null;
+        view.updateEnvMap();
+        
+    },
+
+    setSky: function ( o ) {
+
+    	if( !isInit ) this.init();
+
+        o = o || {}
+
+        showBackground = o.visible !== undefined ? o.visible : false;
+        isHdr = o.hdr !== undefined ? o.hdr : true;
+
+        for ( var name in o ) {
+            if ( setting[ name ] !== undefined ) setting[ name ] = o[ name ];
+        }
+
+        if( o.url !== undefined ){
+            this.load( o.url );
+        } else {
+            showBackground = true;
+            this.initAutoSky();
+        }
+
+    },
+
+    render: function () {
+
+		camera.update( renderer, scene );
+
+        this.showBackground( showBackground );
+
+        view.setEnvMap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
+		view.updateEnvMap();
+
+
+    },
+
+    convertToHdr: function () {
+
+    	var pmremGenerator = new THREE.PMREMGenerator( camera.renderTarget.texture, 32, 256 );
+        pmremGenerator.update( renderer );
+
+        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+        pmremCubeUVPacker.update( renderer );
+
+        var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
+
+        pmremGenerator.dispose();
+        pmremCubeUVPacker.dispose();
+
+        return hdrCubeRenderTarget.texture;
+
+    },
+
+    showBackground: function ( b ) {
+
+        view.getScene().background = b ? camera.renderTarget : null;
+
+    },
+
+    initBasicSky: function ( texture, mapHdr ) {
+
+    	var tmptexture, tmpMapHdr = false;
+
+        if( texture !== undefined ) tmptexture = texture;
+        if( mapHdr !== undefined ) tmpMapHdr = mapHdr !== undefined ? mapHdr : false;
+
+        //if( !this.isPreloadShader ) this.preloadderShader();
+
+    	if( !isBasicSky ){
+
+    		material.dispose();
+	    	material = new THREE.ShaderMaterial( BasicSky );
+	    	sphere.material = material;
+	    	isBasicSky = true;
+
+    	}
+
+    	material.uniforms.map.value = tmptexture;
+        material.uniforms.isHdr.value = tmpMapHdr ? 1 : 0;
+
+        this.render();
+
+    },
+
+
+    preloadder: function () {
+
+        isPreload = true;
+
+        // sky map
+        noiseMap = loader.load( "assets/textures/sky/noise.png", function ( texture ) { 
+        	texture.wrapS = texture.wrapT = THREE.RepeatWrapping; 
+        	//texture.format = THREE.RGBFormat;
+        	texture.flipY = false; 
+        	sky.mapReady++; 
+        	sky.callback(); 
+        });
+        //nightSpaceMap = loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; sky.mapReady++; sky.callback(); }  );
+
+    },
+
+    initAutoSky: function () {
+
+    	if( this.isAutoSky ) return;
+
+    	if( !isPreload ) this.preloadder();
+
+        if( sky.mapReady !== 1 ){
+            sky.callback = sky.initAutoSky;
+            return;
+        } else {
+            sky.callback = function (){};
+        }
+
+    	material.dispose();
+
+    	//var milky = loader.load( "assets/textures/envmap/milkyway.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping;  }  );
+    	var stars = loader.load( "assets/textures/envmap/stars.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping;  }  );
+
+
+	    var lens0 = loader.load( "assets/textures/sky/lens0.png" );
+	    var lens1 = loader.load( "assets/textures/sky/lens1.png" );
+	    var lensSun = loader.load( "assets/textures/sky/lensSun.png" );
+	    //var lensMoon = loader.load( "assets/textures/sky/lensMoon.png" );
+
+    	// fake sun / moon
+        //this.sun = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensSun, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
+        //this.moon = new THREE.Sprite( new THREE.SpriteMaterial( { map:lensMoon, blending:THREE.AdditiveBlending, opacity:0.5 } ) );
+        //this.add( this.moon );
+
+    	lensflare = new THREE.Lensflare();
+	    var c = colors.sun;
+		lensflare.addElement( new THREE.LensflareElement( lensSun, 30, 0, c ) );
+		lensflare.addElement( new THREE.LensflareElement( lens0, 700, 0.01, c ) );
+		lensflare.addElement( new THREE.LensflareElement( lens1, 60, 0.6, c ) );
+		lensflare.addElement( new THREE.LensflareElement( lens1, 70, 0.7, c ) );
+		lensflare.addElement( new THREE.LensflareElement( lens1, 120, 0.9, c ) );
+		lensflare.addElement( new THREE.LensflareElement( lens1, 70, 1, c ) );
+		view.getFollowGroup().add( lensflare );
+
+	    var uniforms = SuperSkyShader.uniforms;
+	    uniforms.noiseMap.value = noiseMap;
+	   // uniforms.nightMap.value = milky;
+	    uniforms.starsMap.value = stars;
+	    uniforms.isHdr.value = isHdr? 1:0;
+	    uniforms.sunPosition.value = sunPosition;
+	    uniforms.moonPosition.value = moonPosition;
+	    uniforms.cloud_size.value = setting.cloud_size;
+	    uniforms.cloud_covr.value = setting.cloud_covr;
+	    uniforms.cloud_dens.value = setting.cloud_dens;
+	    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
+	    uniforms.groundColor.value = new THREE.Color( setting.groundColor );
+	    uniforms.cloudColor.value = new THREE.Color( setting.cloudColor );
+
+	    uniforms.withGamma.value = 1;
+
+        var fogColor = new THREE.Color( setting.fogColor );
+	    uniforms.fogColor.value = fogColor;
+	    uniforms.fog.value = setting.fog;
+        view.setFogColor( fogColor );
+
+        colors.fogbase.copy( fogColor );
+        colors.fog.copy( fogColor );
+	    
+	    uniforms.nSample.value = setting.sample;
+	    uniforms.iteration.value = setting.iteration;
+
+        setting.timelap = setting.hour;
+        uniforms.timelap.value = setting.timelap;
+
+        
+
+        material = new THREE.ShaderMaterial( SuperSkyShader ); 
+
+        sphere.material = material;
+
+        isAutoSky = true;
+        
+		//this.initColorTest();
+		this.setSize();
+		this.updateAutoSky();
+
+    },
+
+    setSize: function ( v ) {
+
+    	if( v !== undefined ) setting.distance = v;
+    	var s = setting.distance * 0.05;
+    	astralDistance = setting.distance; //- s;
+
+    },
+
+    updateAutoSky: function () {
+
+        if( !isAutoSky ) return;
+
+    	var s = setting;
+    	var r = torad;
+
+    	s.inclination = ( s.hour * 15 ) - 90;
+    	s.timelap = s.hour;
+
+    	sunSphere.phi = ( s.inclination - 90 ) * r;
+        sunSphere.theta = ( s.azimuth - 90 + 12) * r;
+        sunPosition.setFromSpherical( sunSphere );
+
+        
+        moonSphere.phi = ( s.inclination + 90  ) * r;
+        moonSphere.theta = ( s.azimuth - 90 - 22 ) * r;
+        moonPosition.setFromSpherical( moonSphere );
+
+        
+
+        // fake sun / moon
+        //this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
+        //this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
+        lensflare.position.copy( sunPosition ).multiplyScalar( astralDistance );
+
+        this.calculateSunColor( sunPosition );
+        
+
+        // light
+
+        var d = view.getLightDistance();
+        var sun = view.getSun();
+        var moon = view.getMoon();
+        
+
+        sun.position.copy( sunPosition ).multiplyScalar( d );
+        moon.position.copy( moonPosition ).multiplyScalar( d );
+        //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
+
+        sun.color.copy( colors.sun );
+        sun.intensity = colors.sun.r + (colors.sun.r*0.3);
+        moon.color.copy( colors.moon );
+        moon.intensity = (colors.moon.r - (colors.moon.r*0.6))*0.25;
+
+        //console.log( sun.intensity, moon.intensity )
+
+        var fg = colors.moon.r * 0.6;
+        colors.fog.setRGB( colors.fogbase.r-fg, colors.fogbase.g-fg, colors.fogbase.b-fg );
+        view.setFogColor( colors.fog );
+
+		material.uniforms.timelap.value = s.timelap;
+		material.uniforms.fog.value = s.fog;
+		material.uniforms.cloud_size.value = s.cloud_size;
+		material.uniforms.cloud_covr.value = s.cloud_covr;
+		material.uniforms.cloud_dens.value = s.cloud_dens;
+
+        this.render();
+
+    },
+
+    timelap: function ( t, frame ) {
+
+        frame = frame || 16;
+
+    	var s = setting;
+    	s.hour += t;
+    	if(s.hour>24) s.hour = 0;
+        if(s.hour<0) s.hour = 24;
+
+        n ++;
+
+        if( n === frame ){
+        	n = 0;
+            this.updateAutoSky();
+        }
+
+    },
+
+    setOption: function ( o ){
+
+    	o = o || {};
+    	var s = setting;
+
+    	for( var i in o ){
+			if( s[i] !== undefined ) s[i] = o[i];
+		}
+
+		this.updateAutoSky();
+
+    },
+
+    k: function ( e, p ) {
+
+    	var n = p.dot(p), a = 2 * p.dot(e), o = e.dot(e) - 1, 
+    	    r = a * a - 4 * n * o,
+            i = Math.sqrt(r), l = (-a - i) * 0.5;
+        return o / l;
+
+    },
+
+    calculateSunColor: function ( position ) {
+
+    	var c = { r:0, g:0, b:0 };
+    	var e = 0.028 / this.k( sv0, position );
+    	var t = 1.8;
+    	var r = position.y >= 0 ? 1 : 0;
+    	c.r = (t - t * Math.pow( sv1.x, e )) * r;
+    	c.g = (t - t * Math.pow( sv1.y, e )) * r;
+    	c.b = (t - t * Math.pow( sv1.z, e )) * r;
+    	c.r = c.r > 1.0 ? 1.0 : c.r;
+        c.g = c.g > 1.0 ? 1.0 : c.g;
+        c.b = c.b > 1.0 ? 1.0 : c.b;
+    	colors.sun.setRGB( c.r, c.g, c.b );
+
+        var mr = 1 - c.r;
+        var mg = 1 - c.g;
+        var mb = 1 - c.b;
+        
+        colors.moon.setRGB( mr, mg, mb );
+
+    },
+
+    // LOAD OR PARSE
+
+    parse: function ( buffer, type ) {
+
+        var loader, texture, o;
+
+        if( type === 'hdr' ){
+
+        	if( loaderRGBE === null ) loaderRGBE = new THREE.RGBELoader();
+
+            o = loaderRGBE._parser( buffer );
+
+            texture = new THREE.DataTexture( o.data, o.width, o.height, o.format, o.type, 300, 1001, 1001, THREE.NearestFilter, THREE.NearestFilter, 1, THREE.RGBEEncoding )
+            texture.encoding = THREE.RGBEEncoding;
+            
+            texture.needsUpdate = true;
+            sky.update( texture );
+
+        }
+
+        if( type === 'jpg' ){
+
+            var img = new Image();
+            img.src = buffer;
+
+            img.onload = function (){
+
+                var texture = new THREE.Texture( img );
+                texture.needsUpdate = true;
+                sky.initBasicSky( texture );
+
+            }
+           
+        }
+
+    },
+
+	load: function ( url ) {
+
+        var l;
+        var mapHdr = false;
+        var type = url.substring( url.lastIndexOf('.')+1 );
+
+        if( type === 'jpg' || type === 'png' ){
+        	mapHdr = false;
+        	l = loader
+        }
+
+        if( type === 'hdr' ){
+        	mapHdr = true;
+        	if( loaderRGBE === null ) loaderRGBE = new THREE.RGBELoader();
+            l = loaderRGBE;
+        }
+ 
+        l.load( './assets/textures/envmap/' + url, function ( texture ){ 
+
+            if( mapHdr ){
+
+            	texture.type = THREE.UnsignedByteType;
+            	texture.encoding = THREE.RGBEEncoding;
+            	texture.format = THREE.RGBAFormat;
+                texture.minFilter = THREE.NearestFilter;
+                texture.magFilter = THREE.NearestFilter;
+                //texture.minFilter = THREE.LinearFilter;
+                //texture.magFilter = THREE.LinearFilter;
+                texture.generateMipmaps = false;
+                texture.anisotropy = 0;
+
+            }
+
+            sky.initBasicSky( texture, mapHdr ); 
+
+        });
+
+	},
+
+	testColor: function ( w ){
+
+        ccSize = w || 2;
+
+		var canvas = document.createElement('canvas'); 
+		canvas.width = ccSize * 6;
+		canvas.height = ccSize;
+
+		canvas.style.cssText = 'position:absolute; bottom:10px; left:10px; border:1px solid #000;'
+
+		document.body.appendChild( canvas );
+
+		ctxPixel = canvas.getContext("2d");
+
+
+	},
+
+	getCtxPixel: function () {
+
+		return ctxPixel;
+
+	},
+
+    getColor: function () {
+
+       // var currentRenderTarget = renderer.getRenderTarget();
+
+        var gl2 = view.getGL2();
+
+        var w = ccSize;
+
+        var color = new THREE.Color();
+        var face = 0;
+        /*var coord = new THREE.Vector3();
+        var dir = new THREE.Vector3();
+
+        var norm, lengthSq, weight, totalWeight = 0;
+        var shBasis = [ 0, 0, 0, 0, 0, 0, 0, 0, 0 ];
+        var sh = new THREE.SphericalHarmonics3();
+        var shCoefficients = sh.coefficients;*/
+
+        var reads = camera.getPixel( renderer, scene, w, w, gl2 );
+
+        if( ctxPixel ){
+
+        	for(var k = 0; k<6; k++){
+
+	        	var d = ctxPixel.createImageData( w, w );
+	        	var data = d.data;
+	        	var i = data.length/4, n, m;
+                var pixelSize = 2 / w;
+	        	
+			    while( i-- ){
+
+			    	n = i*4;
+
+                    color.setRGB( reads[k][n+0] / 255, reads[k][n+1] / 255, reads[k][n+2] / 255 );
+                    color.copyLinearToGamma( color, 2.5 );
+
+                    /*var col = - 1 + ( n % w + 0.5 ) * pixelSize;
+                    var row = 1 - ( Math.floor( n / w ) + 0.5 ) * pixelSize;
+
+                    switch ( k ) {
+
+                        case 0: coord.set( - 1, row, - col ); break;
+                        case 1: coord.set( 1, row, col ); break;
+                        case 2: coord.set( - col, 1, - row ); break;
+                        case 3: coord.set( - col, - 1, row ); break;
+                        case 4: coord.set( - col, row, 1 ); break;
+                        case 5: coord.set( col, row, - 1 ); break;
+
+                    }
+
+                    // weight assigned to this pixel
+
+                    lengthSq = coord.lengthSq();
+                    weight = 4 / ( Math.sqrt( lengthSq ) * lengthSq );
+                    totalWeight += weight;
+
+                    // direction vector to this pixel
+                    dir.copy( coord ).normalize();
+
+                    // evaluate SH basis functions in direction dir
+                    THREE.SphericalHarmonics3.getBasisAt( dir, shBasis );
+
+                    // accummuulate
+                    for ( var j = 0; j < 9; j ++ ) {
+
+                        shCoefficients[ j ].x += shBasis[ j ] * color.r * weight;
+                        shCoefficients[ j ].y += shBasis[ j ] * color.g * weight;
+                        shCoefficients[ j ].z += shBasis[ j ] * color.b * weight;
+
+                    }*/
+
+			    	data[n+0] = color.r*255;//reads[k][n+0];
+			    	data[n+1] = color.g*255;//reads[k][n+1];
+			    	data[n+2] = color.b*255;//reads[k][n+2];
+			    	data[n+3] = 255;//reads[k][n+3];
+			    }
+
+                switch ( k ) {
+
+                    case 0: face = 0; break;
+                    case 1: face = 2; break;
+                    case 2: face = 5; break;
+                    case 3: face = 4; break;
+                    case 4: face = 3; break;
+                    case 5: face = 1; break;
+
+                }
+
+			    ctxPixel.putImageData(d, face*w, 0);
+
+			}
+
+            // normalize
+            /*norm = ( 4 * Math.PI ) / totalWeight;
+
+            for ( var j = 0; j < 9; j ++ ) {
+
+                shCoefficients[ j ].x *= norm;
+                shCoefficients[ j ].y *= norm;
+                shCoefficients[ j ].z *= norm;
+
+            }
+
+            view.getProbe().copy( new THREE.LightProbe( sh ) );
+            view.getProbe().intensity = 1.0;*/
+
+        }
+
+        
+
+
+        //var read = view.getGL2() ? new Uint8Array( 4 ) : new Float32Array( 4 );
+
+        //var read = new Float32Array( 4 );
+        //view.renderer.readRenderTargetPixels( hdrCubeRenderTarget, 0, 128, 1, 1, read );
+        //this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+    	/*if( this.view.isWithFog ) {
+
+
+	    	var rgb = this.view.isGl2 ? Math.inv255 : 1;
+	        var read = this.view.isGl2 ? new Uint8Array( 4 ) : new Float32Array( 4 );
+
+	        this.camPixel.lookAt( this.vMid );
+	        this.view.renderer.render( this.scene, this.camPixel, this.pixelRender, true );
+
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        //console.log(this.colors.fog.getHexString())
+
+	        //this.view.fog.color.copy( this.colors.fog );
+            this.view.setFogColor( this.colors.fog );
+	    }*/
+
+        //if( this.view.isWithSphereLight ) {
+
+            //this.view.renderer.clear();
+
+	        /*this.camPixel.lookAt( this.vUp );
+            this.view.renderer.setRenderTarget( this.pixelRender );
+	        this.view.renderer.render( this.scene, this.camPixel );
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.colors.sky.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+	        this.camPixel.lookAt( this.vDown );
+	        this.view.renderer.render( this.scene, this.camPixel );
+	        this.view.renderer.readRenderTargetPixels( this.pixelRender, 0, 0, 1, 1, read );
+	        this.colors.ground.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );*/
+
+        /*    camPixel.lookAt( vUp );
+            renderer.setRenderTarget( pixelRender );
+            renderer.render( scene, camPixel );
+            renderer.readRenderTargetPixels( pixelRender, 0, 0, 1, 1, read );
+            colors.fog.setRGB( read[0]*rgb, read[1]*rgb, read[2]*rgb );
+
+            view.setFogColor( colors.fog );
+
+	        
+          //  this.view.sphereLight.color.copy( this.colors.sky );
+	       // this.view.sphereLight.groundColor.copy( this.colors.ground );
+	        //this.view.sphereLight.intensity = 0.6;
+           
+
+	        //this.view.ambient.color.copy( this.colors.ground );
+
+	    //}
+
+        renderer.setRenderTarget( currentRenderTarget );*/
+
+    },
+
+
+
 
 }
 
-View.prototype = {
+return sky;
 
-	byName: {},
+})();
 
-    setContainer: function ( container ){
 
-        this.container = container;
-        document.body.removeChild( this.canvas );
-        this.container.appendChild( this.canvas );
+var BasicSky = {
 
-        this.canvas.style.position = 'absolute';
-        this.resize();
+    uniforms:{
+        map: { value: null },
+        decode: { value: 0 },
+        isHdr: { value: 1 },
+        rev: { value: 0 },
+        alpha:{ value: 0.5 },
+        withGamma: { value: 0 },
+    },
+
+    vertexShader: [
+    'varying vec2 vUv;',
+    'varying vec3 worldPosition;',
+    'void main() {',
+        'vUv = uv;',
+        'worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
+        'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+    '}'
+    ].join("\n"),
+
+    fragmentShader: [
+
+    '#include <common>',
+
+    '#define GOLDEN 1.61803398875',
+
+    'vec4 ToRGBE( in vec4 value ) {',
+		'float maxComponent = max( max( value.r, value.g ), value.b );',
+		'float fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );',
+		'return vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );',
+	'}',
+
+    'vec4 toHDR( in vec4 c ) {',
+        'vec3 v = c.rgb;',
+        'v = pow( abs(v), vec3( GOLDEN ));',// exposure and gamma increase to match HDR
+        'return ToRGBE( vec4(v.r, v.g, v.b, 1.0) );',
+    '}',
+
+    'uniform sampler2D map;',
+    'uniform int decode;',
+    'uniform int isHdr;',
+    'uniform int rev;',
+    'uniform int withGamma;',
+    'varying vec2 vUv;',
+    'uniform float alpha;',
+
+    'void main() {',
+        'int flip = isHdr;',
+        'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, flip == 1 ? 1.0 - vUv.y : vUv.y );',
+        'vec4 c = texture2D( map, uVx );',
+        'vec4 color = isHdr == 1 ? c : toHDR( c );',
+        
+        'gl_FragColor = decode == 1 ? RGBEToLinear( color ) : color;',
+
+        //'gl_FragColor = color;',
+
+        'if ( withGamma == 1 ){',
+            '#if defined( TONE_MAPPING )',
+            'gl_FragColor.rgb = toneMapping( gl_FragColor.rgb );',
+            '#endif',
+            'gl_FragColor = linearToOutputTexel( gl_FragColor );',
+        '}',
+    '}'
+    ].join("\n"),
+
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.BackSide,
+    fog:false,
+
+};
+
+
+// @author Artur Vill _ @shaderology
+
+var SuperSkyShader = {
+
+	uniforms: {
+
+		isHdr: {value: 0},
+
+		starsMap: { value: null },
+		//nightMap: { value: null },
+		noiseMap: { value: null },
+		sunPosition: { value: new THREE.Vector3() },
+		moonPosition: { value: new THREE.Vector3() },
+		
+        cloud_size: { value: 0.3 },
+        cloud_covr: { value: 0.45 },
+        cloud_dens: { value: 40 },
+        cloudColor: { value: new THREE.Color() },
+        groundColor: { value: new THREE.Color() },
+        fogColor: { value: new THREE.Color() },
+        fog: { value: 0 },
+        timelap: { value: 0 },
+
+        nSample: { value: 0 },
+        iteration: { value: 0 },
+
+        withGamma: { value: 0 },
+
+	},
+
+    
+
+	vertexShader:[
+	    'varying vec2 vUv;',
+		'varying vec3 worldPosition;',
+		'void main(){',
+		'   vUv = uv;',
+		'	worldPosition = ( modelMatrix * vec4( position, 1.0 )).xyz;',
+		'	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+		'}'
+	].join( '\n' ),
+
+	fragmentShader: [
+
+	    '#include <common>',
+
+	    '#define GOLDEN 1.61803398875',
+
+	    'varying vec3 worldPosition;',
+	    'varying vec2 vUv;',
+
+	    'uniform int withGamma;',
+
+	    'uniform int isHdr;',
+		'uniform vec3 fogColor;',
+		'uniform vec3 groundColor;',
+		'uniform vec3 cloudColor;',
+		'uniform sampler2D noiseMap;',
+		//'uniform sampler2D nightMap;',
+		'uniform sampler2D starsMap;',
+		'uniform vec3 sunPosition;',
+		'uniform vec3 moonPosition;',
+		'uniform float fog;',
+		'uniform float cloud_size;',
+		'uniform float cloud_covr;',
+		'uniform float cloud_dens;',
+		'uniform float timelap;',
+
+		'uniform float nSample;',
+		'uniform float iteration;',
+
+		'const float c = 6.36e6;',
+		'const float d = 6.38e6;',
+		'const float g = 0.76;',
+		'const float h = g*g;',
+		'const float icc = 1.0/8e3;',
+		'const float jcc = 1.0/1200.0;',
+		'const float pi = 3.141592653589793;',
+		'const vec3 vm = vec3( 0,-c,0 );',
+		'const vec3 vn = vec3( 2.1e-5 );',
+		'const vec3 vo = vec3( 5.8e-6, 1.35e-5, 3.31e-5 );',
+
+		//#define USE_PROCEDURAL
+
+		'#ifdef USE_PROCEDURAL',
+
+		'float hash( float n ) { return fract(sin(n)*753.5453123); }',
+
+		'float noise( in vec3 x ){',
+
+		'    vec3 p = floor(x);',
+		'    vec3 f = fract(x);',
+		'    f = f*f*(3.0-2.0*f);',
+		    
+		'    float n = p.x + p.y*157.0 + 113.0*p.z;',
+		'    return mix(mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),',
+		'                   mix( hash(n+157.0), hash(n+158.0),f.x),f.y),',
+		'               mix(mix( hash(n+113.0), hash(n+114.0),f.x),',
+		'                   mix( hash(n+270.0), hash(n+271.0),f.x),f.y),f.z);',
+		'}',
+
+		'#else',
+
+		// optimized noise from map
+
+		'float noise( in vec3 x ){',
+
+		'    vec3 p = floor(x);',
+		'    vec3 f = fract(x);',
+		'    f = f*f*(3.0-2.0*f);',
+		'    vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;',
+		'    vec2 rg = texture2D( noiseMap, (uv+0.5)/256.0, -16.0 ).yx;',
+		'    return mix( rg.x, rg.y, f.z );',
+
+		'}',
+
+		'#endif',
+
+
+		'float NOISE( vec3 r ){',
+
+		'	r.xz += timelap;',
+		'	r *= 0.5;',
+		'	float s;',
+		'	s = 0.5 * noise(r);',
+		'	r = r * 2.52;',
+		'	s += 0.25 * noise(r);',
+		'	r = r * 2.53;',
+		'	s += 0.125 * noise(r);',
+		'	r = r * 2.51;',
+		'	s += 0.0625 * noise(r);',
+		'	r = r * 2.53;',
+		'	s += 0.03125 * noise(r);',
+		'	r = r * 2.52;',
+		'	s += 0.015625 * noise(r);',
+		'	return s;',
+
+		'}',
+
+		'float MakeNoise( vec3 r ){',
+
+		'	float s,t;',
+		'	s = NOISE( r * 2e-4 * ( 1.0 - cloud_size ) );',
+		'	t = ( 1.0 - cloud_covr ) * 0.5 + 0.2;',
+		'	s = smoothstep( t, t+.2 , s );',
+		'	s *= 0.5 * cloud_dens;',
+		'	return s;',
+
+		'}',
+
+		'void cloudLayer( in vec3 r,out float s,out float t,out float u ){',
+
+		'	float v,w;',
+		'	v = length( r-vm ) - c;',
+		'	w = 0.0;',
+		'	if( 5e3 < v && v < 1e4 ) w = MakeNoise( r ) * sin( pi*(v-5e3)/5e3 );',
+		'	s = exp(-v*icc) + fog;',
+		'	t = exp(-v*jcc) + w + fog;',
+		'	u = w + fog;',
+
+		'}',
+
+		'float ca( in vec3 r,in vec3 s,in float t ){',
+
+		'	vec3 u = r-vm;',
+		'	float v,w,x,y,z,A;',
+		'	v = dot(u,s);',
+		'	w = dot(u,u)-t*t;',
+		'	x = v*v-w;',
+		'	if( x<0.0 ) return -1.0;',
+		'	y = sqrt(x);',
+		'	z = -v-y;',
+		'	A = -v+y;',
+		'	return z >= 0.0 ? z : A;',
+
+		'}',
+
+		'vec3 makeSky( in vec3 r, in vec3 s, out float t){',
+
+		'   int SAMPLE = int( nSample );',
+		'   int STEP = int( iteration ) ;',
+			
+		'	float u,v,w,x,y,z,A,B,C,m,F;',
+		'	vec3 p = normalize( sunPosition );',
+		'	u = ca(r,s,d);',
+		'	v = dot(s,p);',
+		'	w = 1.0+v*v;',
+		'	x = 0.0596831*w;',
+		'	y = 0.0253662*(1.0-h)*w/((2.0+h)*pow(abs(1.0+h-2.0*g*v),1.5));',
+		'	z = 50. * pow( abs(1.+dot(s,-p)),2.0 ) * dot( vec3(0,1,0), p ) * ( 1.0-cloud_covr ) * ( 1.0 - min( fog, 1.0 ) );',
+		'	A = 0.0;',
+		'	B = 0.0;',
+		'	C = 0.0;',
+		'	m = 0.0;',
+		'	vec3 D,E;',
+			//float H,J,K,L,M, N,O,P,Q, S,U,V,W;
+		'	D = vec3(0);',
+		'	E = vec3(0);',
+		'	F = u / float( SAMPLE );',
+
+		'	for( int G=0; G<SAMPLE; ++G ){',
+		'		float H,J,K,L,M;',
+		'		H = float(G)*F;',
+		'		vec3 I = r + s * H;',
+		'		L = 0.0;',
+		'		cloudLayer( I, J, K, L );',
+		'		J *= F;',
+		'		K *= F;',
+		'		A += J;',
+		'		B += K;',
+		'		C += L;',
+		'		M = ca(I,p,d);',
+		'		if( M > 0.0 ){',
+		'			float N,O,P,Q;',
+		'			N=M/float(STEP);',
+		'			O=0.0;',
+		'			P=0.0;',
+		'			Q=0.0;',
+		'			for( int R=0; R<STEP; ++R ){',
+		'				float S,U,V,W;',
+		'				S = float(R)*N;',
+		'				vec3 T=I+p*S;',
+		'				W = 0.0;',
+		'				cloudLayer( T, U, V, W );',
+		'				O+=U*N;',
+		'				P+=V*N;',
+		'				Q+=W*N;',
+		'			}',
+		'			vec3 S = exp(-(vo*(O+A)+vn*(P+B)));',
+		'			m+=L;',
+		'			D+=S*J;',
+		'			E+=S*K+z*m;',
+		'		}',
+		'		else return vec3(0.0);',
+		'	}',
+		'	t = m * 0.0125;',
+		'	return ( (D * vo * x) + (E * vn * y)) * 15.0;',
+		'}',
+
+		'vec2 Q(vec3 e){',
+		'	return vec2(.5+atan(e.z,e.x)/(2.*pi),.5+atan(e.y,length(e.xz))/pi);',
+		'}',
+
+		'vec2 QQ(vec3 e){',
+		'	return vec2(vUv.x+atan(e.z,e.x)/(2.*pi),vUv.y+atan(e.y,length(e.xz))/pi);',
+		'}',
+
+		'mat3 R(vec3 e,vec3 f){',
+		'	vec3 g,h;',
+		'	g = normalize(cross(f,e));',
+		'	h = normalize(cross(e,g));',
+		'	return mat3(g.x,g.y,g.z,h.x,h.y,h.z,e.x,e.y,e.z);',
+		'}',
+
+		'vec4 ToRGBE( in vec4 value ) {',
+			'float maxComponent = max( max( value.r, value.g ), value.b );',
+			'float fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );',
+			'return vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );',
+		'}',
+
+		'vec4 toHDR( in vec4 c ) {',
+	        'vec3 v = c.rgb;',
+	        'v = pow( abs(v), vec3( GOLDEN ));',// exposure and gamma increase to match HDR
+	        'return ToRGBE( vec4(v.r, v.g, v.b, 1.0) );',
+	    '}',
+
+
+		'void main(){',
+
+		'	vec3 light = normalize( sunPosition );',
+		'	vec3 r = normalize( worldPosition );',
+		'	vec3 f = R( light, vec3(0,1,0) )*r;',
+		'	float uvy = acos( r.y ) / pi;',
+		'   float uvx = atan(r.x, r.z) / pi;',
+
+		'	float top = uvy <= 0.505 ? 1.0 : smoothstep(1.0, 0.0, (uvy-0.505)*25.0);',
+		'	float low = uvy > 0.505 ? 1.0 : smoothstep(1.0, 0.0, (0.505-uvy)*100.0);',
+
+		'	vec3 s = vec3( 0, 0.99, 0 );',
+		'	float m = 0.0;',
+		'	vec3 sky = clamp( makeSky( s, r, m ), vec3( 0.0 ), vec3( 10000.0 ) );',
+
+			//float u = pow( abs( 1.0 - abs(r.y) ), 10.0 );
+			//float top = r.y >= 0.0 ? 1.0 : u; 
+			//float low = r.y <= 0.0 ? 1.0 : 
+		//'	float luma = 0.005 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
+		'	float luma = 0.05 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
+			//x = ;
+			//sky = mix(vec3(x),t,v*0.8);
+			// cloudColor
+		'	sky = mix( groundColor*luma, sky , top);',
+			//sky = smoothstep( groundColor*x, sky , vec3(v));
+		'	float alpha = clamp( m + low, 0.0 , 0.99 ) + 0.01;',
+
+		'   vec3 star = vec3(0.0);',
+
+		'   if( light.y < 0.0 ){', // is night
+
+		'       vec3 milk = texture2D( starsMap, vec2( vUv.x+(timelap/24.0), vUv.y ) ).rgb;',
+		'		star = milk*(1.0-alpha) * clamp(pow(abs(1.-light.y),10.),0.,1.);',
+		'	}',
+
+
+		'	vec3 color = pow( abs( sky ), vec3( 0.5 ) );',
+		'   vec4 final = vec4( star + color, 1.0 );',
+
+		//'	final.xyz = sky;',
+
+		'if ( withGamma == 1 ){',
+            //'#if defined( TONE_MAPPING )',
+            //'final.rgb = toneMapping( final.rgb );',
+            //'#endif',
+            //'final = linearToOutputTexel( final );',
+        '}',
+
+		'	gl_FragColor = toHDR( final );',//LinearToRGBE( final );',
+		//'	gl_FragColor = LinearToRGBE( final );',
+
+			
+
+		'}'
+	].join( '\n' ),
+
+	depthWrite: false,
+	depthTest: false,
+	side:THREE.BackSide,
+	fog:false,
+	
+};
+/**   _  _____ _   _   
+*    | ||_   _| |_| |
+*    | |_ | | |  _  |
+*    |___||_| |_| |_|
+*    @author lo.th / http://lo-th.github.io/labs/
+*/
+
+var materials = ( function () {
+
+'use strict';
+
+var data = {};
+var pathTexture = './assets/textures/';
+var shaderShadow = null;
+var settings = {
+
+    shadowSide:THREE.BackSide, //null,
+    envPower:1.2,//1.2,
+
+};
+
+var current = '';
+
+
+materials = {
+
+    get: function ( name ){ 
+
+        return data[name] || null;
 
     },
 
-    getGL: function ( forceV1, alpha ) {
+    clone: function ( name, newName ){
 
-        //forceV1 = true;
+        var ref = materials.get( name );
+        if( ref!== null ){
 
-        var isWebGL2 = false, gl;
+            data[newName] = ref.clone();
+            return data[newName];
 
-        var canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
-        canvas.style.cssText = 'position: fixed; top:0; left:0; pointer-events:auto;'//' image-rendering: pixelated;'
-        if( !this.isMobile ){
-            //document.oncontextmenu = function(e){ e.preventDefault(); };
-            canvas.ondrop = function(e) { e.preventDefault(); };
+        } else {
+            console.log( 'base material not existe !!' );
         }
-        document.body.appendChild( canvas );
 
-        /*var options = { 
-            antialias: this.isMobile ? false : true, alpha: false, 
-            stencil:false, depth:true, precision: this.isMobile ? "mediump" :"highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+    },
+
+    getList: function () {
+
+        var list = [''];
+        for( var name in data ) list.push( name );
+        return list;
+
+    },
+
+    clear: function (){
+
+        for( var name in data ) data[name].dispose(); 
+
+    },
+
+    setMode:function( n ){
+
+        // 0 default 
+        // 1 depth
+        // 2 normal
+
+        for( var name in data ){
+             if( data[name].uniforms ) data[name].uniforms.renderMode.value = n;
+        }
+
+    },
+
+    updateEnvmap: function (){ 
+
+        var env = view.getEnvmap();
+
+        for( var name in data ){
+
+            if( data[name].envMap !== undefined ){ 
+                
+                data[name].envMap = env;
+                data[name].needsUpdate = true;
+
+            }
+
+        }
+        
+    },
+
+    select: function ( name ) {
+
+        current = name;
+
+    },
+
+    make: function ( param, special ){
+
+        // disable shadow for work only in shadow pass
+        
+        if( shaderShadow === null ){
+
+            shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
+            shaderShadow = shaderShadow.replace( 'float shadow = 1.0;', ['float shadow = 1.0;','if( renderMode != 3 ) return shadow;',  ''].join( "\n" ) );
+
+        }
+        
+        special = special || false;
+        var name = param.matname !== undefined ? param.matname : param.name;
+
+        var isSpec = false;
+
+        // avoid duplication
+        if( data[name] ) return data[name];
+
+        
+
+        var type = param.matType !== undefined ? param.matType : 'Standard';//
+
+        if( param.sheen!== undefined || param.clearcoat!== undefined || param.reflectivity!== undefined || param.transparency!== undefined ) type = 'Physical';
+
+        var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]();
+
+        mat.name = name;
+
+        mat.envMapIntensity = settings.envPower;
+
+        //if( param.color ){  mat.color = param.color; }
+        if( param.color ){
+            if( param.color.constructor === String ) param.color =  Number(param.color);
+            mat.color = new THREE.Color( param.color );
+        }
+        
+
+        if( param.depthTest !== undefined ) mat.depthTest = param.depthTest;
+        if( param.depthWrite !== undefined ) mat.depthWrite = param.depthWrite;
+
+        // transparency
+        if( param.transparent ) mat.transparent = param.transparent;
+        if( param.transparency ) mat.transparent = param.transparency;
+        if( param.premultipliedAlpha ) mat.premultipliedAlpha = param.premultipliedAlpha;
+        if( param.opacity !== undefined ) mat.opacity = param.opacity;
+        if( param.alphaTest !== undefined ) mat.alphaTest = param.alphaTest;
+        if( param.alphaMap ) mat.alphaMap = view.makeTexture( name+'_a', pathTexture + param.alphaMap, name === 'head_Model' ? true : false );
+
+
+
+        if( param.side ){ 
+            switch(param.side){
+                case 'front': mat.side = THREE.FrontSide; break;
+                case 'back': mat.side = THREE.BackSide; break;
+                case 'double': mat.side = THREE.DoubleSide; break;
+            }
+        }
+
+        if( param.depthFunc ){ 
+            switch(param.depthFunc){
+                case 'never': mat.depthFunc = THREE.NeverDepth; break;
+                case 'alway':mat.depthFunc = THREE.AlwaysDepth; break;
+                case 'less':mat.depthFunc = THREE.LessDepth; break;
+                case 'lessEqual': mat.depthFunc = THREE.LessEqualDepth; break;
+                case 'greaterEqual':mat.depthFunc = THREE.GreaterEqualDepth; break;
+                case 'greater':mat.depthFunc = THREE.GreaterDepth; break;
+                case 'notEqual':mat.depthFunc = THREE.NotEqualDepth; break;
+            }
+        }
+
+        if( param.colorWrite !== undefined ){  mat.colorWrite = param.colorWrite; }
+
+        
+
+         
+        /*if( param.alphaMap && special){  
+            mat.alphaMap = param.alphaMap; 
+            mat.transparent = true;
         }*/
-
-        var options = { 
-            antialias: this.isMobile ? false : true, alpha: alpha || false, 
-            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+        //if( param.transparent ){  mat.opasity = param.opasity; }
+        if( param.map ){
+            mat.map = special ? param.map : view.makeTexture( name+'_d', pathTexture + param.map, false ); 
         }
 
-        if( forceV1 === undefined ){
+        // apply skin color
+        ///if( param.skinColor ){  mat.color = skinColor; }
 
-            gl = canvas.getContext( 'webgl2', options );
-            if (!gl) gl = canvas.getContext( 'experimental-webgl2', options );
-            isWebGL2 = !!gl;
-            //gl.v2 = isWebGL2 ? true : false;
+        //if( param.alphaMap && param.alpha ) mat.alphaMap = view.makeTexture( name+'_a', pathTexture + param.alphaMap, name==='head_Model'? true : false );
+        if( param.normalMap ) mat.normalMap = view.makeTexture( name+'_n', pathTexture + param.normalMap, false );
+
+        if( param.emissiveMap ) mat.emissiveMap = view.makeTexture( name+'_e', pathTexture + param.emissiveMap, false );
+        if( param.emissive ) mat.emissive = new THREE.Color( Number(param.emissive) );
+
+        // extra setting to test ?
+        if( param.reflectivity ) mat.reflectivity = param.reflectivity;// def 0.5
+        if( param.sheen ) mat.sheen = new THREE.Color( Number(param.sheen) );// def null
+
+        if( param.clearcoat !== undefined  ) mat.clearcoat = param.clearcoat;// def 0.0
+        if( param.clearcoatRoughness !== undefined  ) mat.clearcoatRoughness = param.clearcoatRoughness;// def 0.0
+        if( param.clearcoatNormalMap ) mat.clearcoatNormalMap = view.makeTexture( name + '_cc', pathTexture + param.clearcoatNormalMap, false );
+        if( param.clearcoatNormalScale ) mat.clearcoatNormalScale.set( param.clearcoatNormalScale, param.clearcoatNormalScale );
+
+        if( param.aoMap ){ 
+            mat.aoMap = view.makeTexture( name+'_ao', pathTexture + param.aoMap, false );
+            mat.aoMapIntensity = 1;
+        }
+
+        if( param.normalScale ) mat.normalScale.set( param.normalScale, param.normalScale );
+        //else mat.normalScale.set( settings.normal, settings.normal );
+
+        if( param.bumpMap ) mat.bumpMap = view.makeTexture( name+'_b', pathTexture + param.bumpMap, false );
+        if( param.bumpScale )  mat.bumpScale = param.bumpScale;
+        
+
+        //mat.shadowSide = settings.shadowSide;//;
+
+        //if( param.roughness || param.metalness ) specialMat.push( name );
+
+        if( param.roughness !== undefined ) mat.roughness = param.roughness;
+        if( param.metalness !== undefined ) mat.metalness = param.metalness;
+
+        
+
+        if( param.roughnessMap ) mat.roughnessMap = view.makeTexture( name+'_r', pathTexture + param.roughnessMap, false );
+        if( param.metalnessMap ) mat.metalnessMap = view.makeTexture( name+'_m', pathTexture + param.metalnessMap, false );
+        //mat.dithering = true;
+
+        if( param.extraColor ) mat.emissiveMap = view.makeTexture( name+'_x', pathTexture + param.extraColor, false );
+
+        if( param.specular && !special){ 
+
+            mat.metalnessMap = view.makeTexture( name+'_s', pathTexture + param.specular, false );
+            mat.roughness = 1;
+            mat.metalness = 1;
+
+            //specialMat.push( name );
+            isSpec = true;
+            param.isSpec = true;
 
         }
 
-        if( !isWebGL2 ) {
-            gl = canvas.getContext( 'webgl', options );
-            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
+        if( param.subdermal ){ 
+            mat.subdermal = view.makeTexture( name+'_u', pathTexture + param.subdermal, false );
         }
 
-        options.canvas = canvas;
-        options.context = gl;
-        this.canvas = canvas;
+        if( param.side ) mat.side = param.side === 'double' ? THREE.DoubleSide : THREE.FrontSide; 
 
-        this.isGl2 = isWebGL2;
-        //this.isWebGL2 = isWebGL2;
+        if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
+        
+       
+        data[name] = materials.customize( mat, param );
 
-        return options;
+        //console.log(data[name])
+
+        return data[name];
 
     },
 
-    /*getWebGL2: function () {
+    customize: function ( mat, param ) {
 
-        return this.isWebGL2;
+        mat.onBeforeCompile = function ( shader ) {
 
-    },*/
+            shader.uniforms['renderMode'] = { value: 0 };
+            shader.uniforms['extraShadow'] = { value: null };
 
-    init: function ( Callback, noObj ) {
+            shader.uniforms['velvet'] = { value: new THREE.Color( Number( param.velvet || '0x000000' ) ) };
 
-        this.shaderHack();
-        this.initGeometry();
-        //this.initEnvMap();
-        this.initMaterial();
-        this.initGrid();
-        this.addTone();
-        this.addLights();
-        this.addShadow();
+            //console.log(view.getDepthPacking() ? 1 : 0)
 
-        this.environement.defaultSky()
+            shader.uniforms['depthPacking'] = { value: view.getDepthPacking() ? 1 : 0 };
 
-        if( !noObj ) this.loadObject( 'basic', Callback );
-        else{
-            if( Callback !== undefined ) Callback();
+            if( mat.subdermal ){ 
+                shader.uniforms['subdermal'] = { value: mat.subdermal };
+            }
+
+
+            var fragment = shader.fragmentShader;
+
+            fragment = fragment.replace( '#include <shadowmap_pars_fragment>', shaderShadow );
+
+            fragment = fragment.replace( 'varying vec3 vViewPosition;', ['varying vec3 vViewPosition;', 'uniform int renderMode;', 'uniform int depthPacking;', 'uniform sampler2D extraShadow;', 'uniform sampler2D subdermal;' , 'uniform vec3 velvet;'].join("\n") );
+
+            if( param.isSpec ){ 
+                fragment = fragment.replace( '#include <roughnessmap_fragment>', ['float roughnessFactor = roughness;', '#ifdef USE_METALNESSMAP', 'vec4 texelRoughness = vec4(1.0) - texture2D( metalnessMap, vUv );', 'roughnessFactor *= texelRoughness.g;', '#endif' ,''].join("\n") );
+                fragment = fragment.replace( '#include <metalnessmap_fragment>', ['float metalnessFactor = metalness;', '#ifdef USE_METALNESSMAP', 'vec4 texelMetalness = texture2D( metalnessMap, vUv );', 'metalnessFactor *= texelMetalness.b;', '#endif' ,''].join("\n") );
+            }
+
+            if( param.revers ) fragment = fragment.replace( '#include <normal_fragment_maps>', materials.normalFragRevers );
+
+            if( param.alpha ) fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd + ['float RR = diffuseColor.a;', 'if ( RR < 0.5 ) { discard; }', ''].join("\n") );
+            else fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd );
+
+
+            if( param.subdermal ){
+                fragment = fragment.replace( '#include <map_fragment>', materials.mapSkinFrag );
+            }
+
+            fragment = fragment.replace( '#include <lights_physical_fragment>', materials.lightStart );
+            fragment = fragment.replace( '#include <lights_fragment_end>', materials.lightEnd );
+
+
+
+            //fragment = fragment.replace( '#include <encodings_fragment>', '' );
+            //fragment = fragment.replace( '#include <tonemapping_fragment>', '' );
+
+            shader.fragmentShader = fragment;
+
+            this.uniforms = shader.uniforms;
+
         }
+
+        return mat;
 
     },
 
-	update: function(){},
+        // --------------------------
+    //
+    //  SHADER
+    //
+    // --------------------------
 
-	updateIntern: function(){},
+    mapSkinFrag: [
+        '#ifdef USE_MAP',
 
-    updateExtra: function(){},
+        'vec4 underColor = texture2D( subdermal, vUv );',
+        'vec4 texelColor = texture2D( map, vUv );',
 
-	needUpdate: function ( b ){ this.isNeedUpdate = b; },
+        'float mx = ((underColor.r + underColor.g)-underColor.b)*0.5;',
 
-	render: function ( stamp ) {
+        'texelColor.xyz = mix( texelColor.xyz,vec3(0.0,underColor.g,underColor.b),  underColor.b*0.2 );',
 
-        this.t[0] = stamp === undefined ? now() : stamp;
-        this.delta = ( this.t[0] - this.t[3] ) * 0.001;
-        this.t[3] = this.t[0];
+        'texelColor = mapTexelToLinear( texelColor );',
+        'diffuseColor *= texelColor;',
 
-        var _this = this;
+        '#endif',
+        ''
+    ].join("\n"),
 
-        requestAnimationFrame(  function(s){ _this.render(s); } );
 
-        //requestAnimationFrame(  this.render.bind( this ) );
+    normalFragRevers: [
+        '#ifdef USE_NORMALMAP',
+            '#ifdef OBJECTSPACE_NORMALMAP',
+                'normal = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;',
+                '#ifdef FLIP_SIDED',
+                '   normal = - normal;',
+                '#endif',
+                '#ifdef DOUBLE_SIDED',
+                '   normal = normal * ( float( gl_FrontFacing ) * 2.0 - 1.0 );',
+                '#endif',
+                'normal = normalize( normalMatrix * normal );',
+            '#else', // tangent-space normal map
+                //'normal = perturbNormal2Arb( -vViewPosition, normal );',
+                'normal = perturbNormal2Arb( vViewPosition, normal );',
+            '#endif',
+            '#elif defined( USE_BUMPMAP )',
+            'normal = perturbNormalArb( -vViewPosition, normal, dHdxy_fwd() );',
+            '#endif',
+        '',
+    ].join("\n"),
 
-        if( this.controler.enableDamping ) this.controler.update();
 
-        if( this.pause ) this.isPause = true;
-        if( this.isPause && !this.pause ){ this.isPause = false; unPause(); }
+    /*extraFragColor: [
 
-        if( this.needResize ) this.upResize();
+    'vec3 maskingColor = texture2D( emissiveMap, vUv ).rgb;',
+    'vec3 colorPlus = vec3(0.0);',
+    //'vec3 colorMask = vec3(0.0);',
+    'colorPlus = mix( colorPlus, extraColor1, vec3( maskingColor.r ) );',
+    'colorPlus = mix( colorPlus, extraColor2, vec3( maskingColor.g ) );',
+    'colorPlus = mix( colorPlus, extraColor3, vec3( maskingColor.b ) );',
+    'vec3 colorMask = vec3( maskingColor.r ) + vec3( maskingColor.g ) + vec3( maskingColor.b );',
+    'colorMask = clamp(colorMask, 0.0, 1.0);',
 
-        THREE.SEA3D.AnimationHandler.update( this.delta ); // sea3d model
+
+    'diffuseColor.rgb *= mix( diffuseColor.rgb, colorPlus, colorMask );',
+    '',
+    ].join("\n"),*/
+
+    shaderEnd: [
+    '#if defined( DITHERING )',
+    '    gl_FragColor.rgb = dithering( gl_FragColor.rgb );',
+    '#endif',
+
+    'if( renderMode == 1 ) gl_FragColor = depthPacking == 1 ? packDepthToRGBA( gl_FragCoord.z ) : vec4( vec3( 1.0 - gl_FragCoord.z ), opacity );',// depth render
+    'if( renderMode == 2 ) gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',// normal render
+
+    '',
+    ].join("\n"),
+
+    lightStart: [
+    'PhysicalMaterial material;',
+
+    'if( renderMode == 3 ){',
+            'diffuseColor = vec4(1.0, 1.0, 1.0, diffuseColor.a);',
+            //'metalnessFactor = 0.0;',
+            //'roughnessFactor = 0.0;',
+    '}',
+
+    'material.diffuseColor = diffuseColor.rgb * ( 1.0 - metalnessFactor );',
+    'material.specularRoughness = clamp( roughnessFactor, 0.04, 1.0 );',
+
+    'vec3 ccc = diffuseColor.rgb;',
+    'if( velvet.r > 0.7 ) ccc = diffuseColor.r < 0.45 ? diffuseColor.rgb : velvet;',
+
+    '#ifdef REFLECTIVITY',
+        'material.specularColor = mix( vec3( MAXIMUM_SPECULAR_COEFFICIENT * pow2( reflectivity ) ), ccc, metalnessFactor );',
+    '#else',
+        'material.specularColor = mix( vec3( DEFAULT_SPECULAR_COEFFICIENT ), ccc, metalnessFactor );',
+    '#endif',
+    '#ifdef CLEARCOAT',
+        'material.clearcoat = saturate( clearcoat );', // Burley clearcoat model
+        'material.clearcoatRoughness = clamp( clearcoatRoughness, 0.04, 1.0 );',
+    '#endif',
+    '#ifdef USE_SHEEN',
+        'if( velvet.r > 0.7 ) material.sheenColor = diffuseColor.r > 0.25 ? sheen : vec3(0.2,0.19,0.24);',
+        'else material.sheenColor =sheen;',
+    '#endif',
+    '',
+    ].join("\n"),
+
+    lightEnd: [
+    '#if defined( RE_IndirectDiffuse )',
+        'if( renderMode == 3 ) irradiance = vec3(0.0);',
+        'RE_IndirectDiffuse( irradiance, geometry, material, reflectedLight );',
+    '#endif',
+    '#if defined( RE_IndirectSpecular )',
+        'if( renderMode == 3 ) radiance = vec3(0.0);',
+        'RE_IndirectSpecular( radiance, iblIrradiance, clearcoatRadiance, geometry, material, reflectedLight );',
+    '#endif',
+    '',
+    ].join("\n"),
+
+
+}
+
+
+return materials;
+
+})();
+/**   _  _____ _   _   
+*    | ||_   _| |_| |
+*    | |_ | | |  _  |
+*    |___||_| |_| |_|
+*    @author lo.th / https://github.com/lo-th
+*/
+
+
+
+var view = ( function () {
+
+'use strict';
+
+
+var refEditor = null;
+
+var setting = {
+	correctLight: false,
+    gammaInput: true,
+    gammaOutput: true,
+    exposure: 1.2,
+    whitePoint: 1.0,
+    type: "Filmic",
+    envIntensity: 1.2,
+    sunIntensity: 0.8,
+    moonIntensity: 0.25,
+};
+
+var toneMappings = {
+    None: THREE.NoToneMapping,
+    Linear: THREE.LinearToneMapping,
+    Reinhard: THREE.ReinhardToneMapping,
+    Uncharted2: THREE.Uncharted2ToneMapping,
+    Cineon: THREE.CineonToneMapping,
+    Filmic: THREE.ACESFilmicToneMapping,
+};
+
+var tmpName = [];
+
+//var pause = false;
+var isPause = false;
+
+var container = null;
+var canvas = null;
+var renderer = null;
+var camera = null;
+var controler = null;
+var scene = null;
+var content = null;
+var followGroup = null;
+var loader = null;
+var envmap = null;
+var environement = null;
+var listener = null;
+var mouse = null;
+var offset = null;
+
+var grid = null;
+var ray = null;
+var dragPlane = null;
+
+var sun = null;
+var moon = null;
+var probe = null;
+var sphereLight = null;
+var camShadow = null;
+
+var check = null;
+
+
+var fog = null;
+
+var matType = 'Standard';
+
+var lightDistance = 200;
+var shadowMat = null;
+var shadowGround = null;
+var isHighShadow = false;
+
+var campHelper = null;
+
+var isMobile = false;
+
+var isDebug = false;
+var isWithJoystick = false;
+var isNeedUpdate = false;
+var isWithShadow = false;
+var isShadowDebug = false;
+var isWithSky = false;
+
+var isLight = false;
+var isFog = false;
+var isRay = false;
+var needResize = false;
+
+var t = [0,0,0,0];
+var delta = 0;
+var fps = 0;
+
+var bg = bg || 0x222322;
+var vs = { w:1, h:1, l:0, x:0, y:0 };
+
+var agents = [];
+var heros = [];
+var cars = [];
+var softs = [];
+var bodys = [];
+var solids = [];
+var extraMesh = [];
+var extraGeo = [];
+
+var helper = [];
+
+var mesh = {};
+var geo = {};
+var mat = {};
+var txt = {};
+
+var tmpTxt = {};
+var tmpMat = {};
+
+var isGl2 = false;
+var isInContainer = false;
+
+var autoAddAudio = null;
+
+
+	
+///
+
+view = {
+
+    pause: false,
+
+    byName: {},
+
+    loadCallback: function(){},
+    tmpCallback: function(){},
+    rayCallBack: function(){},
+    resetCallBack: function(){},
+    unPause: function(){},
+
+    update: function(){},
+
+
+    //-----------------------------
+    //
+    //  RENDER LOOP
+    //
+    //-----------------------------
+
+    render: function ( stamp ) {
+
+        requestAnimationFrame( view.render );
+
+        t[0] = stamp === undefined ? now() : stamp;
+        delta = ( t[0] - t[3] ) * 0.001;
+        t[3] = t[0];
+
+        if( view.pause ) isPause = true;
+        if( isPause && !view.pause ){ isPause = false; view.unPause(); }
+
+        if( needResize ) view.upResize();
+
+        THREE.SEA3D.AnimationHandler.update( delta ); // sea3d animation
 
         if( user ) user.update(); // gamepad
+        if( controler.enableDamping ) controler.update();
 
         TWEEN.update(); // tweener
 
-        this.updateExtra();
-        this.update( this.delta );
+        view.update( delta );
 
-
-		if( this.isNeedUpdate ){
-
-            // if physics change 
-
-            this.isNeedUpdate = false;
-
-
-           // this.update();
-            this.updateIntern();
-            
-            
-		}
-
-        this.controler.follow();
-
-
-
-		this.renderer.render( this.scene, this.camera );
+        renderer.render( scene, camera );
 
         // fps
+        if ( (t[0] - 1000) > t[1] ){ t[1] = t[0]; fps = t[2]; t[2] = 0; }; t[2]++;
+
+    },
+
+
+    //-----------------------------
+    //
+    //  INIT THREE VIEW
+    //
+    //-----------------------------
+
+    init: function ( Callback, noObj, Container, forceGL1, alpha ) {
+
+        alpha = alpha !== undefined ? alpha : false;
+
+        // 1 CANVAS / CONTAINER
+
+        isMobile = this.getMobile();
+        container = Container || null;
+
+        canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
+        canvas.style.cssText = 'position:absolute; top:0; left:0; pointer-events:auto;'//' image-rendering: pixelated;'
+
+        if( !isMobile ){
+            //document.oncontextmenu = function(e){ e.preventDefault(); };
+            canvas.ondrop = function(e) { e.preventDefault(); };
+        }
+
+        // 2 RENDERER
+
+        try {
+
+            renderer = new THREE.WebGLRenderer( this.getGL( forceGL1, alpha ) );
+
+        } catch( error ) {
+            if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
+                        + '<p>This application uses WebGL to quickly draw</p>'
+                        + '<p>Physics Labs can be used without WebGL, but unfortunately this application cannot.</p>'
+                        + '<p>Have a great day!</p>');
+            return;
+        }
+
+        console.log('THREE '+THREE.REVISION+' GL'+(isGl2 ? 2 : 1) );
+
+        renderer.setClearColor( bg, (alpha !== undefined ? alpha : true) ? 0:1 );
+        renderer.setPixelRatio( isMobile ? 1 : window.devicePixelRatio );
+
+        // 3 CAMERA / CONTROLER / MOUSE
+
+        camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
+        //camera.position.set( 0, 15, 30 );
+        controler = new THREE.OrbitControlsExtra( camera, renderer.domElement ); //this.canvas );
+        controler.target.set( 0, 0, 0 );
+        controler.enableKeys = false;
+        controler.screenSpacePanning = true;
+        controler.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+        controler.dampingFactor = 0.5;
+
+        this.moveCam({ theta:0, phi:10, distance:30, target:[0,1,0], time:0 });
+
+        mouse = new THREE.Vector3();
+        offset = new THREE.Vector3();
+        
+        // 4 SCENE / GROUP
+
+        scene = new THREE.Scene();
+
+        content = new THREE.Group();
+        scene.add( content );
+
+        followGroup = controler.followGroup;
+        scene.add( followGroup );
+
+        extraMesh = new THREE.Group();
+        scene.add( extraMesh );
+
+
+        // 5 TEXTURE LOADER / ENVMAP
+
+        loader = new THREE.TextureLoader();
+        envmap = null;//new THREE.CubeTexture();
+        
+        // 6 RESIZE
+
+        this.resize();
+        window.addEventListener( 'resize', view.resize, false );
+
+        // 7 KEYBOARD & JOSTICK 
+
+        if( !isMobile && user ) user.init();
 
         
-        if ( (this.t[0] - 1000) > this.t[1] ){ this.t[1] = this.t[0]; this.fps = this.t[2]; this.t[2] = 0; }; this.t[2]++;
+        // 8 START BASE
 
-	},
+        this.shaderHack();
+        this.initGeometry();
+        this.initMaterial();
+        
+        this.setTone();
+        this.addLights();
+        this.addShadow();
+        this.initGrid();
+
+        if ( !noObj ) this.loadObject( 'basic', Callback );
+        else { if( Callback !== undefined ) Callback(); }
+
+        if( container !== null ) container.appendChild( canvas );
+        else document.body.appendChild( canvas );
+
+
+        this.extandGroup();
+
+        this.render( 0 );
+
+    },
+
+
+    //-----------------------------
+    //
+    //  RESET THREE VIEW
+    //
+    //-----------------------------
 
 	reset: function ( full ) {
 
         this.resetCallBack();
 
-        this.controler.resetFollow();
+        controler.resetFollow();
 
-        this.setShadowRange();
+        this.setShadow();
+        this.removeRay();
+        this.removeSky();
+        this.removeFog();
+        this.resetLight();
+        this.removeJoystick();
+        this.removeShadowDebug();
 
         this.removeAudio();
 
-        this.isNeedUpdate = false;
+        //isNeedUpdate = false;
 
-        this.grid.visible = true;
-        if( this.shadowGround !== null ) this.shadowGround.visible = true;
+        grid.visible = true;
+        if( shadowGround !== null ) shadowGround.visible = true;
 
-        while( this.extraMesh.children.length > 0 ) this.scene.remove( this.extraMesh.children.pop() );
+        while( extraMesh.children.length > 0 ) scene.remove( extraMesh.children.pop() );
 
-        while( this.extraGeo.length > 0 ) this.extraGeo.pop().dispose();
+        while( extraGeo.length > 0 ) extraGeo.pop().dispose();
 
-        while( this.bodys.length > 0 ) this.clear( this.bodys.pop() );
-        while( this.solids.length > 0 ) this.clear( this.solids.pop() );
-        while( this.heros.length > 0 ) this.clear( this.heros.pop() );
-        while( this.softs.length > 0 ) this.clear( this.softs.pop() );
+        while( bodys.length > 0 ) this.clear( bodys.pop() );
+        while( solids.length > 0 ) this.clear( solids.pop() );
+        while( heros.length > 0 ) this.clear( heros.pop() );
+        while( softs.length > 0 ) this.clear( softs.pop() );
         //while( terrains.length > 0 ) this.scene.remove( terrains.pop() );
 
-        while( this.cars.length > 0 ){
+        while( cars.length > 0 ){
 
-            var c = this.cars.pop();
+            var c = cars.pop();
             if( c.userData.helper ){
                 c.remove( c.userData.helper );
                 c.userData.helper.dispose();
             }
             var i = c.userData.w.length;
             while( i-- ){
-                this.scene.remove( c.userData.w[i] );
+                scene.remove( c.userData.w[i] );
             }
-            this.scene.remove( c );
+            scene.remove( c );
         }
-
-        //for( var t in this.txt ) this.txt[t].dispose();
-
-        this.removeRay();
-        this.removeSky();
-        this.removeFog();
-        this.resetLight();
-        this.removeShadowDebug();
-        //this.resetMaterial();
-        this.removeJoystick();
         
 
         this.update = function () {};
         this.tmpCallback = function(){};
         this.resetCallBack = function(){};
+
         this.byName = {};
 
         if( full ){
 
-            for( var m in this.tmpTxt ){ this.tmpTxt[m].dispose(); this.tmpTxt[m] = undefined; }
-            for( var m in this.tmpMat ){ this.tmpMat[m].dispose(); this.tmpMat[m] = undefined; }
+            for( var m in tmpTxt ){ tmpTxt[m].dispose(); tmpTxt[m] = undefined; }
+            for( var m in tmpMat ){ tmpMat[m].dispose(); tmpMat[m] = undefined; }
 
-            this.tmpMat = {};
-            this.tmpTxt = {};
+            tmpMat = {};
+            tmpTxt = {};
 
         }
 
@@ -73002,57 +73986,199 @@ View.prototype = {
 
     },
 
-    setLeft: function ( x, y ) { 
+    //-----------------------------
+    //
+    //  EXTAND THREE GROUP
+    //
+    //-----------------------------
 
-    	this.vs.x = x;
-        this.vs.y = y;
-    	this.resize();
+    extandGroup: function () {
+
+        Object.defineProperty( THREE.Group.prototype, 'material', {
+            get: function() { return this.children[0].material; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.material = value; });
+                //var i = this.children.length;
+                //while(i--) this.children[i].material = value; 
+            }
+        });
+        
+        Object.defineProperty( THREE.Group.prototype, 'receiveShadow', {
+            get: function() { return this.children[0].receiveShadow; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.receiveShadow = value; }); }
+        });
+
+        Object.defineProperty( THREE.Group.prototype, 'castShadow', {
+            get: function() { return this.children[0].castShadow; },
+            set: function( value ) { this.children.forEach( function ( b ) { b.castShadow = value; }); }
+        });
 
     },
 
-    setRefEditor: function ( ed ) {
 
-        this.refEditor = ed;
+    //-----------------------------
+    //
+    //  GET SYSTEM INFO
+    //
+    //-----------------------------
+
+    getGL: function ( force, alpha ) {
+
+        var gl;
+
+        var options = { 
+            antialias: isMobile ? false : true, alpha: alpha, 
+            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+        }
+
+        if( !force ){
+            gl = canvas.getContext( 'webgl2', options );
+            if ( !gl ) gl = canvas.getContext( 'experimental-webgl2', options );
+            isGl2 = !!gl;
+        }
+
+        if( !isGl2 ) {
+            gl = canvas.getContext( 'webgl', options );
+            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
+        }
+
+        options.canvas = canvas;
+        options.context = gl;
+        return options;
+
+    },
+
+    getMobile: function () {
+
+        var n = navigator.userAgent;
+        if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
+        else return false;  
+
+    },
+
+
+    //-----------------------------
+    //
+    //  GET
+    //
+    //-----------------------------
+
+    getGL2: function () { return isGl2; },
+    getFps: function () { return fps; },
+    getEnvMap: function () { return envmap; },
+    getAzimuthal: function (){ return -controler.getAzimuthalAngle(); },
+    getGeo: function () { return geo; },
+    getMat: function () { return mat; },
+    
+    getBody: function () { return bodys; },
+    getSolid: function () { return solids; },
+    getHero: function () { return heros; },
+
+    //getPause: function () { return pause; },
+
+    getControls: function () { return controler; },
+    getControler: function () { return controler; },
+    getCamera: function () { return camera; },
+    getMouse: function () { return mouse; },
+    getDom: function () { return renderer.domElement; },
+
+    getLoader:  function () { return loader; },
+    getRenderer: function () { return renderer; },
+    getScene: function () { return scene; },
+
+    getSun: function () { return sun; },
+    getMoon: function () { return moon; },
+    getProbe: function () { return probe },
+    getSphereLight: function () { return sphereLight; },
+    //getLightProbe: function () { return lightProbe; },
+
+    getLightDistance: function () { return lightDistance; },
+    getFollowGroup:  function () { return followGroup; },
+    getContent:  function () { return content; },
+
+
+    //-----------------------------
+    //
+    //  SET
+    //
+    //-----------------------------
+
+    setEditor: function ( v ) { refEditor = v; },
+
+
+    //-----------------------------
+    //
+    //  FOCUS
+    //
+    //-----------------------------
+
+    needFocus: function () {
+
+        if( !refEditor )  return;
+        canvas.addEventListener( 'mouseover', refEditor.unFocus, false );
+
+    },
+
+    haveFocus: function () {
+
+        if( !refEditor )  return;
+        canvas.removeEventListener( 'mouseover', refEditor.unFocus, false );
+
+    },
+
+    //-----------------------------
+    //
+    //  RESIZE
+    //
+    //-----------------------------
+
+    setLeft: function ( x, y ) { 
+
+        vs.x = x;
+        vs.y = y;
+        this.resize();
 
     },
 
 	resize: function ( e ) {
 
-        var w, h, v = this.vs;
+        var w, h;
 
-        if(this.container !== null ){
-            w = this.container.offsetWidth - v.x - v.y;
-            h = this.container.offsetHeight; 
+        if(container !== null ){
+            w = container.offsetWidth - vs.x - vs.y;
+            h = container.offsetHeight; 
         } else {
-            w = window.innerWidth - v.x - v.y;
+            w = window.innerWidth - vs.x - vs.y;
             h = window.innerHeight;
         }
 
-		if( v.w !== w || v.h !== h ){
+		if( vs.w !== w || vs.h !== h ){
 
-			v.h = h;
-            v.w = w;
+			vs.h = h;
+            vs.w = w;
 
-            this.needResize = true;
+            needResize = true;
 
-            if( this.refEditor ) this.refEditor.resizeMenu( v.w );
+            if( refEditor ) refEditor.resizeMenu( vs.w );
 
 		}
     },
 
-    
-
     upResize: function () {
 
-    	var v = this.vs;
-        this.canvas.style.left = v.x +'px';
-        this.camera.aspect = v.w / v.h;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize( v.w, v.h );
-        this.needResize = false;
+        canvas.style.left = vs.x +'px';
+        camera.aspect = vs.w / vs.h;
+        camera.updateProjectionMatrix();
+        renderer.setSize( vs.w, vs.h );
+        needResize = false;
 
     },
 
+
+    //-----------------------------
+    //
+    //  LOADER
+    //
+    //-----------------------------
 
     getName: function ( url ) {
 
@@ -73060,13 +74186,11 @@ View.prototype = {
 
     },
 
-    
-
     loadTexture: function ( name ){
 
         var n = this.getName( name );
-        this.txt[ n ] = this.loader.load( './assets/textures/'+ name );
-        return this.txt[ n ];
+        txt[ n ] = loader.load( './assets/textures/'+ name );
+        return txt[ n ];
 
     },
 
@@ -73079,20 +74203,20 @@ View.prototype = {
     loadObject: function( Urls, Callback ){
 
         var urls = [];
-        this.tmpName = [];
+        tmpName = [];
 
         if ( typeof Urls == 'string' || Urls instanceof String ){ 
             urls.push( './assets/models/'+ Urls + '.sea' );
-            this.tmpName.push(  Urls );
+            tmpName.push(  Urls );
         } else {
             for(var i=0; i < Urls.length; i++){
                 urls.push( './assets/models/'+ Urls[i] + '.sea' );
-                this.tmpName.push(  Urls[i] );
+                tmpName.push(  Urls[i] );
             }
         }
             
         this.loadCallback = Callback || function(){};
-        this.tmpCallback = function(p){ this.afterLoad(p) }.bind(this);
+        this.tmpCallback = function(p){ this.afterLoad(p) }.bind( this );
         pool.load( urls, this.tmpCallback );
 
     },
@@ -73101,22 +74225,22 @@ View.prototype = {
 
         var o, mesh, j;
 
-        for(var i=0; i < this.tmpName.length; i++){
+        for(var i=0; i < tmpName.length; i++){
 
-            o = p[ this.tmpName[i] ];
+            o = p[ tmpName[i] ];
             j = o.length;
 
             while(j--){
 
                 mesh = o[j];
-                this.geo[mesh.name] = mesh.geometry;
+                geo[mesh.name] = mesh.geometry;
 
                 if( mesh.name === 'wheel' ){
 
-                    this.geo['wheelR'] = this.geo.wheel.clone();
-                    this.geo['wheelL'] = this.geo.wheel.clone();
-                    this.geo.wheelL.rotateY( -Math.PI90 );
-                    this.geo.wheelR.rotateY( Math.PI90 );
+                    geo['wheelR'] = geo.wheel.clone();
+                    geo['wheelL'] = geo.wheel.clone();
+                    geo.wheelL.rotateY( -Math.PI90 );
+                    geo.wheelR.rotateY( Math.PI90 );
 
                 }
                 
@@ -73124,7 +74248,7 @@ View.prototype = {
 
         }
 
-        this.tmpName = [];
+        tmpName = [];
         this.loadCallback();
 
     },
@@ -73163,65 +74287,19 @@ View.prototype = {
 
     },
 
-    addMesh: function ( m ) {
+    addMesh: function ( m, castS, receiveS ) {
 
-        m.castShadow = true;
-        m.receiveShadow = true;
+        m.castShadow = castS !== undefined ? castS : true;
+        m.receiveShadow = receiveS !== undefined ? receiveS : true;
 
-        this.extraMesh.add( m );
+        extraMesh.add( m );
 
     },
 
     testMesh: function ( geom ) {
 
-        var mesh = new THREE.Mesh( geom, this.mat.basic );
-        this.addMesh(mesh);
-
-    },
-
-   
-
-    //-----------------------------
-
-    // GET
-
-	getFps: function () { return this.fps; },
-	getEnvMap: function () { return this.envmap; },
-    getSun: function (){ return this.sun.position.clone().normalize(); },
-    getAzimuthal: function (){ return -this.controler.getAzimuthalAngle(); },
-    getGeo: function () { return this.geo; },
-    getMat: function () { return this.mat; },
-    getScene: function () { return this.scene; },
-	getBody: function () { return this.bodys; },
-    getHero: function () { return this.heros; },
-
-	getControls: function () { return this.controler; },
-    getCamera: function () { return this.camera; },
-    getMouse: function () { return this.mouse; },
-    //getDom: function () { return this.canvas; },
-    getDom: function () { return this.renderer.domElement; },
-    //getOffset: function () { return this.offset; },
-
-
-	needFocus: function () {
-
-        if( !editor ) return;
-        this.canvas.addEventListener('mouseover', editor.unFocus, false );
-
-    },
-
-    haveFocus: function () {
-
-        if( !editor ) return;
-        this.canvas.removeEventListener('mouseover', editor.unFocus, false );
-
-    },
-
-	testMobile: function () {
-
-        var n = navigator.userAgent;
-        if (n.match(/Android/i) || n.match(/webOS/i) || n.match(/iPhone/i) || n.match(/iPad/i) || n.match(/iPod/i) || n.match(/BlackBerry/i) || n.match(/Windows Phone/i)) return true;
-        else return false;  
+        var mesh = new THREE.Mesh( geom, mat.basic );
+        this.addMesh( mesh );
 
     },
 
@@ -73234,7 +74312,7 @@ View.prototype = {
 
     initGeometry: function (){
 
-        var geo = {
+        geo = {
 
             agent: new THREE.CircleBufferGeometry( 1, 3 ),
             circle: new THREE.CircleBufferGeometry( 1, 6 ),
@@ -73257,10 +74335,8 @@ View.prototype = {
         geo.plane.rotateX( -Math.PI90 );
         geo.wheel.rotateZ( -Math.PI90 );
 
-
-        this.geo = geo;
-
     },
+
 
     //-----------------------------
     //
@@ -73272,17 +74348,17 @@ View.prototype = {
 
         var name = option.name;
 
-        if( this.tmpMat[ name ] ){
+        if( tmpMat[ name ] ){
 
             for( var o in option ){
                 if( o === 'color' ) this.tmpMat[ name ].color.setHex( option[o] );
-                else this.tmpMat[ name ][o] = option[o];
+                else tmpMat[ name ][o] = option[o];
             }
 
-            return this.tmpMat[ name ];
+            return tmpMat[ name ];
         }
 
-        type = type || this.matType;
+        type = type || matType;
 
         if( type !== 'Phong' ){
             delete( option.shininess ); 
@@ -73296,11 +74372,11 @@ View.prototype = {
             delete( option.envMapIntensity );
         }
 
-        option.envMap = this.envmap;
+        option.envMap = envmap;
         
         option.shadowSide = option.shadowSide || null;
 
-        this.tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
+        tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
 
         /*if( type === 'Standard' ){
             this.tmpMat[ name ].onBeforeCompile = function ( shader ) {
@@ -73308,13 +74384,13 @@ View.prototype = {
             }
         }*/
 
-        return this.tmpMat[ name ];
+        return tmpMat[ name ];
 
     },
 
     makeMaterial: function ( option, type ){
 
-        type = type || this.matType;
+        type = type || matType;
 
         if( type !== 'Phong' ){
             delete( option.shininess ); 
@@ -73325,9 +74401,13 @@ View.prototype = {
             option.reflectivity = option.metalness || 0.5;
             delete( option.metalness ); 
             delete( option.roughness );
+            
+        } else {
+            option.envMapIntensity = setting.envIntensity;
         }
 
-        option.envMap = this.envmap;
+        option.envMap = envmap;
+        
         //option.shadowSide = false;
 
         return new THREE['Mesh'+type+'Material']( option );
@@ -73346,13 +74426,15 @@ View.prototype = {
 
     initMaterial: function (){
 
-        this.check = new THREE.Texture();//this.loader.load( './assets/textures/check.jpg' );
-        this.check.repeat = new THREE.Vector2( 2, 2 );
-        this.check.wrapS = this.check.wrapT = THREE.RepeatWrapping;
+        check = new THREE.Texture();//this.loader.load( './assets/textures/check.jpg' );
+        check.repeat = new THREE.Vector2( 2, 2 );
+        check.wrapS = check.wrapT = THREE.RepeatWrapping;
 
         //http://www.color-hex.com/popular-colors.php
 
-        this.mat = {
+        mat = {
+
+            white: this.makeMaterial({ color:0xFFFFFF, name:'basic',  metalness:0.5, roughness:0.5 }),
 
             ttest: new THREE.MeshBasicMaterial( { color: 0xffffff, depthTest:true, depthWrite:false } ),//this.makeMaterial({ color:0xFFFFFF, name:'basic', envMap:this.envmap, metalness:0, roughness:0 }),
            
@@ -73360,18 +74442,18 @@ View.prototype = {
             contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', metalness:0.8, roughness:0.5 }),
             contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', metalness:0.8, roughness:0.5 }),
 
-            check: this.makeMaterial({ map:this.check, name:'check', metalness:0.5, roughness:0.5 }),
-            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.5, roughness:0.5 }),
+            check: this.makeMaterial({ map:check, name:'check', metalness:0.5, roughness:0.5 }),
+            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.7, roughness:0.5 }),
             sleep: this.makeMaterial({ color:0x433F3C, name:'sleep', metalness:0.5, roughness:0.5 }),
             move: this.makeMaterial({ color:0xCBBEB5, name:'move', metalness:0.5, roughness:0.5 }),
             movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', metalness:0.5, roughness:0.5 }),
             speed: this.makeMaterial({ color:0xff4040, name:'speed', metalness:0.5, roughness:0.5 }),
 
             statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
-            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.6, roughness:0.4 }),
+            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.7, roughness:0.3, premultipliedAlpha:true }),
             plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
            
-            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4, shininess:40, specular:0xFAF7F0 }, 'Phong' ),//0xD4AF37
+            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4 } ),//0xD4AF37
             donut: this.makeMaterial({ name:'donut', color:0xAA9933,  metalness:0.6, roughness:0.4 }),
 
             hide: this.makeMaterial({ color:0x000000, name:'hide', wireframe:true, visible:false }, 'Basic'),
@@ -73379,46 +74461,47 @@ View.prototype = {
             skyUp: this.makeMaterial({ color:0xFFFFFF }, 'Basic'),
 
             hero: this.makeMaterial({ color:0xffffff, name:'hero', metalness:0.4, roughness:0.6, skinning:true }), 
-            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, envMap:this.envmap, side: THREE.DoubleSide }),
+            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, side: THREE.DoubleSide }),
 
             shadow: new THREE.ShadowMaterial({ name:'shadow', opacity:0.4, depthWrite:false }), 
 
         }
 
-        for( var m in this.mat ) this.mat[m].shadowSide = false;
+        for( var m in mat ) mat[m].shadowSide = false;
 
     },
 
-    addMaterial: function( option ) {
+    /*addMaterial: function( option ) {
 
         var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
 
         var i = maptype.length;
         while(i--){
             if( option[maptype[i]] ){ 
-                option[maptype[i]] = this.loader.load( './assets/textures/' + option[maptype[i]] );
+                option[maptype[i]] = loader.load( './assets/textures/' + option[maptype[i]] );
                 option[maptype[i]].flipY = false;
             }
         }
         
-        option.envMap = this.envmap;
+        option.envMap = envmap;
         
 
-        this.mat[option.name] = this.makeMaterial( option );
+        mat[option.name] = this.makeMaterial( option );
 
-    },
+    },*/
 
     addMap: function( url, name ) {
 
-        if(this.mat[name]) return;
+        if(mat[name]) return;
 
-        var map = this.loader.load( './assets/textures/' + url );
+        var map = loader.load( './assets/textures/' + url );
         //map.wrapS = THREE.RepeatWrapping;
         //map.wrapT = THREE.RepeatWrapping;
         map.flipY = false;
-        this.mat[name] = this.makeMaterial({ name:name, map:map, envMap:this.envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
+        mat[name] = this.makeMaterial({ name:name, map:map, envMap:envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
 
     },
+
 
     //-----------------------------
     //
@@ -73432,9 +74515,9 @@ View.prototype = {
 
     	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') );
 
-        if( this.tmpTxt[ n ] ) return this.tmpTxt[ n ];
+        if( tmpTxt[ n ] ) return tmpTxt[ n ];
 
-    	this.tmpTxt[ n ] = this.loader.load( './assets/textures/' + name, function ( tx ) {
+    	tmpTxt[ n ] = loader.load( './assets/textures/' + name, function ( tx ) {
 
             tx.flipY = o.flip !== undefined ? o.flip : false;
 
@@ -73448,47 +74531,32 @@ View.prototype = {
 
     	});
 
-    	return this.tmpTxt[ n ];
+    	return tmpTxt[ n ];
 
     },
-
     
 
     //-----------------------------
     //
-    // TONE
+    // TONE MAPING
     //
     //-----------------------------
 
-	addTone : function( o ) {
+	setTone : function( o ) {
 
         o = o || {};
 
-        var toneMappings = {
-            None: THREE.NoToneMapping,
-            Linear: THREE.LinearToneMapping,
-            Reinhard: THREE.ReinhardToneMapping,
-            Uncharted2: THREE.Uncharted2ToneMapping,
-            Cineon: THREE.CineonToneMapping,
-            Filmic: THREE.ACESFilmicToneMapping,
-        };
+        for( var v in setting ) setting[v] = o[v] !== undefined ? o[v] : setting[v];
 
-        //
-        /*this.renderer.gammaInput = o.gammaInput !== undefined ? o.gammaInput : true;
-        this.renderer.gammaOutput = o.gammaOutput !== undefined ? o.gammaOutput : true;
-
-        this.renderer.toneMapping = toneMappings[ o.tone !== undefined ? o.tone : 'Uncharted2' ];
-        this.renderer.toneMappingExposure = o.exposure !== undefined ? o.exposure : 2.0;
-        this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;*/
-        this.renderer.physicallyCorrectLights = o.correctLight !== undefined ? o.correctLight : false;
-        this.renderer.gammaInput = o.gammaInput !== undefined ? o.gammaInput : true;
-        this.renderer.gammaOutput = o.gammaOutput !== undefined ? o.gammaOutput : true;
-
-        this.renderer.toneMapping = toneMappings[ o.tone !== undefined ? o.tone : 'Filmic' ];
-        this.renderer.toneMappingExposure = o.exposure !== undefined ? o.exposure : 1.0;
-        this.renderer.toneMappingWhitePoint = o.whitePoint !== undefined ? o.whitePoint : 3.0;
+        renderer.physicallyCorrectLights = setting.correctLight;
+        renderer.gammaInput = setting.gammaInput;
+        renderer.gammaOutput = setting.gammaOutput;
+        renderer.toneMapping = toneMappings[ setting.type ];
+        renderer.toneMappingExposure = setting.exposure;
+        renderer.toneMappingWhitePoint = setting.whitePoint;
 
     },
+
 
     //-----------------------------
     //
@@ -73498,11 +74566,11 @@ View.prototype = {
 
     debug: function () {
 
-        if( !this.isDebug ){
+        if( !isDebug ){
 
-            this.helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
-            this.helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
-            this.helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
+            helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
+            helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
+            helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
 
 
             /*this.vMid = new THREE.Vector3( 1,0.1,0 );
@@ -73517,24 +74585,25 @@ View.prototype = {
 
             
 
-            this.sun.add( this.helper[0] )
-            this.moon.add( this.helper[1] )
-            this.followGroup.add( this.helper[2] )
+            sun.add( helper[0] )
+            moon.add( helper[1] )
+            followGroup.add( helper[2] )
 
-            this.isDebug = true;
+            isDebug = true;
 
         } else {
 
-            this.sun.remove( this.helper[0] )
-            this.moon.remove( this.helper[1] )
-            this.followGroup.remove( this.helper[2] )
+            sun.remove( helper[0] )
+            moon.remove( helper[1] )
+            followGroup.remove( helper[2] )
 
-            this.isDebug = false;
+            isDebug = false;
 
         }
         
 
     },
+
 
     //-----------------------------
     //
@@ -73544,31 +74613,32 @@ View.prototype = {
 
     addFog: function ( o ) {
         
-        if( this.isWithFog ) return;
+        if( isFog ) return;
 
         o = o || {};
 
-        this.fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
-        this.scene.fog = this.fog;
-        this.isWithFog = true;
+        fog = o.exp !== undefined ? new THREE.FogExp2( o.color || 0x3b4c5a, o.exp ) : new THREE.Fog( o.color || 0x3b4c5a, o.near || 1, o.far || 300 );
+        scene.fog = fog;
+        isFog = true;
 
     },
 
     setFogColor: function ( color ) {
         
-        if( !this.isWithFog ) return;
-        this.fog.color = color;
+        if( !isFog ) return;
+        fog.color = color;
 
     },
 
     removeFog: function () {
         
-        if( !this.isWithFog ) return;
-        this.fog = null;
-        this.scene.fog = null;
-        this.isWithFog = false;
+        if( !isFog ) return;
+        fog = null;
+        scene.fog = null;
+        isFog = false;
 
     },
+
 
     //-----------------------------
     //
@@ -73578,47 +74648,54 @@ View.prototype = {
 
     resetLight: function () {
 
-        if( !this.isWithLight ) return;
+        if( !isLight ) return;
 
-        this.followGroup.position.set(0,0,0);
+        followGroup.position.set(0,0,0);
 
-        this.lightDistance = 200;
+        lightDistance = 200;
 
-        this.sun.color.setHex(0xffffff);
-        this.sun.intensity = 1.3;
+        sun.color.setHex(0xffffff);
+        sun.intensity = setting.sunIntensity;
 
-        this.moon.color.setHex(0x919091);
-        this.moon.intensity = 0.3;
+        moon.color.setHex(0x919091);
+        moon.intensity = setting.moonIntensity;
 
-        this.sun.position.set( 0, this.lightDistance, 10 );
-        this.moon.position.set( 0, -this.lightDistance, -10 );
+        sun.position.set( 0, lightDistance, 10 );
+        moon.position.set( 0, -lightDistance, -10 );
 
     },
 
     addLights: function () {
 
-        if( this.isWithLight ) return;
+        if( isLight ) return;
 
-    	this.sun = new THREE.DirectionalLight( 0xffffff, 1.3 );
-    	this.sun.position.set( 0, this.lightDistance, 10 );
+    	sun = new THREE.DirectionalLight( 0xffffff, setting.sunIntensity );
+    	sun.position.set( 0, lightDistance, 10 );
 
-    	this.moon = new THREE.DirectionalLight( 0x919091, 0.3 );//new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
-    	this.moon.position.set( 0, -this.lightDistance, -10 );
+    	moon = new THREE.DirectionalLight( 0x919091, setting.moonIntensity );//new THREE.PointLight( 0x919091, 1, this.lightDistance*2, 2 );
+    	moon.position.set( 0, -lightDistance, -10 );
 
         /*if( this.isWithSphereLight ){
             this.sphereLight = new THREE.HemisphereLight( 0xff0000, this.bg, 0.6 );
             this.sphereLight.position.set( 0, 1, 0 );
             this.followGroup.add( this.sphereLight );
-        }
+        }*/
 
-    	this.ambient = new THREE.AmbientLight( this.bg );*/
+        //sphereLight = new THREE.HemisphereLight( 0xff0000, bg, 0.0 );
+        //sphereLight.position.set( 0, 0, 0 );
+        //followGroup.add( sphereLight );
 
+        //probe = new THREE.LightProbe();
+        //followGroup.add( probe );
+
+    	//ambient = new THREE.AmbientLight( 0x202020 );
+        //followGroup.add( ambient );
         //this.ambient.position.set( 0, 50, 0 );
 
-    	this.followGroup.add( this.sun );
-        this.followGroup.add( this.sun.target );
-    	this.followGroup.add( this.moon );
-        this.followGroup.add( this.moon.target );
+    	followGroup.add( sun );
+        followGroup.add( sun.target );
+    	followGroup.add( moon );
+        followGroup.add( moon.target );
 
     	//this.scene.add( this.ambient );
 
@@ -73626,9 +74703,10 @@ View.prototype = {
         this.scene.add( this.moon );
         this.scene.add( this.ambient );*/
 
-        this.isWithLight = true;
+        isLight = true;
 
     },
+
 
     //-----------------------------
     //
@@ -73640,112 +74718,109 @@ View.prototype = {
 
         o = o || {};
 
-    	if( this.isWithShadow ) return;
-        if( !this.isWithLight ) this.addLights();
+    	if( isWithShadow ) return;
+        if( !isLight ) this.addLights();
 
-        if( this.shadowMat === null ){ 
+        if( shadowMat === null ){ 
 
-            this.shadowMat = new THREE.ShadowMaterial({ opacity:0.5, depthTest:true, depthWrite:false });
+            shadowMat = new THREE.ShadowMaterial({ opacity:0.5, depthTest:true, depthWrite:false });
 
-            // overwrite shadowmap code
-            /*var shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
-            shaderShadow = shaderShadow.replace( '#ifdef USE_SHADOWMAP', THREE.ShadowPCSS );
-            shaderShadow = shaderShadow.replace( '#if defined( SHADOWMAP_TYPE_PCF )',[ "return PCSS( shadowMap, shadowCoord );", "#if defined( SHADOWMAP_TYPE_PCF )"].join( "\n" ) );
+            if(isHighShadow){
 
-            this.shadowMat.onBeforeCompile = function ( shader ) {
+                // overwrite shadowmap code
+                var shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
+                shaderShadow = shaderShadow.replace( '#ifdef USE_SHADOWMAP', ShadowPCSS );
+                shaderShadow = shaderShadow.replace( '#if defined( SHADOWMAP_TYPE_PCF )',[ "return PCSS( shadowMap, shadowCoord );", "#if defined( SHADOWMAP_TYPE_PCF )"].join( "\n" ) );
 
-                var fragment = shader.fragmentShader;
-                fragment = fragment.replace( '#include <shadowmap_pars_fragment>', shaderShadow );
-                shader.fragmentShader = fragment;
+                shadowMat.onBeforeCompile = function ( shader ) {
 
-            }*/
+                    var fragment = shader.fragmentShader;
+                    fragment = fragment.replace( '#include <shadowmap_pars_fragment>', shaderShadow );
+                    shader.fragmentShader = fragment;
+
+                }
+
+            }
 
 
         }
 
-        this.isWithShadow = true;
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.soft = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        isWithShadow = true;
+        renderer.shadowMap.enabled = true;
 
-        this.shadowGround = new THREE.Mesh( this.geo.plane, this.shadowMat );
-        this.shadowGround.scale.set( 200, 1, 200 );
+        if( !isHighShadow ){
+            renderer.shadowMap.soft = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        }
+        
+
+        shadowGround = new THREE.Mesh( geo.plane, shadowMat );
+        shadowGround.scale.set( 200, 1, 200 );
         //this.shadowGround.position.y = 0.001;
-        this.shadowGround.castShadow = false;
-        this.shadowGround.receiveShadow = true;
-        this.scene.add( this.shadowGround );
+        shadowGround.castShadow = false;
+        shadowGround.receiveShadow = true;
+        scene.add( shadowGround );
 
         var d = 150;
         //this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
-        this.camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
+        camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
         //this.followGroup.add( this.camShadow );
-        this.sun.shadow = new THREE.LightShadow( this.camShadow );
+        sun.shadow = new THREE.LightShadow( camShadow );
 
-        this.sun.shadow.mapSize.width = o.resolution || 2048;
-        this.sun.shadow.mapSize.height = o.resolution || 2048;
-        this.sun.shadow.bias = o.bias || 0.00001;
+        sun.shadow.mapSize.width = o.resolution || 2048;
+        sun.shadow.mapSize.height = o.resolution || 2048;
+        sun.shadow.bias = o.bias || 0.00001;
         //this.sun.shadow.bias = 0.0001;
-        this.sun.castShadow = true;
+        sun.castShadow = true;
 
-        //for( var m in this.mat ) this.mat[m].shadowSide = false;
-
-        //
 
     },
 
-    setShadowRange: function ( d, near, far, debug, groundRange, groundPos ) {
+    setShadow: function ( o ) {
 
-        if( !this.isWithShadow ) return;
+        if( !isWithShadow ) return;
 
-        var cam = this.camShadow;
-        d = ( d !== undefined ) ? d : 150;
+        o = o || {};
+
+        var cam = camShadow;
+        var d = ( o.size !== undefined ) ? o.size : 150;
         cam.left =  d;
         cam.right = - d;
         cam.top =  d;
         cam.bottom = - d;
-        /*cam.left = - d;
-        cam.right =  d;
-        cam.top =  d;
-        cam.bottom = - d;*/
-        cam.near = ( near !== undefined ) ? near : 100;
-        cam.far = ( far !== undefined ) ? far : 300;
+        cam.near = ( o.near !== undefined ) ? o.near : 100;
+        cam.far = ( o.far !== undefined ) ? o.far : 300;
+        cam.updateProjectionMatrix();
 
-        var gr = groundRange || 100;
-        var py = groundPos || 0;
+        var gr = o.groundSize || 100;
+        var py = o.groundY || 0;
 
-        this.shadowGround.scale.set( gr*2, 1, gr*2 );
-        this.shadowGround.position.y = py;
+        shadowGround.scale.set( gr*2, 1, gr*2 );
+        shadowGround.position.y = py;
 
-        this.camShadow.updateProjectionMatrix();
-
-        if( debug ){
-            this.addShadowDebug();
-        }
-
-        //
+        if( o.debug ) this.addShadowDebug();
 
     },
 
     addShadowDebug: function () {
 
-        if( this.isShadowDebug ) {
-            this.campHelper.update();
+        if( isShadowDebug ) {
+            campHelper.update();
         } else {
-            this.campHelper = new THREE.CameraHelper( this.camShadow )
-            this.followGroup.add( this.campHelper );
-            this.isShadowDebug = true;
+            campHelper = new THREE.CameraHelper( camShadow )
+            followGroup.add( campHelper );
+            isShadowDebug = true;
         }
 
     },
 
     removeShadowDebug: function () {
 
-        if( !this.isShadowDebug ) return;
-        this.followGroup.remove( this.campHelper );
-        this.isShadowDebug = false;
+        if( !isShadowDebug ) return;
+        followGroup.remove( campHelper );
+        isShadowDebug = false;
 
     },
-
     
 
     //-----------------------------
@@ -73757,106 +74832,103 @@ View.prototype = {
     initGrid: function ( o ){
 
         o = o || {};
-
-        this.grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
-        this.grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
+        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
+        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
         //this.grid.position.y = -0.001;
-        //this.grid.rotation.x = -Math.Pi*0.5;
-        this.scene.add( this.grid );
+        scene.add( grid );
 
     },
 
     hideGrid: function ( notGround ) {
 
-        if( this.grid.visible ){ this.grid.visible = false; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = false; }
-        else{ this.grid.visible = true; if( this.shadowGround !== null && !notGround ) this.shadowGround.visible = true; }
+        if( grid.visible ){ grid.visible = false; if( shadowGround !== null && !notGround ) shadowGround.visible = false; }
+        else{ grid.visible = true; if( shadowGround !== null && !notGround ) shadowGround.visible = true; }
 
     },
+
 
     //-----------------------------
     //
     //  ENVIRONEMENT
+    //  need sky.js
     //
     //-----------------------------
 
-    removeSky: function () {
+    setEnvMap: function ( v ) {
 
-        //if( !this.isWithSky ) return;
-
-        this.environement.clear();
-        //this.isWithSky = false;
-
-        // default envmap spherical
-        //this.initEnvMap();
-        //this.updateEnvMap();
+        envmap = v;
 
     },
 
-    setSky: function () {
+    removeSky: function () {
+
+        if( envmap ) envmap.dispose();
+        envmap = null;
+
+        sky.clear();
+
+    },
+
+    setSky: function ( o ) {
+
+        if( !isLight ) this.addLights();
+        sky.setSky( o );
 
     },
 
     addSky: function ( o ) {
 
-        o = o || {};
-
-        //if( this.isWithSky ) return;
-        if( !this.isWithLight ) this.addLights();
-        //if( o.hdr && this.isMobile ) o.hdr = false;
-
-        this.environement.setSky( o );
-
-        //this.sky = new SuperSky( this, o );
-        //this.isWithSky = true;
+        if( !isLight ) this.addLights();
+        sky.setSky( o );
 
     },
 
     skyTimelap: function ( t, frame ) {
 
-        this.environement.timelap( t, frame );
+        sky.timelap( t, frame );
 
     },
 
     updateSky: function ( o ) {
 
-        //if( !this.isWithSky ) return;
-
-        this.environement.setOption( o );
+        sky.setOption( o );
 
     },
 
-    updateEnvMap: function (  ) {
+    updateEnvMap: function () {
 
-        var hdr = this.environement.isHdr;
-        var mat;
+        var hdr = sky.getHdr();
+        var mt;
 
         // intern material
-        for( var m in this.mat ){
+        for( var m in mat ){
 
-            mat = this.mat[m];
+            mt = mat[m];
 
-            if( mat.envMap !== undefined ){
-                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
-                else mat.envMap =  hdr ? null : this.envmap;
-                mat.needsUpdate = true;
+            if( mt.envMap !== undefined ){
+                if( mt.type === 'MeshStandardMaterial' ) mt.envMap = envmap;
+                else mt.envMap =  hdr ? null : envmap;
+                if( mt.wireframe ) mt.envMap = null;
+                mt.needsUpdate = true;
             }
 
         }
 
         // tmp material
-        for( var m in this.tmpMat ){
+        for( var m in tmpMat ){
 
-            mat = this.tmpMat[m];
+            mt = tmpMat[m];
 
-            if( mat.envMap !== undefined ){
-                if( mat.type === 'MeshStandardMaterial' ) mat.envMap = this.envmap;
-                else mat.envMap =  hdr ? null : this.envmap;
-                mat.needsUpdate = true;
+            if( mt.envMap !== undefined ){
+                if( mt.type === 'MeshStandardMaterial' ) mt.envMap = envmap;
+                else mt.envMap =  hdr ? null : envmap;
+                if( mt.wireframe ) mt.envMap = null;
+                mt.needsUpdate = true;
             }
 
         }
 
-        this.extraUpdateMat( this.envmap, hdr );
+        this.extraUpdateMat( envmap, hdr );
 
     },
 
@@ -73873,20 +74945,21 @@ View.prototype = {
 
     moveCam: function ( o, callback ) {
 
-        this.controler.moveCam( o, callback );
+        controler.moveCam( o, callback );
 
     },
 
     setFollow: function( name, o ){
 
-        if( name === 'none' ) this.controler.resetFollow();
+        if( name === 'none' ) controler.resetFollow();
         if( !this.byName[ name ] ) return;
         o = o || {};
 
-        this.controler.initFollow( this.byName[ name ], o );
+        controler.initFollow( this.byName[ name ], o );
         //this.controler.enableDamping = false;
 
     },
+
 
     //-----------------------------
     //
@@ -73896,61 +74969,61 @@ View.prototype = {
 
     activeRay: function ( callback, debug, size ) {
 
-        if( this.isWithRay ) return;
+        if( isRay ) return;
 
-        this.ray = new THREE.Raycaster();
+        ray = new THREE.Raycaster();
 
-        this.dragPlane = new THREE.Mesh( 
+        dragPlane = new THREE.Mesh( 
             debug ?  new THREE.PlaneBufferGeometry( 1, 1, 4, 4 ) : new THREE.PlaneBufferGeometry( 1, 1, 1, 1 ),  
             new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:debug ? 0.3 : 0, depthTest:false, depthWrite:false, wireframe: debug ? true : false })
         );
 
-        this.dragPlane.castShadow = false;
-        this.dragPlane.receiveShadow = false;
+        dragPlane.castShadow = false;
+        dragPlane.receiveShadow = false;
         this.setDragPlane( null, size );
-        this.scene.add( this.dragPlane );
+        scene.add( dragPlane );
 
         this.fray = function(e){ this.rayTest(e); }.bind( this );
-        this.mDown = function(e){ this.rayTest(e); this.mouse.z = 1; }.bind( this );
-        this.mUp = function(e){ this.mouse.z = 0; }.bind( this );
+        this.mDown = function(e){ this.rayTest(e); mouse.z = 1; }.bind( this );
+        this.mUp = function(e){ mouse.z = 0; }.bind( this );
 
-        this.canvas.addEventListener( 'mousemove', this.fray, false );
-        this.canvas.addEventListener( 'mousedown', this.mDown, false );
+        canvas.addEventListener( 'mousemove', this.fray, false );
+        canvas.addEventListener( 'mousedown', this.mDown, false );
         document.addEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = callback;
-        this.isWithRay = true;
+        isRay = true;
 
     },
 
     removeRay: function () {
 
-        if( !this.isWithRay ) return;
+        if( !isRay ) return;
 
-        this.canvas.removeEventListener( 'mousemove', this.fray, false );
-        this.canvas.removeEventListener( 'mousedown', this.mDown, false );
+        canvas.removeEventListener( 'mousemove', this.fray, false );
+        canvas.removeEventListener( 'mousedown', this.mDown, false );
         document.removeEventListener( 'mouseup', this.mUp, false );
 
         this.rayCallBack = function(){};
 
-        this.scene.remove( this.dragPlane );
+        scene.remove( dragPlane );
 
-        this.isWithRay = false;
-        this.offset.set( 0,0,0 );
+        isRay = false;
+        offset.set( 0,0,0 );
 
     },
 
     rayTest: function ( e ) {
 
-        this.mouse.x = ( (e.clientX - this.vs.x )/ this.vs.w ) * 2 - 1;
-        this.mouse.y = - ( e.clientY / this.vs.h ) * 2 + 1;
+        mouse.x = ( (e.clientX - vs.x )/ vs.w ) * 2 - 1;
+        mouse.y = - ( e.clientY / vs.h ) * 2 + 1;
 
-        this.ray.setFromCamera( this.mouse, this.camera );
+        ray.setFromCamera( mouse, camera );
         //var intersects = this.ray.intersectObjects( this.content.children, true );
-        var intersects = this.ray.intersectObject( this.dragPlane );
+        var intersects = ray.intersectObject( dragPlane );
         if ( intersects.length ){ 
-            this.offset.copy( intersects[0].point );
-            this.rayCallBack( this.offset );
+            offset.copy( intersects[0].point );
+            this.rayCallBack( offset );
         }
 
     },
@@ -73958,17 +75031,18 @@ View.prototype = {
     setDragPlane: function ( pos, size ) {
 
         size = size || 200;
-        this.dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
+        dragPlane.scale.set( 1, 1, 1 ).multiplyScalar( size );
         if( pos ){
-            this.dragPlane.position.fromArray( pos );
-            this.dragPlane.rotation.set( 0, this.controler.getAzimuthalAngle(), 0 );
+            dragPlane.position.fromArray( pos );
+            dragPlane.rotation.set( 0, controler.getAzimuthalAngle(), 0 );
             //this.dragPlane.lookAt( this.camera.position );
         } else {
-            this.dragPlane.position.set( 0, 0, 0 );
-            this.dragPlane.rotation.set( -Math.PI90, 0, 0 );
+            dragPlane.position.set( 0, 0, 0 );
+            dragPlane.rotation.set( -Math.PI90, 0, 0 );
         }
 
     },
+
 
     //--------------------------------------
     //
@@ -74006,38 +75080,49 @@ View.prototype = {
 
     },
 
+
     //--------------------------------------
     //
     //   Joystick support html / mobile
     //
     //--------------------------------------
 
-
     addJoystick: function ( o ) {
 
         if( !editor ) return;
-        if( this.isWithJoystick ) return;
+        if( isWithJoystick ) return;
 
         editor.addJoystick( o );
-        this.isWithJoystick = true;
+        isWithJoystick = true;
 
     },
 
     removeJoystick: function () {
 
         if( !editor ) return;
-        if( !this.isWithJoystick ) return;
+        if( !isWithJoystick ) return;
 
         editor.removeJoystick();
-        this.isWithJoystick = false;
+        isWithJoystick = false;
+
+    },
+
+    //--------------------------------------
+    //
+    //   FOLLOW
+    //
+    //--------------------------------------
+
+    centerPosition: function () {
+
+        return followGroup.position;
 
     },
 
     distanceFromCenter: function () {
 
-        var p = this.followGroup.position;
+        var p = followGroup.position;
         return Math.sqrt( p.x * p.x + p.z * p.z );
-
 
     },
 
@@ -74050,16 +75135,16 @@ View.prototype = {
 
     needAudio: function () {
 
-        this.autoAddAudio = this.autoAudio.bind( this )
-        this.canvas.addEventListener( 'click', this.autoAddAudio, false );
+        autoAddAudio = this.autoAudio.bind( this )
+        canvas.addEventListener( 'click', view.autoAddAudio, false );
 
     },
 
     autoAudio: function( e ){ 
 
         this.addAudio();
-        this.canvas.removeEventListener( 'click', this.autoAddAudio );
-        this.autoAddAudio = null;
+        canvas.removeEventListener( 'click', view.autoAddAudio );
+        autoAddAudio = null;
 
     },
 
@@ -74067,9 +75152,9 @@ View.prototype = {
 
         //this.needsAudio = true;
 
-        if( this.listener !== null ) return;
-        this.listener = new THREE.AudioListener();
-        this.camera.add( this.listener );
+        if( listener !== null ) return;
+        listener = new THREE.AudioListener();
+        camera.add( listener );
 
     },
 
@@ -74077,28 +75162,35 @@ View.prototype = {
 
         //this.needsAudio = false;
 
-        if( this.listener === null ) return;
+        if( listener === null ) return;
         
-        this.camera.remove( this.listener );
-        this.listener = null;
+        camera.remove( listener );
+        listener = null;
 
     },
 
 
     addSound: function ( name ){
 
-        if( this.listener === null ) this.addAudio();
+        if( listener === null ) this.addAudio();
 
         if(!pool.buffer[name]) return null;
 
-        var audio = new THREE.PositionalAudio( this.listener );
+        var audio = new THREE.PositionalAudio( listener );
         //audio.volume = 1;
         audio.setBuffer( pool.buffer[name] );
         return audio;
 
     },
 
-    shaderHack: function (){
+
+    //--------------------------------------
+    //
+    //   SHADER
+    //
+    //--------------------------------------
+
+    shaderHack: function () {
 
         THREE.ShaderChunk.aomap_fragment = [
             '#ifdef USE_AOMAP',
@@ -74111,11 +75203,14 @@ View.prototype = {
             '#endif',
         ].join("\n");
 
-
-        console.log('Shader hack')
-
-
     },
+
+
+    //--------------------------------------
+    //
+    //   JSON
+    //
+    //--------------------------------------
 
     loadJson: function ( link, callback ) {
 
@@ -74138,5 +75233,101 @@ View.prototype = {
 
     },
 
+    ////
+
 }
 
+return view;
+
+})();
+
+
+var ShadowPCSS = [
+
+    "#ifdef USE_SHADOWMAP",
+    "#define LIGHT_WORLD_SIZE 0.005",//0.005
+    "#define LIGHT_FRUSTUM_WIDTH 3.75",//3.75 // 1.75
+    "#define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)",
+    "#define NEAR_PLANE 9.5",
+    " ",
+    "#define NUM_SAMPLES 17",//17
+    "#define NUM_RINGS 11",//11
+    "#define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES",
+    "#define PCF_NUM_SAMPLES NUM_SAMPLES",
+    " ",
+    "vec2 poissonDisk[NUM_SAMPLES];",
+    " ",
+    "void initPoissonSamples( const in vec2 randomSeed ) {",
+    "   float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );",
+    "   float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );",
+
+    // jsfiddle that shows sample pattern: https://jsfiddle.net/a16ff1p7/
+    "   float angle = rand( randomSeed ) * PI2;",
+    "   float radius = INV_NUM_SAMPLES;",
+    "   float radiusStep = radius;",
+
+    "   for( int i = 0; i < NUM_SAMPLES; i ++ ) {",
+    "       poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( abs(radius), 0.75 );",
+    "       radius += radiusStep;",
+    "       angle += ANGLE_STEP;",
+    "   }",
+    "}",
+
+    "float penumbraSize( const in float zReceiver, const in float zBlocker ) { ",// Parallel plane estimation
+    "   return (zReceiver - zBlocker) / zBlocker;",
+    "}",
+
+    "float findBlocker( sampler2D shadowMap, const in vec2 uv, const in float zReceiver ) {",
+        // This uses similar triangles to compute what
+        // area of the shadow map we should search
+    "   float searchRadius = LIGHT_SIZE_UV * ( zReceiver - NEAR_PLANE ) / zReceiver;",
+    "   float blockerDepthSum = 0.0;",
+    "   int numBlockers = 0;",
+
+    "   for( int i = 0; i < BLOCKER_SEARCH_NUM_SAMPLES; i++ ) {",
+    "       float shadowMapDepth = unpackRGBAToDepth(texture2D(shadowMap, uv + poissonDisk[i] * searchRadius));",
+    "       if ( shadowMapDepth < zReceiver ) {",
+    "           blockerDepthSum += shadowMapDepth;",
+    "           numBlockers ++;",
+    "       }",
+    "   }",
+
+    "    if( numBlockers == 0 ) return -1.0;",
+
+    "    return blockerDepthSum / float( numBlockers );",
+    "}",
+
+    "float PCF_Filter( sampler2D shadowMap, vec2 uv, float zReceiver, float filterRadius ) {",
+    "    float sum = 0.0;",
+    "    for( int i = 0; i < PCF_NUM_SAMPLES; i ++ ) {",
+    "        float depth = unpackRGBAToDepth( texture2D( shadowMap, uv + poissonDisk[ i ] * filterRadius ) );",
+    "        if( zReceiver <= depth ) sum += 1.0;",
+    "    }",
+    "    for( int i = 0; i < PCF_NUM_SAMPLES; i ++ ) {",
+    "        float depth = unpackRGBAToDepth( texture2D( shadowMap, uv + -poissonDisk[ i ].yx * filterRadius ) );",
+    "        if( zReceiver <= depth ) sum += 1.0;",
+    "    }",
+    "    return sum / ( 2.0 * float( PCF_NUM_SAMPLES ) );",
+    "}",
+
+    "float PCSS ( sampler2D shadowMap, vec4 coords ) {",
+    "    vec2 uv = coords.xy;",
+    "    float zReceiver = coords.z;", // Assumed to be eye-space z in this code
+
+    "    initPoissonSamples( uv );",
+        // STEP 1: blocker search
+    "    float avgBlockerDepth = findBlocker( shadowMap, uv, zReceiver );",
+
+        //There are no occluders so early out (this saves filtering)
+    "    if( avgBlockerDepth == -1.0 ) return 1.0;",
+
+        // STEP 2: penumbra size
+    "    float penumbraRatio = penumbraSize( zReceiver, avgBlockerDepth );",
+    "    float filterRadius = penumbraRatio * LIGHT_SIZE_UV * NEAR_PLANE / zReceiver;",
+        
+        // STEP 3: filtering
+        // return avgBlockerDepth;
+    "    return PCF_Filter( shadowMap, uv, zReceiver, filterRadius );",
+    "}",
+
+].join( "\n" );
