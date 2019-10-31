@@ -50,8 +50,6 @@ body{ font-family:Monospace; background-color:#333; }
 <body>
 <script>
 
-var user;
-var ui, gr1;
 var current = '';
 var autoRotation = true;
 
@@ -102,7 +100,7 @@ view.update = function(){
 
 }
 
-ui = new UIL.Gui( { w:320, h:30, close:false } );
+var ui = new UIL.Gui( { w:320, h:30, close:false } );
 ui.add('fps', { height:30 });
 
 var gr0 = ui.add('group', { name:'Geometry', h:30 });
@@ -114,7 +112,7 @@ gr0.add('bool', { name:'wireframe', value:true, inh:20, p:80 }).onChange( functi
 gr0.add('bool', { name:'autoRotate', value:autoRotation, inh:20, p:80 }).onChange( function(b){ autoRotation = b } );
 gr0.open();
 
-gr1 = ui.add('group', { name:'Option', h:30 });
+var gr1 = ui.add('group', { name:'Option', h:30 });
 
 make('ChamferCyl');
 

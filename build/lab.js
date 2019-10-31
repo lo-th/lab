@@ -11138,6 +11138,15 @@ var WebGL2ComputeRenderingContext;
 
 			}
 
+			// check unsupported draw modes
+
+			if ( this.drawMode !== TrianglesDrawMode ) {
+
+				console.warn( 'THREE.Mesh: TriangleStripDrawMode and TriangleFanDrawMode are not supported by .raycast().' );
+				return;
+
+			}
+
 			var intersection;
 
 			if ( geometry.isBufferGeometry ) {
@@ -14076,7 +14085,7 @@ var WebGL2ComputeRenderingContext;
 
 	var encodings_pars_fragment = "\nvec4 LinearToLinear( in vec4 value ) {\n\treturn value;\n}\nvec4 GammaToLinear( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.rgb, vec3( gammaFactor ) ), value.a );\n}\nvec4 LinearToGamma( in vec4 value, in float gammaFactor ) {\n\treturn vec4( pow( value.rgb, vec3( 1.0 / gammaFactor ) ), value.a );\n}\nvec4 sRGBToLinear( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), value.rgb * 0.0773993808, vec3( lessThanEqual( value.rgb, vec3( 0.04045 ) ) ) ), value.a );\n}\nvec4 LinearTosRGB( in vec4 value ) {\n\treturn vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );\n}\nvec4 RGBEToLinear( in vec4 value ) {\n\treturn vec4( value.rgb * exp2( value.a * 255.0 - 128.0 ), 1.0 );\n}\nvec4 LinearToRGBE( in vec4 value ) {\n\tfloat maxComponent = max( max( value.r, value.g ), value.b );\n\tfloat fExp = clamp( ceil( log2( maxComponent ) ), -128.0, 127.0 );\n\treturn vec4( value.rgb / exp2( fExp ), ( fExp + 128.0 ) / 255.0 );\n}\nvec4 RGBMToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.rgb * value.a * maxRange, 1.0 );\n}\nvec4 LinearToRGBM( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.r, max( value.g, value.b ) );\n\tfloat M = clamp( maxRGB / maxRange, 0.0, 1.0 );\n\tM = ceil( M * 255.0 ) / 255.0;\n\treturn vec4( value.rgb / ( M * maxRange ), M );\n}\nvec4 RGBDToLinear( in vec4 value, in float maxRange ) {\n\treturn vec4( value.rgb * ( ( maxRange / 255.0 ) / value.a ), 1.0 );\n}\nvec4 LinearToRGBD( in vec4 value, in float maxRange ) {\n\tfloat maxRGB = max( value.r, max( value.g, value.b ) );\n\tfloat D = max( maxRange / maxRGB, 1.0 );\n\tD = min( floor( D ) / 255.0, 1.0 );\n\treturn vec4( value.rgb * ( D * ( 255.0 / maxRange ) ), D );\n}\nconst mat3 cLogLuvM = mat3( 0.2209, 0.3390, 0.4184, 0.1138, 0.6780, 0.7319, 0.0102, 0.1130, 0.2969 );\nvec4 LinearToLogLuv( in vec4 value )  {\n\tvec3 Xp_Y_XYZp = cLogLuvM * value.rgb;\n\tXp_Y_XYZp = max( Xp_Y_XYZp, vec3( 1e-6, 1e-6, 1e-6 ) );\n\tvec4 vResult;\n\tvResult.xy = Xp_Y_XYZp.xy / Xp_Y_XYZp.z;\n\tfloat Le = 2.0 * log2(Xp_Y_XYZp.y) + 127.0;\n\tvResult.w = fract( Le );\n\tvResult.z = ( Le - ( floor( vResult.w * 255.0 ) ) / 255.0 ) / 255.0;\n\treturn vResult;\n}\nconst mat3 cLogLuvInverseM = mat3( 6.0014, -2.7008, -1.7996, -1.3320, 3.1029, -5.7721, 0.3008, -1.0882, 5.6268 );\nvec4 LogLuvToLinear( in vec4 value ) {\n\tfloat Le = value.z * 255.0 + value.w;\n\tvec3 Xp_Y_XYZp;\n\tXp_Y_XYZp.y = exp2( ( Le - 127.0 ) / 2.0 );\n\tXp_Y_XYZp.z = Xp_Y_XYZp.y / value.y;\n\tXp_Y_XYZp.x = value.x * Xp_Y_XYZp.z;\n\tvec3 vRGB = cLogLuvInverseM * Xp_Y_XYZp.rgb;\n\treturn vec4( max( vRGB, 0.0 ), 1.0 );\n}";
 
-	var envmap_fragment = "#ifdef USE_ENVMAP\n\t#ifdef ENV_WORLDPOS\n\t\tvec3 cameraToVertex = normalize( vWorldPosition - cameraPosition );\n\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvec3 reflectVec = reflect( cameraToVertex, worldNormal );\n\t\t#else\n\t\t\tvec3 reflectVec = refract( cameraToVertex, worldNormal, refractionRatio );\n\t\t#endif\n\t#else\n\t\tvec3 reflectVec = vReflect;\n\t#endif\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 envColor = textureCube( envMap, vec3( flipEnvMap * reflectVec.x, reflectVec.yz ) );\n\t#elif defined( ENVMAP_TYPE_EQUIREC )\n\t\tvec2 sampleUV;\n\t\treflectVec = normalize( reflectVec );\n\t\tsampleUV.y = asin( clamp( reflectVec.y, - 1.0, 1.0 ) ) * RECIPROCAL_PI + 0.5;\n\t\tsampleUV.x = atan( reflectVec.z, reflectVec.x ) * RECIPROCAL_PI2 + 0.5;\n\t\tvec4 envColor = texture2D( envMap, sampleUV );\n\t#elif defined( ENVMAP_TYPE_SPHERE )\n\t\treflectVec = normalize( reflectVec );\n\t\tvec3 reflectView = normalize( ( viewMatrix * vec4( reflectVec, 0.0 ) ).xyz + vec3( 0.0, 0.0, 1.0 ) );\n\t\tvec4 envColor = texture2D( envMap, reflectView.xy * 0.5 + 0.5 );\n\t#else\n\t\tvec4 envColor = vec4( 0.0 );\n\t#endif\n\tenvColor = envMapTexelToLinear( envColor );\n\t#ifdef ENVMAP_BLENDING_MULTIPLY\n\t\toutgoingLight = mix( outgoingLight, outgoingLight * envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_MIX )\n\t\toutgoingLight = mix( outgoingLight, envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_ADD )\n\t\toutgoingLight += envColor.xyz * specularStrength * reflectivity;\n\t#endif\n#endif";
+	var envmap_fragment = "#ifdef USE_ENVMAP\n\t#ifdef ENV_WORLDPOS\n\t\tvec3 cameraToFrag;\n\t\t\n\t\tif ( isOrthographic ) {\n\t\t\tcameraToFrag = normalize( vec3( - viewMatrix[ 0 ][ 2 ], - viewMatrix[ 1 ][ 2 ], - viewMatrix[ 2 ][ 2 ] ) );\n\t\t}  else {\n\t\t\tcameraToFrag = normalize( vWorldPosition - cameraPosition );\n\t\t}\n\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvec3 reflectVec = reflect( cameraToFrag, worldNormal );\n\t\t#else\n\t\t\tvec3 reflectVec = refract( cameraToFrag, worldNormal, refractionRatio );\n\t\t#endif\n\t#else\n\t\tvec3 reflectVec = vReflect;\n\t#endif\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 envColor = textureCube( envMap, vec3( flipEnvMap * reflectVec.x, reflectVec.yz ) );\n\t#elif defined( ENVMAP_TYPE_EQUIREC )\n\t\tvec2 sampleUV;\n\t\treflectVec = normalize( reflectVec );\n\t\tsampleUV.y = asin( clamp( reflectVec.y, - 1.0, 1.0 ) ) * RECIPROCAL_PI + 0.5;\n\t\tsampleUV.x = atan( reflectVec.z, reflectVec.x ) * RECIPROCAL_PI2 + 0.5;\n\t\tvec4 envColor = texture2D( envMap, sampleUV );\n\t#elif defined( ENVMAP_TYPE_SPHERE )\n\t\treflectVec = normalize( reflectVec );\n\t\tvec3 reflectView = normalize( ( viewMatrix * vec4( reflectVec, 0.0 ) ).xyz + vec3( 0.0, 0.0, 1.0 ) );\n\t\tvec4 envColor = texture2D( envMap, reflectView.xy * 0.5 + 0.5 );\n\t#else\n\t\tvec4 envColor = vec4( 0.0 );\n\t#endif\n\tenvColor = envMapTexelToLinear( envColor );\n\t#ifdef ENVMAP_BLENDING_MULTIPLY\n\t\toutgoingLight = mix( outgoingLight, outgoingLight * envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_MIX )\n\t\toutgoingLight = mix( outgoingLight, envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_ADD )\n\t\toutgoingLight += envColor.xyz * specularStrength * reflectivity;\n\t#endif\n#endif";
 
 	var envmap_common_pars_fragment = "#ifdef USE_ENVMAP\n\tuniform float envMapIntensity;\n\tuniform float flipEnvMap;\n\tuniform int maxMipLevel;\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tuniform samplerCube envMap;\n\t#else\n\t\tuniform sampler2D envMap;\n\t#endif\n\t\n#endif";
 
@@ -14084,7 +14093,7 @@ var WebGL2ComputeRenderingContext;
 
 	var envmap_pars_vertex = "#ifdef USE_ENVMAP\n\t#if defined( USE_BUMPMAP ) || defined( USE_NORMALMAP ) ||defined( PHONG )\n\t\t#define ENV_WORLDPOS\n\t#endif\n\t#ifdef ENV_WORLDPOS\n\t\t\n\t\tvarying vec3 vWorldPosition;\n\t#else\n\t\tvarying vec3 vReflect;\n\t\tuniform float refractionRatio;\n\t#endif\n#endif";
 
-	var envmap_vertex = "#ifdef USE_ENVMAP\n\t#ifdef ENV_WORLDPOS\n\t\tvWorldPosition = worldPosition.xyz;\n\t#else\n\t\tvec3 cameraToVertex = normalize( worldPosition.xyz - cameraPosition );\n\t\tvec3 worldNormal = inverseTransformDirection( transformedNormal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvReflect = reflect( cameraToVertex, worldNormal );\n\t\t#else\n\t\t\tvReflect = refract( cameraToVertex, worldNormal, refractionRatio );\n\t\t#endif\n\t#endif\n#endif";
+	var envmap_vertex = "#ifdef USE_ENVMAP\n\t#ifdef ENV_WORLDPOS\n\t\tvWorldPosition = worldPosition.xyz;\n\t#else\n\t\tvec3 cameraToVertex;\n\t\tif ( isOrthographic ) { \n\t\t\tcameraToVertex = normalize( vec3( - viewMatrix[ 0 ][ 2 ], - viewMatrix[ 1 ][ 2 ], - viewMatrix[ 2 ][ 2 ] ) );\n\t\t} else {\n\t\t\tcameraToVertex = normalize( worldPosition.xyz - cameraPosition );\n\t\t}\n\t\tvec3 worldNormal = inverseTransformDirection( transformedNormal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvReflect = reflect( cameraToVertex, worldNormal );\n\t\t#else\n\t\t\tvReflect = refract( cameraToVertex, worldNormal, refractionRatio );\n\t\t#endif\n\t#endif\n#endif";
 
 	var fog_vertex = "#ifdef USE_FOG\n\tfogDepth = -mvPosition.z;\n#endif";
 
@@ -14100,7 +14109,7 @@ var WebGL2ComputeRenderingContext;
 
 	var lightmap_pars_fragment = "#ifdef USE_LIGHTMAP\n\tuniform sampler2D lightMap;\n\tuniform float lightMapIntensity;\n#endif";
 
-	var lights_lambert_vertex = "vec3 diffuse = vec3( 1.0 );\nGeometricContext geometry;\ngeometry.position = mvPosition.xyz;\ngeometry.normal = normalize( transformedNormal );\ngeometry.viewDir = normalize( -mvPosition.xyz );\nGeometricContext backGeometry;\nbackGeometry.position = geometry.position;\nbackGeometry.normal = -geometry.normal;\nbackGeometry.viewDir = geometry.viewDir;\nvLightFront = vec3( 0.0 );\nvIndirectFront = vec3( 0.0 );\n#ifdef DOUBLE_SIDED\n\tvLightBack = vec3( 0.0 );\n\tvIndirectBack = vec3( 0.0 );\n#endif\nIncidentLight directLight;\nfloat dotNL;\nvec3 directLightColor_Diffuse;\n#if NUM_POINT_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\t\tgetPointDirectLightIrradiance( pointLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_SPOT_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\t\tgetSpotDirectLightIrradiance( spotLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_DIR_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {\n\t\tgetDirectionalDirectLightIrradiance( directionalLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_HEMI_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {\n\t\tvIndirectFront += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry );\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvIndirectBack += getHemisphereLightIrradiance( hemisphereLights[ i ], backGeometry );\n\t\t#endif\n\t}\n#endif";
+	var lights_lambert_vertex = "vec3 diffuse = vec3( 1.0 );\nGeometricContext geometry;\ngeometry.position = mvPosition.xyz;\ngeometry.normal = normalize( transformedNormal );\ngeometry.viewDir = ( isOrthographic ) ? vec3( 0, 0, 1 ) : normalize( -mvPosition.xyz );\nGeometricContext backGeometry;\nbackGeometry.position = geometry.position;\nbackGeometry.normal = -geometry.normal;\nbackGeometry.viewDir = geometry.viewDir;\nvLightFront = vec3( 0.0 );\nvIndirectFront = vec3( 0.0 );\n#ifdef DOUBLE_SIDED\n\tvLightBack = vec3( 0.0 );\n\tvIndirectBack = vec3( 0.0 );\n#endif\nIncidentLight directLight;\nfloat dotNL;\nvec3 directLightColor_Diffuse;\n#if NUM_POINT_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\t\tgetPointDirectLightIrradiance( pointLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_SPOT_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\t\tgetSpotDirectLightIrradiance( spotLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_DIR_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {\n\t\tgetDirectionalDirectLightIrradiance( directionalLights[ i ], geometry, directLight );\n\t\tdotNL = dot( geometry.normal, directLight.direction );\n\t\tdirectLightColor_Diffuse = PI * directLight.color;\n\t\tvLightFront += saturate( dotNL ) * directLightColor_Diffuse;\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvLightBack += saturate( -dotNL ) * directLightColor_Diffuse;\n\t\t#endif\n\t}\n#endif\n#if NUM_HEMI_LIGHTS > 0\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {\n\t\tvIndirectFront += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry );\n\t\t#ifdef DOUBLE_SIDED\n\t\t\tvIndirectBack += getHemisphereLightIrradiance( hemisphereLights[ i ], backGeometry );\n\t\t#endif\n\t}\n#endif";
 
 	var lights_pars_begin = "uniform bool receiveShadow;\nuniform vec3 ambientLightColor;\nuniform vec3 lightProbe[ 9 ];\nvec3 shGetIrradianceAt( in vec3 normal, in vec3 shCoefficients[ 9 ] ) {\n\tfloat x = normal.x, y = normal.y, z = normal.z;\n\tvec3 result = shCoefficients[ 0 ] * 0.886227;\n\tresult += shCoefficients[ 1 ] * 2.0 * 0.511664 * y;\n\tresult += shCoefficients[ 2 ] * 2.0 * 0.511664 * z;\n\tresult += shCoefficients[ 3 ] * 2.0 * 0.511664 * x;\n\tresult += shCoefficients[ 4 ] * 2.0 * 0.429043 * x * y;\n\tresult += shCoefficients[ 5 ] * 2.0 * 0.429043 * y * z;\n\tresult += shCoefficients[ 6 ] * ( 0.743125 * z * z - 0.247708 );\n\tresult += shCoefficients[ 7 ] * 2.0 * 0.429043 * x * z;\n\tresult += shCoefficients[ 8 ] * 0.429043 * ( x * x - y * y );\n\treturn result;\n}\nvec3 getLightProbeIrradiance( const in vec3 lightProbe[ 9 ], const in GeometricContext geometry ) {\n\tvec3 worldNormal = inverseTransformDirection( geometry.normal, viewMatrix );\n\tvec3 irradiance = shGetIrradianceAt( worldNormal, lightProbe );\n\treturn irradiance;\n}\nvec3 getAmbientLightIrradiance( const in vec3 ambientLightColor ) {\n\tvec3 irradiance = ambientLightColor;\n\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\tirradiance *= PI;\n\t#endif\n\treturn irradiance;\n}\n#if NUM_DIR_LIGHTS > 0\n\tstruct DirectionalLight {\n\t\tvec3 direction;\n\t\tvec3 color;\n\t\tint shadow;\n\t\tfloat shadowBias;\n\t\tfloat shadowRadius;\n\t\tvec2 shadowMapSize;\n\t};\n\tuniform DirectionalLight directionalLights[ NUM_DIR_LIGHTS ];\n\tvoid getDirectionalDirectLightIrradiance( const in DirectionalLight directionalLight, const in GeometricContext geometry, out IncidentLight directLight ) {\n\t\tdirectLight.color = directionalLight.color;\n\t\tdirectLight.direction = directionalLight.direction;\n\t\tdirectLight.visible = true;\n\t}\n#endif\n#if NUM_POINT_LIGHTS > 0\n\tstruct PointLight {\n\t\tvec3 position;\n\t\tvec3 color;\n\t\tfloat distance;\n\t\tfloat decay;\n\t\tint shadow;\n\t\tfloat shadowBias;\n\t\tfloat shadowRadius;\n\t\tvec2 shadowMapSize;\n\t\tfloat shadowCameraNear;\n\t\tfloat shadowCameraFar;\n\t};\n\tuniform PointLight pointLights[ NUM_POINT_LIGHTS ];\n\tvoid getPointDirectLightIrradiance( const in PointLight pointLight, const in GeometricContext geometry, out IncidentLight directLight ) {\n\t\tvec3 lVector = pointLight.position - geometry.position;\n\t\tdirectLight.direction = normalize( lVector );\n\t\tfloat lightDistance = length( lVector );\n\t\tdirectLight.color = pointLight.color;\n\t\tdirectLight.color *= punctualLightIntensityToIrradianceFactor( lightDistance, pointLight.distance, pointLight.decay );\n\t\tdirectLight.visible = ( directLight.color != vec3( 0.0 ) );\n\t}\n#endif\n#if NUM_SPOT_LIGHTS > 0\n\tstruct SpotLight {\n\t\tvec3 position;\n\t\tvec3 direction;\n\t\tvec3 color;\n\t\tfloat distance;\n\t\tfloat decay;\n\t\tfloat coneCos;\n\t\tfloat penumbraCos;\n\t\tint shadow;\n\t\tfloat shadowBias;\n\t\tfloat shadowRadius;\n\t\tvec2 shadowMapSize;\n\t};\n\tuniform SpotLight spotLights[ NUM_SPOT_LIGHTS ];\n\tvoid getSpotDirectLightIrradiance( const in SpotLight spotLight, const in GeometricContext geometry, out IncidentLight directLight  ) {\n\t\tvec3 lVector = spotLight.position - geometry.position;\n\t\tdirectLight.direction = normalize( lVector );\n\t\tfloat lightDistance = length( lVector );\n\t\tfloat angleCos = dot( directLight.direction, spotLight.direction );\n\t\tif ( angleCos > spotLight.coneCos ) {\n\t\t\tfloat spotEffect = smoothstep( spotLight.coneCos, spotLight.penumbraCos, angleCos );\n\t\t\tdirectLight.color = spotLight.color;\n\t\t\tdirectLight.color *= spotEffect * punctualLightIntensityToIrradianceFactor( lightDistance, spotLight.distance, spotLight.decay );\n\t\t\tdirectLight.visible = true;\n\t\t} else {\n\t\t\tdirectLight.color = vec3( 0.0 );\n\t\t\tdirectLight.visible = false;\n\t\t}\n\t}\n#endif\n#if NUM_RECT_AREA_LIGHTS > 0\n\tstruct RectAreaLight {\n\t\tvec3 color;\n\t\tvec3 position;\n\t\tvec3 halfWidth;\n\t\tvec3 halfHeight;\n\t};\n\tuniform sampler2D ltc_1;\tuniform sampler2D ltc_2;\n\tuniform RectAreaLight rectAreaLights[ NUM_RECT_AREA_LIGHTS ];\n#endif\n#if NUM_HEMI_LIGHTS > 0\n\tstruct HemisphereLight {\n\t\tvec3 direction;\n\t\tvec3 skyColor;\n\t\tvec3 groundColor;\n\t};\n\tuniform HemisphereLight hemisphereLights[ NUM_HEMI_LIGHTS ];\n\tvec3 getHemisphereLightIrradiance( const in HemisphereLight hemiLight, const in GeometricContext geometry ) {\n\t\tfloat dotNL = dot( geometry.normal, hemiLight.direction );\n\t\tfloat hemiDiffuseWeight = 0.5 * dotNL + 0.5;\n\t\tvec3 irradiance = mix( hemiLight.groundColor, hemiLight.skyColor, hemiDiffuseWeight );\n\t\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\t\tirradiance *= PI;\n\t\t#endif\n\t\treturn irradiance;\n\t}\n#endif";
 
@@ -14114,7 +14123,7 @@ var WebGL2ComputeRenderingContext;
 
 	var lights_physical_pars_fragment = "struct PhysicalMaterial {\n\tvec3\tdiffuseColor;\n\tfloat\tspecularRoughness;\n\tvec3\tspecularColor;\n#ifdef CLEARCOAT\n\tfloat clearcoat;\n\tfloat clearcoatRoughness;\n#endif\n#ifdef USE_SHEEN\n\tvec3 sheenColor;\n#endif\n};\n#define MAXIMUM_SPECULAR_COEFFICIENT 0.16\n#define DEFAULT_SPECULAR_COEFFICIENT 0.04\nfloat clearcoatDHRApprox( const in float roughness, const in float dotNL ) {\n\treturn DEFAULT_SPECULAR_COEFFICIENT + ( 1.0 - DEFAULT_SPECULAR_COEFFICIENT ) * ( pow( 1.0 - dotNL, 5.0 ) * pow( 1.0 - roughness, 2.0 ) );\n}\n#if NUM_RECT_AREA_LIGHTS > 0\n\tvoid RE_Direct_RectArea_Physical( const in RectAreaLight rectAreaLight, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {\n\t\tvec3 normal = geometry.normal;\n\t\tvec3 viewDir = geometry.viewDir;\n\t\tvec3 position = geometry.position;\n\t\tvec3 lightPos = rectAreaLight.position;\n\t\tvec3 halfWidth = rectAreaLight.halfWidth;\n\t\tvec3 halfHeight = rectAreaLight.halfHeight;\n\t\tvec3 lightColor = rectAreaLight.color;\n\t\tfloat roughness = material.specularRoughness;\n\t\tvec3 rectCoords[ 4 ];\n\t\trectCoords[ 0 ] = lightPos + halfWidth - halfHeight;\t\trectCoords[ 1 ] = lightPos - halfWidth - halfHeight;\n\t\trectCoords[ 2 ] = lightPos - halfWidth + halfHeight;\n\t\trectCoords[ 3 ] = lightPos + halfWidth + halfHeight;\n\t\tvec2 uv = LTC_Uv( normal, viewDir, roughness );\n\t\tvec4 t1 = texture2D( ltc_1, uv );\n\t\tvec4 t2 = texture2D( ltc_2, uv );\n\t\tmat3 mInv = mat3(\n\t\t\tvec3( t1.x, 0, t1.y ),\n\t\t\tvec3(    0, 1,    0 ),\n\t\t\tvec3( t1.z, 0, t1.w )\n\t\t);\n\t\tvec3 fresnel = ( material.specularColor * t2.x + ( vec3( 1.0 ) - material.specularColor ) * t2.y );\n\t\treflectedLight.directSpecular += lightColor * fresnel * LTC_Evaluate( normal, viewDir, position, mInv, rectCoords );\n\t\treflectedLight.directDiffuse += lightColor * material.diffuseColor * LTC_Evaluate( normal, viewDir, position, mat3( 1.0 ), rectCoords );\n\t}\n#endif\nvoid RE_Direct_Physical( const in IncidentLight directLight, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {\n\tfloat dotNL = saturate( dot( geometry.normal, directLight.direction ) );\n\tvec3 irradiance = dotNL * directLight.color;\n\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\tirradiance *= PI;\n\t#endif\n\t#ifdef CLEARCOAT\n\t\tfloat ccDotNL = saturate( dot( geometry.clearcoatNormal, directLight.direction ) );\n\t\tvec3 ccIrradiance = ccDotNL * directLight.color;\n\t\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\t\tccIrradiance *= PI;\n\t\t#endif\n\t\tfloat clearcoatDHR = material.clearcoat * clearcoatDHRApprox( material.clearcoatRoughness, ccDotNL );\n\t\treflectedLight.directSpecular += ccIrradiance * material.clearcoat * BRDF_Specular_GGX( directLight, geometry.viewDir, geometry.clearcoatNormal, vec3( DEFAULT_SPECULAR_COEFFICIENT ), material.clearcoatRoughness );\n\t#else\n\t\tfloat clearcoatDHR = 0.0;\n\t#endif\n\t#ifdef USE_SHEEN\n\t\treflectedLight.directSpecular += ( 1.0 - clearcoatDHR ) * irradiance * BRDF_Specular_Sheen(\n\t\t\tmaterial.specularRoughness,\n\t\t\tdirectLight.direction,\n\t\t\tgeometry,\n\t\t\tmaterial.sheenColor\n\t\t);\n\t#else\n\t\treflectedLight.directSpecular += ( 1.0 - clearcoatDHR ) * irradiance * BRDF_Specular_GGX( directLight, geometry.viewDir, geometry.normal, material.specularColor, material.specularRoughness);\n\t#endif\n\treflectedLight.directDiffuse += ( 1.0 - clearcoatDHR ) * irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n}\nvoid RE_IndirectDiffuse_Physical( const in vec3 irradiance, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {\n\treflectedLight.indirectDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n}\nvoid RE_IndirectSpecular_Physical( const in vec3 radiance, const in vec3 irradiance, const in vec3 clearcoatRadiance, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {\n\t#ifdef CLEARCOAT\n\t\tfloat ccDotNV = saturate( dot( geometry.clearcoatNormal, geometry.viewDir ) );\n\t\treflectedLight.indirectSpecular += clearcoatRadiance * material.clearcoat * BRDF_Specular_GGX_Environment( geometry.viewDir, geometry.clearcoatNormal, vec3( DEFAULT_SPECULAR_COEFFICIENT ), material.clearcoatRoughness );\n\t\tfloat ccDotNL = ccDotNV;\n\t\tfloat clearcoatDHR = material.clearcoat * clearcoatDHRApprox( material.clearcoatRoughness, ccDotNL );\n\t#else\n\t\tfloat clearcoatDHR = 0.0;\n\t#endif\n\tfloat clearcoatInv = 1.0 - clearcoatDHR;\n\tvec3 singleScattering = vec3( 0.0 );\n\tvec3 multiScattering = vec3( 0.0 );\n\tvec3 cosineWeightedIrradiance = irradiance * RECIPROCAL_PI;\n\tBRDF_Specular_Multiscattering_Environment( geometry, material.specularColor, material.specularRoughness, singleScattering, multiScattering );\n\tvec3 diffuse = material.diffuseColor * ( 1.0 - ( singleScattering + multiScattering ) );\n\treflectedLight.indirectSpecular += clearcoatInv * radiance * singleScattering;\n\treflectedLight.indirectSpecular += multiScattering * cosineWeightedIrradiance;\n\treflectedLight.indirectDiffuse += diffuse * cosineWeightedIrradiance;\n}\n#define RE_Direct\t\t\t\tRE_Direct_Physical\n#define RE_Direct_RectArea\t\tRE_Direct_RectArea_Physical\n#define RE_IndirectDiffuse\t\tRE_IndirectDiffuse_Physical\n#define RE_IndirectSpecular\t\tRE_IndirectSpecular_Physical\nfloat computeSpecularOcclusion( const in float dotNV, const in float ambientOcclusion, const in float roughness ) {\n\treturn saturate( pow( dotNV + ambientOcclusion, exp2( - 16.0 * roughness - 1.0 ) ) - 1.0 + ambientOcclusion );\n}";
 
-	var lights_fragment_begin = "\nGeometricContext geometry;\ngeometry.position = - vViewPosition;\ngeometry.normal = normal;\ngeometry.viewDir = normalize( vViewPosition );\n#ifdef CLEARCOAT\n\tgeometry.clearcoatNormal = clearcoatNormal;\n#endif\nIncidentLight directLight;\n#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )\n\tPointLight pointLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\t\tpointLight = pointLights[ i ];\n\t\tgetPointDirectLightIrradiance( pointLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_POINT_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( pointLight.shadow, directLight.visible, receiveShadow ) ) ? getPointShadow( pointShadowMap[ i ], pointLight.shadowMapSize, pointLight.shadowBias, pointLight.shadowRadius, vPointShadowCoord[ i ], pointLight.shadowCameraNear, pointLight.shadowCameraFar ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )\n\tSpotLight spotLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\t\tspotLight = spotLights[ i ];\n\t\tgetSpotDirectLightIrradiance( spotLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( spotLight.shadow, directLight.visible, receiveShadow ) ) ? getShadow( spotShadowMap[ i ], spotLight.shadowMapSize, spotLight.shadowBias, spotLight.shadowRadius, vSpotShadowCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )\n\tDirectionalLight directionalLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {\n\t\tdirectionalLight = directionalLights[ i ];\n\t\tgetDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( directionalLight.shadow, directLight.visible, receiveShadow ) ) ? getShadow( directionalShadowMap[ i ], directionalLight.shadowMapSize, directionalLight.shadowBias, directionalLight.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_RECT_AREA_LIGHTS > 0 ) && defined( RE_Direct_RectArea )\n\tRectAreaLight rectAreaLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_RECT_AREA_LIGHTS; i ++ ) {\n\t\trectAreaLight = rectAreaLights[ i ];\n\t\tRE_Direct_RectArea( rectAreaLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if defined( RE_IndirectDiffuse )\n\tvec3 iblIrradiance = vec3( 0.0 );\n\tvec3 irradiance = getAmbientLightIrradiance( ambientLightColor );\n\tirradiance += getLightProbeIrradiance( lightProbe, geometry );\n\t#if ( NUM_HEMI_LIGHTS > 0 )\n\t\t#pragma unroll_loop\n\t\tfor ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {\n\t\t\tirradiance += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry );\n\t\t}\n\t#endif\n#endif\n#if defined( RE_IndirectSpecular )\n\tvec3 radiance = vec3( 0.0 );\n\tvec3 clearcoatRadiance = vec3( 0.0 );\n#endif";
+	var lights_fragment_begin = "\nGeometricContext geometry;\ngeometry.position = - vViewPosition;\ngeometry.normal = normal;\ngeometry.viewDir = ( isOrthographic ) ? vec3( 0, 0, 1 ) : normalize( vViewPosition );\n#ifdef CLEARCOAT\n\tgeometry.clearcoatNormal = clearcoatNormal;\n#endif\nIncidentLight directLight;\n#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )\n\tPointLight pointLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\t\tpointLight = pointLights[ i ];\n\t\tgetPointDirectLightIrradiance( pointLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_POINT_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( pointLight.shadow, directLight.visible, receiveShadow ) ) ? getPointShadow( pointShadowMap[ i ], pointLight.shadowMapSize, pointLight.shadowBias, pointLight.shadowRadius, vPointShadowCoord[ i ], pointLight.shadowCameraNear, pointLight.shadowCameraFar ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )\n\tSpotLight spotLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\t\tspotLight = spotLights[ i ];\n\t\tgetSpotDirectLightIrradiance( spotLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( spotLight.shadow, directLight.visible, receiveShadow ) ) ? getShadow( spotShadowMap[ i ], spotLight.shadowMapSize, spotLight.shadowBias, spotLight.shadowRadius, vSpotShadowCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )\n\tDirectionalLight directionalLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {\n\t\tdirectionalLight = directionalLights[ i ];\n\t\tgetDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )\n\t\tdirectLight.color *= all( bvec3( directionalLight.shadow, directLight.visible, receiveShadow ) ) ? getShadow( directionalShadowMap[ i ], directionalLight.shadowMapSize, directionalLight.shadowBias, directionalLight.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if ( NUM_RECT_AREA_LIGHTS > 0 ) && defined( RE_Direct_RectArea )\n\tRectAreaLight rectAreaLight;\n\t#pragma unroll_loop\n\tfor ( int i = 0; i < NUM_RECT_AREA_LIGHTS; i ++ ) {\n\t\trectAreaLight = rectAreaLights[ i ];\n\t\tRE_Direct_RectArea( rectAreaLight, geometry, material, reflectedLight );\n\t}\n#endif\n#if defined( RE_IndirectDiffuse )\n\tvec3 iblIrradiance = vec3( 0.0 );\n\tvec3 irradiance = getAmbientLightIrradiance( ambientLightColor );\n\tirradiance += getLightProbeIrradiance( lightProbe, geometry );\n\t#if ( NUM_HEMI_LIGHTS > 0 )\n\t\t#pragma unroll_loop\n\t\tfor ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {\n\t\t\tirradiance += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry );\n\t\t}\n\t#endif\n#endif\n#if defined( RE_IndirectSpecular )\n\tvec3 radiance = vec3( 0.0 );\n\tvec3 clearcoatRadiance = vec3( 0.0 );\n#endif";
 
 	var lights_fragment_maps = "#if defined( RE_IndirectDiffuse )\n\t#ifdef USE_LIGHTMAP\n\t\tvec3 lightMapIrradiance = texture2D( lightMap, vUv2 ).xyz * lightMapIntensity;\n\t\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\t\tlightMapIrradiance *= PI;\n\t\t#endif\n\t\tirradiance += lightMapIrradiance;\n\t#endif\n\t#if defined( USE_ENVMAP ) && defined( STANDARD ) && defined( ENVMAP_TYPE_CUBE_UV )\n\t\tiblIrradiance += getLightProbeIndirectIrradiance( geometry, maxMipLevel );\n\t#endif\n#endif\n#if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )\n\tradiance += getLightProbeIndirectRadiance( geometry.viewDir, geometry.normal, material.specularRoughness, maxMipLevel );\n\t#ifdef CLEARCOAT\n\t\tclearcoatRadiance += getLightProbeIndirectRadiance( geometry.viewDir, geometry.clearcoatNormal, material.clearcoatRoughness, maxMipLevel );\n\t#endif\n#endif";
 
@@ -17787,6 +17796,7 @@ var WebGL2ComputeRenderingContext;
 				'uniform mat4 viewMatrix;',
 				'uniform mat3 normalMatrix;',
 				'uniform vec3 cameraPosition;',
+				'uniform bool isOrthographic;',
 
 				'#ifdef USE_INSTANCING',
 
@@ -17910,6 +17920,7 @@ var WebGL2ComputeRenderingContext;
 
 				'uniform mat4 viewMatrix;',
 				'uniform vec3 cameraPosition;',
+				'uniform bool isOrthographic;',
 
 				( parameters.toneMapping !== NoToneMapping ) ? '#define TONE_MAPPING' : '',
 				( parameters.toneMapping !== NoToneMapping ) ? ShaderChunk[ 'tonemapping_pars_fragment' ] : '', // this code is required here because it is used by the toneMapping() function defined below
@@ -25194,6 +25205,16 @@ var WebGL2ComputeRenderingContext;
 					material.isMeshLambertMaterial ||
 					material.isMeshBasicMaterial ||
 					material.isMeshStandardMaterial ||
+					material.isShaderMaterial ) {
+
+					p_uniforms.setValue( _gl, 'isOrthographic', camera.isOrthographicCamera === true );
+
+				}
+
+				if ( material.isMeshPhongMaterial ||
+					material.isMeshLambertMaterial ||
+					material.isMeshBasicMaterial ||
+					material.isMeshStandardMaterial ||
 					material.isShaderMaterial ||
 					material.skinning ) {
 
@@ -32455,6 +32476,7 @@ var WebGL2ComputeRenderingContext;
 
 
 	var Geometries = /*#__PURE__*/Object.freeze({
+		__proto__: null,
 		WireframeGeometry: WireframeGeometry,
 		ParametricGeometry: ParametricGeometry,
 		ParametricBufferGeometry: ParametricBufferGeometry,
@@ -33368,6 +33390,7 @@ var WebGL2ComputeRenderingContext;
 
 
 	var Materials = /*#__PURE__*/Object.freeze({
+		__proto__: null,
 		ShadowMaterial: ShadowMaterial,
 		SpriteMaterial: SpriteMaterial,
 		RawShaderMaterial: RawShaderMaterial,
@@ -37675,6 +37698,7 @@ var WebGL2ComputeRenderingContext;
 
 
 	var Curves = /*#__PURE__*/Object.freeze({
+		__proto__: null,
 		ArcCurve: ArcCurve,
 		CatmullRomCurve3: CatmullRomCurve3,
 		CubicBezierCurve: CubicBezierCurve,
@@ -64845,128 +64869,930 @@ THREE.GeometryTools = {
 
 
 }
-THREE.CapsuleBufferGeometry = function( Radius, Height, SRadius, H) {
+// The total height is height+2*radius, so the height is just the height between the center of each 'sphere' of the capsule caps
+
+THREE.Capsule = function( radius, height, radialSegs, heightSegs ) {
 
     THREE.BufferGeometry.call( this );
 
-    this.type = 'CapsuleBufferGeometry';
+    this.type = 'Capsule';
 
-    
+    radius = radius || 1;
+    height = height || 1;
 
-    var radius = Radius || 1;
-    var height = Height || 1;
+    var pi = Math.PI;
 
-    var sRadius = SRadius || 12;
-    var sHeight = Math.floor(sRadius*0.5);// SHeight || 6;
-    var h = H || 1;
+    radialSegs = Math.floor( radialSegs ) || 12;
+    var sHeight = Math.floor( radialSegs * 0.5 );
+
+    heightSegs = Math.floor( heightSegs ) || 1;
     var o0 = Math.PI * 2;
     var o1 = Math.PI * 0.5;
     var g = new THREE.Geometry();
-    var m0 = new THREE.CylinderGeometry(radius, radius, height, sRadius, h, true);
-    var m1 = new THREE.SphereGeometry(radius, sRadius, sHeight, 0, o0, 0, o1);
-    var m2 = new THREE.SphereGeometry(radius, sRadius, sHeight, 0, o0, o1, o1);
-    var mtx0 = new THREE.Matrix4().makeTranslation(0,0,0);
-    if(SRadius===6) mtx0.makeRotationY(30*0.0174532925199432957);
+    var m0 = new THREE.CylinderGeometry( radius, radius, height, radialSegs, heightSegs, true );
+
+    var mr = new THREE.Matrix4();
+    var m1 = new THREE.SphereGeometry( radius, radialSegs, sHeight, 0, o0, 0, o1);
+    var m2 = new THREE.SphereGeometry( radius, radialSegs, sHeight, 0, o0, o1, o1);
+    var mtx0 = new THREE.Matrix4().makeTranslation( 0,0,0 );
+   // if(radialSegs===6) mtx0.makeRotationY( 30 * THREE.Math.DEG2RAD );
     var mtx1 = new THREE.Matrix4().makeTranslation(0, height*0.5,0);
     var mtx2 = new THREE.Matrix4().makeTranslation(0, -height*0.5,0);
-    g.merge( m0, mtx0);
+    mr.makeRotationZ( pi );
+    g.merge( m0, mtx0.multiply(mr) );
     g.merge( m1, mtx1);
     g.merge( m2, mtx2);
+
     g.mergeVertices();
+    g.computeVertexNormals();
+
+    m0.dispose();
+    m1.dispose();
+    m2.dispose();
 
     this.fromGeometry( g );
 
-    /*
-
-    var i, n, n2, n3, face, vertice, uv, uv2, norm;
-    var faceVertexUvs = g.faceVertexUvs;
-
-    var hasFaceVertexUv = faceVertexUvs[ 0 ] && faceVertexUvs[ 0 ].length > 0;
-    var hasFaceVertexUv2 = faceVertexUvs[ 1 ] && faceVertexUvs[ 1 ].length > 0;
-
-    var v = g.vertices.length;
-    var f = g.faces.length;
-    var u = g.faceVertexUvs[0].length;
-
-    console.log(v, g.faceVertexUvs[0].length);
-
-    var vertices = new Float32Array( v * 3 );
-    var normals = new Float32Array( f * 9 );
-    var uvs = new Float32Array( u * 6 );
-    //var uvs2 = new Float32Array( v * 2 );
-
-    // get vertice
-    i = v;
-    while(i--){
-        
-        n3 = i*3;
-        vertice = g.vertices[i]
-        vertices[n3] = vertice.x;
-        vertices[n3+1] = vertice.y;
-        vertices[n3+2] = vertice.z;
-    }
-
-    i = u;
-    while(i--){
-        n = i*6;
-        uv = g.faceVertexUvs[0][i];
-        uvs[n] = uv[0].x;
-        uvs[n+1] = uv[0].y;
-        uvs[n+2] = uv[1].x;
-        uvs[n+3] = uv[1].y;
-        uvs[n+4] = uv[2].x;
-        uvs[n+5] = uv[2].y;
-    }
-
-    // get indices of faces
-    var indices = new ( ( f ) > 65535 ? Uint32Array : Uint16Array )( f * 3 );
-    //var normals = new Float32Array( f * 3 );
-    i = f;
-    while(i--){
-        n3 = i*3;
-        face = g.faces[i];
-        indices[n3] = face.a;
-        indices[n3+1] = face.b;
-        indices[n3+2] = face.c;
-
-        n=i*9;
-        norm = face.vertexNormals;
-        normals[n] = norm[0].x;
-        normals[n+1] = norm[0].y;
-        normals[n+2] = norm[0].z;
-        normals[n+3] = norm[1].x;
-        normals[n+4] = norm[1].y;
-        normals[n+5] = norm[1].z;
-        normals[n+6] = norm[2].x;
-        normals[n+7] = norm[2].y;
-        normals[n+8] = norm[2].z;
-
-
-        
-
-        //uv2 = g.faceVertexUvs[1][i];
-    }
-
-    console.log(g.faces[3]);
-
-    
-
-
-   
-    this.addAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-    this.addAttribute( 'normal', new THREE.BufferAttribute( normals, 3 ) );
-    this.addAttribute( 'uv', new THREE.BufferAttribute( uvs, 2 ) );
-     this.setIndex( new THREE.BufferAttribute( indices, 1 ) );
-    //this.addAttribute( 'uv2', new THREE.BufferAttribute( uvs, 2 ) )
-    //this.computeVertexNormals();
-    this.computeBoundingSphere();
-
-    g.dispose();*/
+    g.dispose();
 
 }
 
-THREE.CapsuleBufferGeometry.prototype = Object.create( THREE.BufferGeometry.prototype );
-THREE.CapsuleBufferGeometry.prototype.constructor = THREE.CapsuleBufferGeometry;
+THREE.Capsule.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.Capsule.prototype.constructor = THREE.Capsule;
+
+
+THREE.ChamferBox = function( width, height, depth, filet, widthSegs, heightSegs, depthSegs, filetSegs ) {
+
+    THREE.BufferGeometry.call( this );
+
+    this.type = 'ChamferBox';
+
+    width = width || 1;
+    height = height || 1;
+    depth = depth || 1;
+    filet = filet || 0.1;
+
+    // segments
+
+    widthSegs = Math.floor( widthSegs ) || 1;
+    heightSegs = Math.floor( heightSegs ) || 1;
+    depthSegs = Math.floor( depthSegs ) || 1;
+    filetSegs = Math.floor( filetSegs ) || 3;
+
+    var pi = Math.PI;
+    var p90 = pi * 0.5;
+    var twoFilet = filet * 2;
+
+    var midWidth = width * 0.5;
+    var midHeight = height * 0.5;
+    var midDepth = depth * 0.5;
+
+    var mr = new THREE.Matrix4();
+    var mt = new THREE.Matrix4();
+    var mp = new THREE.Matrix4();
+    
+    var g = new THREE.Geometry();
+    var f = new THREE.PlaneGeometry( width-twoFilet, height-twoFilet, widthSegs, heightSegs );
+    var c1 = new THREE.CylinderGeometry( filet, filet, width-twoFilet, filetSegs ,widthSegs, true, 0, p90 );
+    var c2 = new THREE.CylinderGeometry( filet, filet, height-twoFilet, filetSegs ,heightSegs, true, 0, p90 );
+    var c3 = new THREE.SphereGeometry( filet, filetSegs, filetSegs, 0, p90, 0, -p90 );
+
+    // front
+
+    mt.makeTranslation( 0, midWidth - filet, 0 );
+    mr.makeRotationX( p90 );
+    c1.merge( c3, mt.multiply(mr));
+    
+    mt.makeTranslation( 0, -midWidth + filet, 0 );
+    mr.makeRotationX( p90 );
+    mp.makeRotationY( -p90 );
+    c1.merge( c3, mt.multiply(mr).multiply(mp) );
+
+    mt.makeTranslation( midWidth - filet, 0, -filet );
+    
+    f.merge( c2, mt);
+    mt.makeTranslation( -midWidth + filet, 0, -filet );
+    mr.makeRotationZ( pi );
+    f.merge( c2, mt.multiply(mr));
+    mr.makeRotationZ( p90 );
+    mt.makeTranslation( 0, midHeight - filet, -filet );
+    f.merge( c1, mt.multiply(mr));
+    mt.makeTranslation( 0, -midHeight + filet, -filet );
+    mr.makeRotationZ( -p90 );
+    f.merge( c1, mt.multiply(mr));
+
+    mt.makeTranslation( 0, 0, midDepth );
+    g.merge( f, mt );
+
+    // back
+
+    mt.makeTranslation( 0, 0, -midDepth );
+    mr.makeRotationY( pi );
+    g.merge( f, mt.multiply(mr) );
+
+    // side left
+
+    f.dispose();
+    c1.dispose();
+
+    f = new THREE.PlaneGeometry( depth-twoFilet, height-twoFilet, depthSegs, heightSegs );
+    c1 = new THREE.CylinderGeometry( filet, filet, depth-twoFilet, filetSegs, depthSegs, true, 0, p90 );
+
+    mt.makeTranslation( 0, -(midHeight - filet), -filet, 0 );
+    mr.makeRotationZ( -p90 );
+    
+    f.merge( c1, mt.multiply(mr));
+    mt.makeTranslation( 0, midHeight - filet, -filet, 0 );
+    mr.makeRotationZ( p90 );
+    f.merge( c1, mt.multiply(mr));
+
+    mt.makeTranslation( -midWidth, 0, 0 );
+    mr.makeRotationY( -p90 );
+    g.merge( f, mt.multiply(mr) );
+
+    // side right
+
+    mt.makeTranslation( midWidth, 0, 0 );
+    mr.makeRotationY( p90 );
+    g.merge( f, mt.multiply(mr) );
+
+    // top
+
+    f.dispose();
+    f = new THREE.PlaneGeometry( width-twoFilet, depth-twoFilet, widthSegs, depthSegs );
+
+    mt.makeTranslation( 0, midHeight, 0);
+    mr.makeRotationX( -p90 );
+    g.merge( f, mt.multiply(mr) );
+
+    // bottom
+
+    mt.makeTranslation( 0, -midHeight, 0);
+    mr.makeRotationX( p90 );
+    g.merge( f, mt.multiply(mr) );
+
+    // clear
+
+    f.dispose();
+    c1.dispose();
+    c2.dispose();
+    c3.dispose();
+
+    // final geometry
+
+    g.mergeVertices();
+    g.computeVertexNormals();
+
+    this.fromGeometry( g );
+    g.dispose();
+
+}
+
+THREE.ChamferBox.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.ChamferBox.prototype.constructor = THREE.ChamferBox;
+
+THREE.ChamferCyl = function( radiusTop, radiusBottom, height, filet, radialSegs, heightSegs, filetSegs ) {
+
+    THREE.BufferGeometry.call( this );
+
+    this.type = 'ChamferCyl';
+
+    radiusTop = radiusTop !== undefined ? radiusTop : 1;
+    radiusBottom = radiusBottom !== undefined ? radiusBottom : 1;
+    height = height || 1;
+    filet = filet || 0.2;
+
+    radialSegs = Math.floor( radialSegs ) || 24;
+    heightSegs = Math.floor( heightSegs ) || 1;
+    filetSegs = Math.floor( filetSegs ) || 3;
+
+    var mr = new THREE.Matrix4();
+    var mt = new THREE.Matrix4();
+    ///var my = new THREE.Matrix4();
+
+    var pi = Math.PI;
+    var p90 = pi * 0.5;
+    var twoPi = pi * 2;
+
+    var start = 0;//(twoPi / radialSegs);
+
+    var g = new THREE.CylinderGeometry( radiusTop, radiusBottom, height-(filet*2), radialSegs, heightSegs, true, start );
+
+    // top
+
+    var c1 = new THREE.TorusGeometry( radiusTop-filet, filet, filetSegs, radialSegs, twoPi, 0, p90 );
+    var c2 = new THREE.CircleGeometry( radiusTop-filet, radialSegs );
+
+    mt.makeTranslation( 0,0, filet );
+    c1.merge( c2, mt );
+
+    mr.makeTranslation( 0,0,( (height*0.5) - filet) );
+    mt.makeRotationX( -p90 );
+    g.merge( c1, mt.multiply(mr) );
+
+    // bottom
+
+    c1.dispose();
+    c2.dispose();
+
+    c1 = new THREE.TorusGeometry( radiusBottom-filet, filet, filetSegs, radialSegs, twoPi, 0, p90 );
+    c2 = new THREE.CircleGeometry( radiusBottom-filet, radialSegs );
+
+    mt.makeTranslation( 0,0, filet );
+    c1.merge( c2, mt );
+
+    mr.makeTranslation( 0,0,( (height*0.5) - filet) );
+    mt.makeRotationX( p90 );
+    g.merge( c1, mt.multiply(mr) );
+
+    // clear
+
+    c1.dispose();
+    c2.dispose();
+
+    // final geometry
+
+    g.mergeVertices();
+    g.computeVertexNormals();
+
+    this.fromGeometry( g );
+
+    g.dispose();
+
+}
+
+THREE.ChamferCyl.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.ChamferCyl.prototype.constructor = THREE.ChamferCyl;
+
+
+THREE.SphereBox = function( radius, widthSegs, heightSegs, depthSegs ) {
+
+    THREE.BufferGeometry.call( this );
+
+    this.type = 'SphereBox';
+
+    radius = radius || 1;
+
+    // segments
+
+    widthSegs = Math.floor( widthSegs ) || 10;
+    heightSegs = Math.floor( heightSegs ) || 10;
+    depthSegs = Math.floor( depthSegs ) || 10;
+
+
+    
+    var g = new THREE.BoxGeometry( 1,1,1, widthSegs, heightSegs, depthSegs ), v;
+
+    for ( var i = 0, l = g.vertices.length; i < l; i ++ ) {
+
+        v = g.vertices[ i ];
+        v.normalize().multiplyScalar( radius );
+
+    }
+
+    // final geometry
+
+    g.mergeVertices();
+    g.computeVertexNormals();
+
+    this.fromGeometry( g );
+    g.dispose();
+
+}
+
+THREE.SphereBox.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.SphereBox.prototype.constructor = THREE.SphereBox;
+/**
+ * @author mrdoob / http://mrdoob.com/
+ * @author benaadams / https://twitter.com/ben_a_adams
+ * @author Mugen87 / https://github.com/Mugen87
+ */
+
+// SphereGeometry
+
+THREE.SphereGeometry = function ( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) {
+
+	THREE.Geometry.call( this );
+
+	this.type = 'SphereGeometry';
+
+	this.parameters = {
+		radius: radius,
+		widthSegments: widthSegments,
+		heightSegments: heightSegments,
+		phiStart: phiStart,
+		phiLength: phiLength,
+		thetaStart: thetaStart,
+		thetaLength: thetaLength
+	};
+
+	this.fromBufferGeometry( new THREE.SphereBufferGeometry( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) );
+	this.mergeVertices();
+
+}
+
+THREE.SphereGeometry.prototype = Object.create( THREE.Geometry.prototype );
+THREE.SphereGeometry.prototype.constructor = THREE.SphereGeometry;
+
+// SphereBufferGeometry
+
+THREE.SphereBufferGeometry = function ( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) {
+
+	THREE.BufferGeometry.call( this );
+
+	this.type = 'SphereBufferGeometry';
+
+	this.parameters = {
+		radius: radius,
+		widthSegments: widthSegments,
+		heightSegments: heightSegments,
+		phiStart: phiStart,
+		phiLength: phiLength,
+		thetaStart: thetaStart,
+		thetaLength: thetaLength
+	};
+
+	radius = radius || 1;
+
+	//widthSegments = Math.max( 3, Math.floor( widthSegments ) || 8 );
+	//heightSegments = Math.max( 2, Math.floor( heightSegments ) || 6 );
+
+	widthSegments = Math.floor( widthSegments ) || 8;
+	heightSegments = Math.floor( heightSegments ) || 6;
+
+	phiStart = phiStart !== undefined ? phiStart : 0;
+	phiLength = phiLength !== undefined ? phiLength : Math.PI * 2;
+
+	thetaStart = thetaStart !== undefined ? thetaStart : 0;
+	thetaLength = thetaLength !== undefined ? thetaLength : Math.PI;
+
+	var thetaEnd = Math.min( thetaStart + thetaLength, Math.PI );
+
+	var ix, iy;
+
+	var index = 0;
+	var grid = [];
+
+	var vertex = new THREE.Vector3();
+	var normal = new THREE.Vector3();
+
+	// buffers
+
+	var indices = [];
+	var vertices = [];
+	var normals = [];
+	var uvs = [];
+
+	// generate vertices, normals and uvs
+
+	for ( iy = 0; iy <= heightSegments; iy ++ ) {
+
+		var verticesRow = [];
+
+		var v = iy / heightSegments;
+
+		// special case for the poles
+
+		var uOffset = 0;
+
+		if ( iy == 0 && thetaStart == 0 ) {
+
+			uOffset = 0.5 / widthSegments;
+
+		} else if ( iy == heightSegments && thetaEnd == Math.PI ) {
+
+			uOffset = - 0.5 / widthSegments;
+
+		}
+
+		for ( ix = 0; ix <= widthSegments; ix ++ ) {
+
+			var u = ix / widthSegments;
+
+			// vertex
+
+			vertex.x = - radius * Math.cos( phiStart + u * phiLength ) * Math.sin( thetaStart + v * thetaLength );
+			vertex.y = radius * Math.cos( thetaStart + v * thetaLength );
+			vertex.z = radius * Math.sin( phiStart + u * phiLength ) * Math.sin( thetaStart + v * thetaLength );
+
+			vertices.push( vertex.x, vertex.y, vertex.z );
+
+			// normal
+
+			normal.copy( vertex ).normalize();
+			normals.push( normal.x, normal.y, normal.z );
+
+			// uv
+
+			uvs.push( u + uOffset, 1 - v );
+
+			verticesRow.push( index ++ );
+
+		}
+
+		grid.push( verticesRow );
+
+	}
+
+	// indices
+
+	for ( iy = 0; iy < heightSegments; iy ++ ) {
+
+		for ( ix = 0; ix < widthSegments; ix ++ ) {
+
+			var a = grid[ iy ][ ix + 1 ];
+			var b = grid[ iy ][ ix ];
+			var c = grid[ iy + 1 ][ ix ];
+			var d = grid[ iy + 1 ][ ix + 1 ];
+
+			if ( iy !== 0 || thetaStart > 0 ) indices.push( a, b, d );
+			if ( iy !== heightSegments - 1 || thetaEnd < Math.PI ) indices.push( b, c, d );
+
+		}
+
+	}
+
+	// build geometry
+
+	this.setIndex( indices );
+	this.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+	this.setAttribute( 'normal', new THREE.Float32BufferAttribute( normals, 3 ) );
+	this.setAttribute( 'uv', new THREE.Float32BufferAttribute( uvs, 2 ) );
+
+}
+
+THREE.SphereBufferGeometry.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.SphereBufferGeometry.prototype.constructor = THREE.SphereBufferGeometry;
+
+/**
+ * @author mrdoob / http://mrdoob.com/
+ * @author Mugen87 / https://github.com/Mugen87
+ */
+
+
+// CylinderGeometry
+
+THREE.CylinderGeometry = function ( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) {
+
+	THREE.Geometry.call( this );
+
+	this.type = 'CylinderGeometry';
+
+	this.parameters = {
+		radiusTop: radiusTop,
+		radiusBottom: radiusBottom,
+		height: height,
+		radialSegments: radialSegments,
+		heightSegments: heightSegments,
+		openEnded: openEnded,
+		thetaStart: thetaStart,
+		thetaLength: thetaLength
+	};
+
+	this.fromBufferGeometry( new THREE.CylinderBufferGeometry( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) );
+	this.mergeVertices();
+
+}
+
+THREE.CylinderGeometry.prototype = Object.create( THREE.Geometry.prototype );
+THREE.CylinderGeometry.prototype.constructor = THREE.CylinderGeometry;
+
+// CylinderBufferGeometry
+
+THREE.CylinderBufferGeometry = function ( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) {
+
+	THREE.BufferGeometry.call( this );
+
+	this.type = 'CylinderBufferGeometry';
+
+	this.parameters = {
+		radiusTop: radiusTop,
+		radiusBottom: radiusBottom,
+		height: height,
+		radialSegments: radialSegments,
+		heightSegments: heightSegments,
+		openEnded: openEnded,
+		thetaStart: thetaStart,
+		thetaLength: thetaLength
+	};
+
+	var scope = this;
+
+	radiusTop = radiusTop !== undefined ? radiusTop : 1;
+	radiusBottom = radiusBottom !== undefined ? radiusBottom : 1;
+
+	height = height || 1;
+
+	radialSegments = Math.floor( radialSegments ) || 8;
+	heightSegments = Math.floor( heightSegments ) || 1;
+
+	openEnded = openEnded !== undefined ? openEnded : false;
+	thetaStart = thetaStart !== undefined ? thetaStart : 0.0;
+	thetaLength = thetaLength !== undefined ? thetaLength : Math.PI * 2;
+
+	// reverse radius !!!
+	var rev = radiusTop;
+	radiusTop = radiusBottom;
+	radiusBottom = rev;
+
+	// buffers
+
+	var indices = [];
+	var vertices = [];
+	var normals = [];
+	var uvs = [];
+
+	// helper variables
+
+	var index = 0;
+	var indexArray = [];
+	var halfHeight = height / 2;
+	var groupStart = 0;
+
+	// generate geometry
+
+	generateTorso();
+
+	if ( openEnded === false ) {
+
+		if ( radiusTop > 0 ) generateCap( true );
+		if ( radiusBottom > 0 ) generateCap( false );
+
+	}
+
+	// build geometry
+
+	this.setIndex( indices );
+	this.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+	this.setAttribute( 'normal', new THREE.Float32BufferAttribute( normals, 3 ) );
+	this.setAttribute( 'uv', new THREE.Float32BufferAttribute( uvs, 2 ) );
+
+	function generateTorso() {
+
+		var x, y;
+		var normal = new THREE.Vector3();
+		var vertex = new THREE.Vector3();
+
+		var groupCount = 0;
+
+		// this will be used to calculate the normal
+		var slope = ( radiusBottom - radiusTop ) / height;
+
+		// generate vertices, normals and uvs
+
+		for ( y = 0; y <= heightSegments; y ++ ) {
+
+			var indexRow = [];
+
+			var v = y / heightSegments;
+
+			// calculate the radius of the current row
+
+			var radius = v * ( radiusBottom - radiusTop ) + radiusTop;
+
+			for ( x = 0; x <= radialSegments; x ++ ) {
+
+				var u = x / radialSegments;
+
+				var theta = u * thetaLength + thetaStart;
+
+				var sinTheta = Math.sin( theta );
+				var cosTheta = Math.cos( theta );
+
+				// vertex
+
+				//vertex.x = radius * sinTheta;
+				//vertex.y = - v * height + halfHeight;
+				//vertex.z = radius * cosTheta;
+
+				vertex.x = radius * cosTheta;
+				vertex.y =  v * height - halfHeight;
+				vertex.z = radius * sinTheta;
+
+				vertices.push( vertex.x, vertex.y, vertex.z );
+
+				// normal
+
+				//normal.set( sinTheta, slope, cosTheta ).normalize();
+				normal.set( cosTheta, slope, sinTheta ).normalize();
+				normals.push( normal.x, normal.y, normal.z );
+
+				// uv
+
+				uvs.push( u, 1 - v );
+
+				// save index of vertex in respective row
+
+				indexRow.push( index ++ );
+
+			}
+
+			// now save vertices of the row in our index array
+
+			indexArray.push( indexRow );
+
+		}
+
+		// generate indices
+
+		for ( x = 0; x < radialSegments; x ++ ) {
+
+			for ( y = 0; y < heightSegments; y ++ ) {
+
+				// we use the index array to access the correct indices
+
+				var a = indexArray[ y ][ x ];
+				var b = indexArray[ y + 1 ][ x ];
+				var c = indexArray[ y + 1 ][ x + 1 ];
+				var d = indexArray[ y ][ x + 1 ];
+
+				// faces
+
+				indices.push( a, b, d );
+				indices.push( b, c, d );
+
+				// update group counter
+
+				groupCount += 6;
+
+			}
+
+		}
+
+		// add a group to the geometry. this will ensure multi material support
+
+		scope.addGroup( groupStart, groupCount, 0 );
+
+		// calculate new start value for groups
+
+		groupStart += groupCount;
+
+	}
+
+	function generateCap( top ) {
+
+		var x, centerIndexStart, centerIndexEnd;
+
+		var uv = new THREE.Vector2();
+		var vertex = new THREE.Vector3();
+
+		var groupCount = 0;
+
+		var radius = ( top === true ) ? radiusTop : radiusBottom;
+		///var sign = ( top === true ) ? 1 : - 1;
+
+		var sign = ( top === true ) ? -1 : 1;
+
+		// save the index of the first center vertex
+		centerIndexStart = index;
+
+		// first we generate the center vertex data of the cap.
+		// because the geometry needs one set of uvs per face,
+		// we must generate a center vertex per face/segment
+
+		for ( x = 1; x <= radialSegments; x ++ ) {
+
+			// vertex
+
+			vertices.push( 0, halfHeight * sign, 0 );
+
+			// normal
+
+			normals.push( 0, sign, 0 );
+
+			// uv
+
+			uvs.push( 0.5, 0.5 );
+
+			// increase index
+
+			index ++;
+
+		}
+
+		// save the index of the last center vertex
+
+		centerIndexEnd = index;
+
+		// now we generate the surrounding vertices, normals and uvs
+
+		for ( x = 0; x <= radialSegments; x ++ ) {
+
+			var u = x / radialSegments;
+			var theta = u * thetaLength + thetaStart;
+
+			var cosTheta = Math.cos( theta );
+			var sinTheta = Math.sin( theta );
+
+			// vertex
+
+			/*vertex.x = radius * sinTheta;
+			vertex.y = halfHeight * sign;
+			vertex.z = radius * cosTheta;*/
+
+			vertex.x = radius * cosTheta;
+			vertex.y = halfHeight * sign;
+			vertex.z = radius * sinTheta;
+
+			vertices.push( vertex.x, vertex.y, vertex.z );
+
+			// normal
+
+			normals.push( 0, sign, 0 );
+
+			// uv
+
+			//uv.x = ( cosTheta * 0.5 ) + 0.5;
+			//uv.y = ( sinTheta * 0.5 * sign ) + 0.5;
+
+			uv.x = ( sinTheta * 0.5 ) + 0.5;
+			uv.y = ( cosTheta * 0.5 * sign ) + 0.5;
+			uvs.push( uv.x, uv.y );
+
+			// increase index
+
+			index ++;
+
+		}
+
+		// generate indices
+
+		for ( x = 0; x < radialSegments; x ++ ) {
+
+			var c = centerIndexStart + x;
+			var i = centerIndexEnd + x;
+
+			if ( top === true ) {
+
+				// face top
+
+				indices.push( i, i + 1, c );
+
+			} else {
+
+				// face bottom
+
+				indices.push( i + 1, i, c );
+
+			}
+
+			groupCount += 3;
+
+		}
+
+		// add a group to the geometry. this will ensure multi material support
+
+		scope.addGroup( groupStart, groupCount, top === true ? 1 : 2 );
+
+		// calculate new start value for groups
+
+		groupStart += groupCount;
+
+	}
+
+}
+
+THREE.CylinderBufferGeometry.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.CylinderBufferGeometry.prototype.constructor = THREE.CylinderBufferGeometry;
+/**
+ * @author oosmoxiecode
+ * @author mrdoob / http://mrdoob.com/
+ * @author Mugen87 / https://github.com/Mugen87
+ */
+
+// TorusGeometry
+
+THREE.TorusGeometry = function ( radius, tube, radialSegments, tubularSegments, arc, thetaStart, thetaLength ) {
+
+	THREE.Geometry.call( this );
+
+	this.type = 'TorusGeometry';
+
+	this.parameters = {
+		radius: radius,
+		tube: tube,
+		radialSegments: radialSegments,
+		tubularSegments: tubularSegments,
+		arc: arc
+	};
+
+	this.fromBufferGeometry( new THREE.TorusBufferGeometry( radius, tube, radialSegments, tubularSegments, arc, thetaStart, thetaLength ) );
+	this.mergeVertices();
+
+}
+
+THREE.TorusGeometry.prototype = Object.create( THREE.Geometry.prototype );
+THREE.TorusGeometry.prototype.constructor = THREE.TorusGeometry;
+
+// TorusBufferGeometry
+
+THREE.TorusBufferGeometry = function ( radius, tube, radialSegments, tubularSegments, arc, thetaStart, thetaLength ) {
+
+	THREE.BufferGeometry.call( this );
+
+	this.type = 'TorusBufferGeometry';
+
+	this.parameters = {
+		radius: radius,
+		tube: tube,
+		radialSegments: radialSegments,
+		tubularSegments: tubularSegments,
+		arc: arc
+	};
+
+	radius = radius || 1;
+	tube = tube || 0.4;
+	radialSegments = Math.floor( radialSegments ) || 8;
+	tubularSegments = Math.floor( tubularSegments ) || 6;
+	arc = arc || Math.PI * 2;
+
+	thetaStart = thetaStart !== undefined ? thetaStart : 0;
+	thetaLength = thetaLength !== undefined ? thetaLength : Math.PI;
+
+	// buffers
+
+	var indices = [];
+	var vertices = [];
+	var normals = [];
+	var uvs = [];
+
+	// helper variables
+
+	var center = new THREE.Vector3();
+	var vertex = new THREE.Vector3();
+	var normal = new THREE.Vector3();
+
+	var j, i;
+
+	// generate vertices, normals and uvs
+
+	for ( j = 0; j <= radialSegments; j ++ ) {
+
+		for ( i = 0; i <= tubularSegments; i ++ ) {
+
+			var u = i / tubularSegments * arc;
+			//var v = j / radialSegments * Math.PI * 2;
+
+			var v = (j / radialSegments) * thetaLength + thetaStart;
+
+		
+			// vertex
+
+			vertex.x = ( radius + tube * Math.cos( v ) ) * Math.cos( u );
+			vertex.y = ( radius + tube * Math.cos( v ) ) * Math.sin( u );
+			vertex.z = tube * Math.sin( v );
+
+			vertices.push( vertex.x, vertex.y, vertex.z );
+
+			// normal
+
+			center.x = radius * Math.cos( u );
+			center.y = radius * Math.sin( u );
+			normal.subVectors( vertex, center ).normalize();
+
+			normals.push( normal.x, normal.y, normal.z );
+
+			// uv
+
+			uvs.push( i / tubularSegments );
+			uvs.push( j / radialSegments );
+
+		}
+
+	}
+
+	// generate indices
+
+	for ( j = 1; j <= radialSegments; j ++ ) {
+
+		for ( i = 1; i <= tubularSegments; i ++ ) {
+
+			// indices
+
+			var a = ( tubularSegments + 1 ) * j + i - 1;
+			var b = ( tubularSegments + 1 ) * ( j - 1 ) + i - 1;
+			var c = ( tubularSegments + 1 ) * ( j - 1 ) + i;
+			var d = ( tubularSegments + 1 ) * j + i;
+
+			// faces
+
+			indices.push( a, b, d );
+			indices.push( b, c, d );
+
+		}
+
+	}
+
+	// build geometry
+
+	this.setIndex( indices );
+	this.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+	this.setAttribute( 'normal', new THREE.Float32BufferAttribute( normals, 3 ) );
+	this.setAttribute( 'uv', new THREE.Float32BufferAttribute( uvs, 2 ) );
+
+}
+
+THREE.TorusBufferGeometry.prototype = Object.create( THREE.BufferGeometry.prototype );
+THREE.TorusBufferGeometry.prototype.constructor = THREE.TorusBufferGeometry;
 /**
  * @author Mugen87 / https://github.com/Mugen87
  */
@@ -69102,11 +69928,11 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
     	this.material.onBeforeCompile = function ( shader ) {
 
-    		shader.uniforms['cmtx'] = { value: view.camera.matrixWorldInverse };
+    		shader.uniforms['cmtx'] = { value: view.getCamera().matrixWorldInverse };
     		shader.uniforms['morpher'] = { value: [0,0,0,0,0,0,0,0] };
 
     		shader.vertexShader = shader.vertexShader
-    		    .replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
+    		    .replace( '#include <common>\n', '#include <common>\n' + ( view.getGL2() ? self.vertexPars_V2 : self.vertexPars_V1 ) )
     		    .replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
     		    .replace( '#include <defaultnormal_vertex>', self.normalVertex )
     		    .replace( '#include <project_vertex>', self.projectVertex )
@@ -69147,10 +69973,10 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
 	    this.depthMaterial.onBeforeCompile = function ( shader ) {
 
-	    	shader.uniforms['cmtx'] = { value: view.camShadow.matrixWorldInverse };
+	    	shader.uniforms['cmtx'] = { value: view.getCamShadow().matrixWorldInverse };
 
 	    	shader.vertexShader = shader.vertexShader
-				.replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
+				.replace( '#include <common>\n', '#include <common>\n' + ( view.getGL2() ? self.vertexPars_V2 : self.vertexPars_V1 ) )
 				.replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
     		   // .replace( '#include <defaultnormal_vertex>', self.normalVertex )
     		    .replace( '#include <project_vertex>', self.projectVertex )
@@ -69287,7 +70113,7 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
  * @author alteredq / http://alteredqualia.com/
  */
 
-function CubeCamera( near, far, cubeResolution, options ) {
+THREE.CubeCamera = function ( near, far, cubeResolution, options ) {
 
 	THREE.Object3D.call( this );
 
@@ -69316,9 +70142,9 @@ function CubeCamera( near, far, cubeResolution, options ) {
 
 }
 
-CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
+THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
 
-    constructor: CubeCamera,
+    constructor: THREE.CubeCamera,
 
     update: function ( renderer, scene ) {
 
@@ -72142,7 +72968,7 @@ sky = {
 		//options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
 		options = { type:THREE.UnsignedByteType, encoding: THREE.RGBEEncoding, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, anisotropy:1 };
 		
-		camera = new CubeCamera( 0.1, 1, setting.resolution, options );
+		camera = new THREE.CubeCamera( 0.1, 1, setting.resolution, options );
 
 		scene.add( camera );
 
@@ -73625,6 +74451,7 @@ var view = ( function () {
 
 
 var refEditor = null;
+var refUser = null;
 
 var setting = {
 	correctLight: false,
@@ -73776,7 +74603,7 @@ view = {
 
         THREE.SEA3D.AnimationHandler.update( delta ); // sea3d animation
 
-        if( user ) user.update(); // gamepad
+        if( refUser ) refUser.update(); // gamepad
         if( controler.enableDamping ) controler.update();
 
         TWEEN.update(); // tweener
@@ -73875,7 +74702,7 @@ view = {
 
         // 7 KEYBOARD & JOSTICK 
 
-        if( !isMobile && user ) user.init();
+        //if( !isMobile && user ) user.init();
 
         
         // 8 START BASE
@@ -73889,16 +74716,20 @@ view = {
         this.addShadow();
         this.initGrid();
 
-        if ( !noObj ) this.loadObject( 'basic', Callback );
-        else { if( Callback !== undefined ) Callback(); }
+        //if ( !noObj ) this.loadObject( 'basic', Callback );
+        //else { if( Callback !== undefined ) Callback(); }
 
         if( container !== null ) container.appendChild( canvas );
         else document.body.appendChild( canvas );
+
+        
 
 
         this.extandGroup();
 
         this.render( 0 );
+
+        if( Callback !== undefined ) Callback();
 
     },
 
@@ -74078,6 +74909,7 @@ view = {
     getControls: function () { return controler; },
     getControler: function () { return controler; },
     getCamera: function () { return camera; },
+    getCamShadow: function () { return camShadow; },
     getMouse: function () { return mouse; },
     getDom: function () { return renderer.domElement; },
 
@@ -74103,7 +74935,11 @@ view = {
     //-----------------------------
 
     setEditor: function ( v ) { refEditor = v; },
-
+    
+    setUser: function ( v ) {
+        refUser = v; 
+        if( !isMobile ) refUser.init(); 
+    },
 
     //-----------------------------
     //
@@ -74248,6 +75084,9 @@ view = {
 
         }
 
+        // test round geom
+        //geo['box'] = new THREE.RoundedBoxGeometry(1,1,1, 0.01, 2)
+
         tmpName = [];
         this.loadCallback();
 
@@ -74284,6 +75123,18 @@ view = {
             m.receiveShadow = true;
         }
         return m;
+
+    },
+
+    add: function ( m ) {
+
+        content.add( m );
+
+    },
+
+    remove: function ( m ) {
+
+        content.remove( m );
 
     },
 
@@ -74426,9 +75277,12 @@ view = {
 
     initMaterial: function (){
 
-        check = new THREE.Texture();//this.loader.load( './assets/textures/check.jpg' );
-        check.repeat = new THREE.Vector2( 2, 2 );
-        check.wrapS = check.wrapT = THREE.RepeatWrapping;
+        //check = new THREE.Texture( this.makeCheck() );
+
+        check = this.makeCheck();
+        //check.needsUpdate = true;
+        //check.repeat = new THREE.Vector2( 2, 2 );
+        //check.wrapS = check.wrapT = THREE.RepeatWrapping;
 
         //http://www.color-hex.com/popular-colors.php
 
@@ -74442,12 +75296,14 @@ view = {
             contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', metalness:0.8, roughness:0.5 }),
             contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', metalness:0.8, roughness:0.5 }),
 
-            check: this.makeMaterial({ map:check, name:'check', metalness:0.5, roughness:0.5 }),
+            check: this.makeMaterial({ map:check, color:0x808080, name:'check', metalness:0.75, roughness:0.25 }),
             basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.7, roughness:0.5 }),
-            sleep: this.makeMaterial({ color:0x433F3C, name:'sleep', metalness:0.5, roughness:0.5 }),
-            move: this.makeMaterial({ color:0xCBBEB5, name:'move', metalness:0.5, roughness:0.5 }),
             movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', metalness:0.5, roughness:0.5 }),
-            speed: this.makeMaterial({ color:0xff4040, name:'speed', metalness:0.5, roughness:0.5 }),
+            
+
+            sleep: this.makeMaterial({ color:0x8080CC, name:'sleep', metalness:0.5, roughness:0.5 }),
+            move: this.makeMaterial({  color:0xCCCCCC, name:'move', metalness:0.5, roughness:0.5 }),
+            speed: this.makeMaterial({  color:0xCCAA80, name:'speed', metalness:0.5, roughness:0.5 }),
 
             statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
             static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.7, roughness:0.3, premultipliedAlpha:true }),
@@ -74832,9 +75688,8 @@ view = {
     initGrid: function ( o ){
 
         o = o || {};
-        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
-        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
-        //this.grid.position.y = -0.001;
+        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
+        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.15, depthTest:true, depthWrite:false } );
         scene.add( grid );
 
     },
@@ -75113,13 +75968,13 @@ view = {
     //
     //--------------------------------------
 
-    centerPosition: function () {
+    getCenterPosition: function () {
 
         return followGroup.position;
 
     },
 
-    distanceFromCenter: function () {
+    getDistanceToCenter: function () {
 
         var p = followGroup.position;
         return Math.sqrt( p.x * p.x + p.z * p.z );
@@ -75136,6 +75991,7 @@ view = {
     needAudio: function () {
 
         autoAddAudio = this.autoAudio.bind( this )
+
         canvas.addEventListener( 'click', view.autoAddAudio, false );
 
     },
@@ -75189,6 +76045,36 @@ view = {
     //   SHADER
     //
     //--------------------------------------
+
+    makeCheck: function () {
+
+        var c = document.createElement('canvas');
+        c.width = c.height = 128;
+        var ctx = c.getContext("2d");
+
+        ctx.beginPath();
+        ctx.rect(0, 0, 128, 128);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.rect(0, 0, 64, 64);
+        ctx.rect(64, 64, 64, 64);
+        ctx.fillStyle = "#CCCCCC";
+        ctx.fill();
+
+        var img = new Image( 128, 128 );
+        img.src = c.toDataURL( 'image/png' );
+
+        var t = new THREE.Texture( img );
+        t.repeat = new THREE.Vector2( 2, 2 );
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+
+        img.onload = function(){ t.needsUpdate = true; }
+
+        return t;
+
+    },
 
     shaderHack: function () {
 

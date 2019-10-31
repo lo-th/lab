@@ -13,6 +13,7 @@ var view = ( function () {
 
 
 var refEditor = null;
+var refUser = null;
 
 var setting = {
 	correctLight: false,
@@ -164,7 +165,7 @@ view = {
 
         THREE.SEA3D.AnimationHandler.update( delta ); // sea3d animation
 
-        if( user ) user.update(); // gamepad
+        if( refUser ) refUser.update(); // gamepad
         if( controler.enableDamping ) controler.update();
 
         TWEEN.update(); // tweener
@@ -263,7 +264,7 @@ view = {
 
         // 7 KEYBOARD & JOSTICK 
 
-        if( !isMobile && user ) user.init();
+        //if( !isMobile && user ) user.init();
 
         
         // 8 START BASE
@@ -496,7 +497,11 @@ view = {
     //-----------------------------
 
     setEditor: function ( v ) { refEditor = v; },
-
+    
+    setUser: function ( v ) {
+        refUser = v; 
+        if( !isMobile ) refUser.init(); 
+    },
 
     //-----------------------------
     //
@@ -1245,9 +1250,8 @@ view = {
     initGrid: function ( o ){
 
         o = o || {};
-        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x111111, o.c2 || 0x050505 );
-        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.25, depthTest:true, depthWrite:false } );
-        //this.grid.position.y = -0.001;
+        grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
+        grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.15, depthTest:true, depthWrite:false } );
         scene.add( grid );
 
     },

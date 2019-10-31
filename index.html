@@ -15,14 +15,27 @@
 <body>
 <script>
 
-var user;
-var editor;
-var view;
 var h = 9;
 
 
-view.init( start );
+view.init();
+view.moveCam({ theta:180, phi:10, distance:30, target:[0,1,0], time:0 });
 
+var mat = view.getMat().basic;
+
+var s = new THREE.Mesh( new THREE.SphereBox(2), mat );
+s.position.set(0,2,0);
+view.addMesh( s );
+
+var s2 = new THREE.Mesh( new THREE.ChamferBox( 4, 4, 4, 0.2 ), mat );
+s2.position.set(-5,2,0);
+view.addMesh( s2 );
+
+var s3 = new THREE.Mesh( new THREE.ChamferCyl( 2, 2, 4 ), mat );
+s3.position.set(5,2,0);
+view.addMesh( s3 );
+
+view.addSky({hour:h});
 
 function upTime(){
 
@@ -33,30 +46,6 @@ function upTime(){
 	
 }
 
-function start () {
-	
-	var s = new THREE.Mesh( view.getGeo().sphere, view.getMat().basic );
-	s.scale.set(2,2,2);
-	s.position.set(0,2,0);
-	view.addMesh( s );
-
-	var s2 = new THREE.Mesh( view.getGeo().box, view.getMat().basic );
-	s2.scale.set(4,4,4);
-	s2.position.set(-5,2,0);
-	view.addMesh( s2 );
-
-	var s3 = new THREE.Mesh( view.getGeo().cylinder, view.getMat().basic );
-	s3.scale.set(2,4,2);
-	s3.position.set(5,2,0);
-	view.addMesh( s3 );
-
-	view.addSky({hour:h, hdr:true});
-
-	//view.update = upTime;
-
-	//setInterval( upTime, 60 );
-
-}
 
 </script>
 </body>

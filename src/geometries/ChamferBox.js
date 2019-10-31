@@ -16,7 +16,7 @@ THREE.ChamferBox = function( width, height, depth, filet, widthSegs, heightSegs,
     widthSegs = Math.floor( widthSegs ) || 1;
     heightSegs = Math.floor( heightSegs ) || 1;
     depthSegs = Math.floor( depthSegs ) || 1;
-    filetSegs = Math.floor( filetSegs ) || 1;
+    filetSegs = Math.floor( filetSegs ) || 3;
 
     var pi = Math.PI;
     var p90 = pi * 0.5;

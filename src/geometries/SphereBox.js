@@ -10,9 +10,9 @@ THREE.SphereBox = function( radius, widthSegs, heightSegs, depthSegs ) {
 
     // segments
 
-    widthSegs = Math.floor( widthSegs ) || 8;
-    heightSegs = Math.floor( heightSegs ) || 8;
-    depthSegs = Math.floor( depthSegs ) || 8;
+    widthSegs = Math.floor( widthSegs ) || 10;
+    heightSegs = Math.floor( heightSegs ) || 10;
+    depthSegs = Math.floor( depthSegs ) || 10;
 
 
     
