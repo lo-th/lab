@@ -551,11 +551,11 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
     	this.material.onBeforeCompile = function ( shader ) {
 
-    		shader.uniforms['cmtx'] = { value: view.camera.matrixWorldInverse };
+    		shader.uniforms['cmtx'] = { value: view.getCamera().matrixWorldInverse };
     		shader.uniforms['morpher'] = { value: [0,0,0,0,0,0,0,0] };
 
     		shader.vertexShader = shader.vertexShader
-    		    .replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
+    		    .replace( '#include <common>\n', '#include <common>\n' + ( view.getGL2() ? self.vertexPars_V2 : self.vertexPars_V1 ) )
     		    .replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
     		    .replace( '#include <defaultnormal_vertex>', self.normalVertex )
     		    .replace( '#include <project_vertex>', self.projectVertex )
@@ -596,10 +596,10 @@ THREE.Instance.prototype = Object.assign( Object.create( THREE.Object3D.prototyp
 
 	    this.depthMaterial.onBeforeCompile = function ( shader ) {
 
-	    	shader.uniforms['cmtx'] = { value: view.camShadow.matrixWorldInverse };
+	    	shader.uniforms['cmtx'] = { value: view.getCamShadow().matrixWorldInverse };
 
 	    	shader.vertexShader = shader.vertexShader
-				.replace( '#include <common>\n', '#include <common>\n' + ( view.isWebGL2 ? self.vertexPars_V2 : self.vertexPars_V1 ) )
+				.replace( '#include <common>\n', '#include <common>\n' + ( view.getGL2() ? self.vertexPars_V2 : self.vertexPars_V1 ) )
 				.replace( '#include <uv_vertex>', '#include <uv_vertex>\n' + self.beginInstanceVertex )
     		   // .replace( '#include <defaultnormal_vertex>', self.normalVertex )
     		    .replace( '#include <project_vertex>', self.projectVertex )

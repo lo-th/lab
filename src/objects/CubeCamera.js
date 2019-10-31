@@ -6,7 +6,7 @@
  * @author alteredq / http://alteredqualia.com/
  */
 
-function CubeCamera( near, far, cubeResolution, options ) {
+THREE.CubeCamera = function ( near, far, cubeResolution, options ) {
 
 	THREE.Object3D.call( this );
 
@@ -35,9 +35,9 @@ function CubeCamera( near, far, cubeResolution, options ) {
 
 }
 
-CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
+THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.prototype ), {
 
-    constructor: CubeCamera,
+    constructor: THREE.CubeCamera,
 
     update: function ( renderer, scene ) {
 

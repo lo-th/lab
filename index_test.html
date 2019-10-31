@@ -21,19 +21,17 @@
 <script src="./src/loaders/ShaderLoader.js"></script>
 <script src="./src/controls/OrbitControls.js"></script>
 <script src="./src/controls/OrbitControlsExtra.js"></script>
+<script src="./src/objects/CubeCamera.js"></script>
 <script src="./src/objects/Lensflare.js"></script>
-<script src="./src/objects/Environement.js"></script>
-<script src="./src/View.js"></script>
+<script src="./src/sky.js"></script>
+<script src="./src/view.js"></script>
 <script src="./src/editor.js"></script>
 <script src="./src/geometries/Tubular.js"></script>
 </head>
 
 <body>
 <script>
-var user
-var editor;
-var view;
-
+var user;
 var hour = 12;
 var option = {
 	hour: 12,
@@ -41,7 +39,6 @@ var option = {
 
 var s4;
 
-view = new View();
 
 view.init( start );
 //editor.init()
@@ -86,7 +83,7 @@ function start () {
 
 
 
-	view.scene.add( new THREE.Mesh( tube, material ))
+	view.add( new THREE.Mesh( tube, material ))
 
 
 	
@@ -106,7 +103,7 @@ function start () {
 
 	tube.updatePath();
 
-	view.scene.add( new THREE.Mesh( tube2, material ))
+	view.add( new THREE.Mesh( tube2, material ))
 
 
 
@@ -135,7 +132,7 @@ view.moveCam({ theta:0, phi:30, distance:200, target:[0,1,0] })
 	//s4.position.set(0,0,0);
 	view.addMesh( s4 );*/
 
-	view.addSky({hour:hour});
+	view.setSky({hour:hour});
 
 
 	var options = {

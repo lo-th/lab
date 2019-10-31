@@ -12,7 +12,6 @@
 <script src="./src/libs/sea3d.js"></script>
 <script src="./src/libs/tween.js"></script>
 <script src="./src/libs/uil.js"></script>
-<script src="./src/shaders/shadowPCSS.js"></script>
 <script src="./src/math.js"></script>
 <script src="./src/SimplexNoise.js"></script>
 <script src="./src/pool.js"></script>
@@ -24,18 +23,16 @@
 <script src="./src/user.js"></script>
 <script src="./src/objects/Lensflare.js"></script>
 <script src="./src/loaders/ShaderLoader.js"></script>
-<script src="./src/objects/Environement.js"></script>
+<script src="./src/sky.js"></script>
 <script src="./src/objects/Terrain.js"></script>
 <script src="./src/objects/Instance.js"></script>
-<script src="./src/View.js"></script>
+<script src="./src/view.js"></script>
 <script src="./src/editor.js"></script>
 </head>
 
 <body>
 <script>
 var user
-var editor;
-var view;
 
 var debug = false;
 
@@ -52,48 +49,46 @@ var option = {
 }
 
 
-view = new View();
-view.init( start, true );
-
-function start () {
-
-	view.hideGrid();
-
-	view.addFog({ exp:0.0025 });
-
-	view.moveCam({ theta:0, phi:10, distance:100, target:[0,1,0] })
-
-	view.addSky({ hour:hour, hdr:true });
-
-	var options = {
-
-		withFps:true,
-        base:option,
-        function: applyOption,
-        hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:30 },
-        demo: { type:'button', p:0, h:30, radius:3 },
-
-    };
+view.init();
 
 
-	gui.init( document.body, options );
-	option.demo = 3000;
-	gui.resize( 260 );
+view.hideGrid();
+
+view.addFog({ exp:0.0025 });
+
+view.moveCam({ theta:0, phi:15, distance:115, target:[0,1,0], time:0 })
+
+view.addSky({ hour:hour, hdr:true });
+
+var options = {
+
+	withFps:true,
+    base:option,
+    function: applyOption,
+    hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:30 },
+    demo: { type:'button', p:0, h:30, radius:3 },
+
+};
 
 
-	addTerrain();
+gui.init( document.body, options );
+option.demo = 3000;
+gui.resize( 260 );
 
-	//treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
-	treeMaterial = new THREE.MeshLambertMaterial({ color:0xCECECE, morphTargets:true });
 
-	debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
-	debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
-	debugGeo.translate(0,0.5,0);
+addTerrain();
 
-	
+//treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
+treeMaterial = new THREE.MeshLambertMaterial({ color:0xCECECE, morphTargets:true });
 
-	view.load ( [ 'cyl.sea' ], populate, true, true );
-}
+debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
+debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
+debugGeo.translate(0,0.5,0);
+
+
+
+view.load ( [ 'cyl.sea' ], populate, true, true );
+
 
 function addTerrain () {
 
@@ -109,7 +104,7 @@ function addTerrain () {
 
 	});
 
-	view.scene.add( terra );
+	view.add( terra );
 
 }
 
@@ -178,7 +173,7 @@ function addInstance ( num ) {
 
 		});
 
-		view.scene.add( inst );
+		view.add( inst );
 		instances.push( inst );
 
 	}
@@ -218,7 +213,7 @@ function clear () {
 	while ( instances.length > 0 ){ 
 
 		inst = instances.pop();
-		view.scene.remove( inst );
+		view.remove( inst );
 		inst.clear();
 		
 	}

@@ -50,8 +50,6 @@ body{ font-family:Monospace; background-color:#333; }
 <body>
 <script>
 
-var group = null;
-
 var user;
 var ui, gr1;
 var current = '';
@@ -68,75 +66,59 @@ var options = {
 
 var integrals = [ 'widthSegs', 'heightSegs', 'depthSegs', 'filetSegs', 'radialSegs' ];
 
-view.init( start, true );
-initGui();
+view.init();
+view.moveCam({ theta:0, phi:10, distance:15, target:[0,-1,0], time:0 });
+view.setShadow({ size:150, near:100, far:300, groundY:-5 });
+view.hideGrid( true );
+view.addSky({ url:'colors.jpg' });
 
-function initGui () {
+var group = new THREE.Group();
 
-    ui = new UIL.Gui( { w:320, h:30, close:false } );
-	ui.add('fps', { height:30 });
+var geometry = new THREE.BufferGeometry();
+geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( [], 3 ) );
 
-	var gr0 = ui.add('group', { name:'Geometry', h:30 });
-	gr0.add('button', { name:'ChamferBox', p:0 }).onChange( function(){ make('ChamferBox'); } );
-	gr0.add('button', { name:'ChamferCyl', p:0 }).onChange( function(){ make('ChamferCyl'); } );
-	gr0.add('button', { name:'Capsule', p:0 }).onChange( function(){ make('Capsule'); } );
-	gr0.add('button', { name:'SphereBox', p:0 }).onChange( function(){ make('SphereBox'); } );
-	gr0.add('bool', { name:'wireframe', value:true, inh:20, p:80 }).onChange( function(b){ group.children[ 0 ].visible = b } );
-	gr0.add('bool', { name:'autoRotate', value:autoRotation, inh:20, p:80 }).onChange( function(b){ autoRotation = b } );
-	gr0.open();
+var lineMaterial = new THREE.LineBasicMaterial( { color: 0x000000, transparent: true, opacity: 0.5 } );
+var meshMaterial = view.getMat().check;
 
-	gr1 = ui.add('group', { name:'Option', h:30 });
+var l = new THREE.LineSegments( geometry, lineMaterial );
+l.castShadow = false;
+l.receiveShadow = false;
 
-	make('ChamferCyl');
-}
+var m = new THREE.Mesh( geometry, meshMaterial );
+m.castShadow = true;
+m.receiveShadow = true;
 
-function start () {
+group.add( l );
+group.add( m );
 
-	view.moveCam({ theta:0, phi:10, distance:15, target:[0,-1,0], time:0 });
-	view.setShadow({ size:150, near:100, far:300, groundY:-5 });
-	view.hideGrid( true );
-	view.addSky({ url:'colors.jpg' });
+view.add( group );
 
+view.update = function(){
 
-	/*
-	var c = new THREE.CylinderBufferGeometry(2,3,4, 30)
-	var m = new THREE.Mesh(c,  view.getMat().check );
-	m.position.set(5,0,0)
-	view.add( m );
-	*/
+	if( !autoRotation ) return;
 
-	group = new THREE.Group();
-
-	var geometry = new THREE.BufferGeometry();
-	geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( [], 3 ) );
-
-	var lineMaterial = new THREE.LineBasicMaterial( { color: 0x000000, transparent: true, opacity: 0.5 } );
-	var meshMaterial = view.getMat().check;
-
-	var l = new THREE.LineSegments( geometry, lineMaterial );
-	l.castShadow = false;
-    l.receiveShadow = false;
-
-    var m = new THREE.Mesh( geometry, meshMaterial );
-	m.castShadow = true;
-    m.receiveShadow = true;
-
-	group.add( l );
-	group.add( m );
-
-	view.add( group );
-
-	view.update = function(){
-
-		if( !autoRotation ) return;
-
-		group.rotation.x += 0.0025;
-		group.rotation.y += 0.0025;
-
-	}
-
+	group.rotation.x += 0.0025;
+	group.rotation.y += 0.0025;
 
 }
+
+ui = new UIL.Gui( { w:320, h:30, close:false } );
+ui.add('fps', { height:30 });
+
+var gr0 = ui.add('group', { name:'Geometry', h:30 });
+gr0.add('button', { name:'ChamferBox', p:0 }).onChange( function(){ make('ChamferBox'); } );
+gr0.add('button', { name:'ChamferCyl', p:0 }).onChange( function(){ make('ChamferCyl'); } );
+gr0.add('button', { name:'Capsule', p:0 }).onChange( function(){ make('Capsule'); } );
+gr0.add('button', { name:'SphereBox', p:0 }).onChange( function(){ make('SphereBox'); } );
+gr0.add('bool', { name:'wireframe', value:true, inh:20, p:80 }).onChange( function(b){ group.children[ 0 ].visible = b } );
+gr0.add('bool', { name:'autoRotate', value:autoRotation, inh:20, p:80 }).onChange( function(b){ autoRotation = b } );
+gr0.open();
+
+gr1 = ui.add('group', { name:'Option', h:30 });
+
+make('ChamferCyl');
+
+
 
 function make ( name ) {
 

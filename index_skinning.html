@@ -22,19 +22,16 @@
 <script src="./src/controls/OrbitControls.js"></script>
 <script src="./src/controls/OrbitControlsExtra.js"></script>
 <script src="./src/objects/Lensflare.js"></script>
-<script src="./src/loaders/ShaderLoader.js"></script>
-<script src="./src/objects/Environement.js"></script>
+<script src="./src/sky.js"></script>
 <script src="./src/objects/Terrain.js"></script>
 <script src="./src/objects/Instance.js"></script>
-<script src="./src/View.js"></script>
+<script src="./src/view.js"></script>
 <script src="./src/editor.js"></script>
 </head>
 
 <body>
 <script>
-var user
-var editor;
-var view;
+var user;
 
 var debug = false;
 
@@ -52,50 +49,45 @@ var option = {
 
 var clock = new THREE.Clock();
 
-view = new View();
-view.init( start, true );
+view.init();
 
-function start () {
+view.hideGrid();
 
+view.addFog({ exp:0.0025 });
 
+view.moveCam({ theta:0, phi:10, distance:100, target:[0,1,0] })
 
-	view.hideGrid();
+view.setSky({ hour:hour, hdr:true });
 
-	view.addFog({ exp:0.0025 });
+var options = {
 
-	view.moveCam({ theta:0, phi:10, distance:100, target:[0,1,0] })
+	withFps:true,
+    base:option,
+    function: applyOption,
+    hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:30 },
+    demo: { type:'button', p:0, h:30, radius:3 },
 
-	view.addSky({ hour:hour, hdr:true });
-
-	var options = {
-
-		withFps:true,
-        base:option,
-        function: applyOption,
-        hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:30 },
-        demo: { type:'button', p:0, h:30, radius:3 },
-
-    };
+};
 
 
-	gui.init( document.body, options );
-	option.demo = 600;
-	gui.resize( 260 );
+gui.init( document.body, options );
+option.demo = 600;
+gui.resize( 260 );
 
 
-	addTerrain();
+addTerrain();
 
-	//treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
-	treeMaterial = new THREE.MeshLambertMaterial({ map: view.texture( 'heros_c.jpg'), skinning:true });
+//treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
+treeMaterial = new THREE.MeshLambertMaterial({ map: view.texture( 'heros_c.jpg'), skinning:true });
 
-	debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
-	debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
-	debugGeo.translate(0,0.5,0);
+debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
+debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
+debugGeo.translate(0,0.5,0);
 
-	
 
-	view.load ( [ 'heros.sea' ], populate, true, true );
-}
+
+view.load ( [ 'heros.sea' ], populate, true, true );
+
 
 function addTerrain () {
 
@@ -111,7 +103,7 @@ function addTerrain () {
 
 	});
 
-	view.scene.add( terra );
+	view.add( terra );
 
 }
 
@@ -183,7 +175,7 @@ function addInstance ( num ) {
 
 		});
 
-		view.scene.add( inst );
+		view.add( inst );
 		instances.push( inst );
 
 	}
@@ -228,7 +220,7 @@ function clear () {
 	while ( instances.length > 0 ){ 
 
 		inst = instances.pop();
-		view.scene.remove( inst );
+		view.remove( inst );
 		inst.clear();
 		
 	}

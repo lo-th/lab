@@ -277,16 +277,20 @@ view = {
         this.addShadow();
         this.initGrid();
 
-        if ( !noObj ) this.loadObject( 'basic', Callback );
-        else { if( Callback !== undefined ) Callback(); }
+        //if ( !noObj ) this.loadObject( 'basic', Callback );
+        //else { if( Callback !== undefined ) Callback(); }
 
         if( container !== null ) container.appendChild( canvas );
         else document.body.appendChild( canvas );
+
+        
 
 
         this.extandGroup();
 
         this.render( 0 );
+
+        if( Callback !== undefined ) Callback();
 
     },
 
@@ -466,6 +470,7 @@ view = {
     getControls: function () { return controler; },
     getControler: function () { return controler; },
     getCamera: function () { return camera; },
+    getCamShadow: function () { return camShadow; },
     getMouse: function () { return mouse; },
     getDom: function () { return renderer.domElement; },
 
@@ -680,7 +685,13 @@ view = {
 
     add: function ( m ) {
 
-        extraMesh.add( m );
+        content.add( m );
+
+    },
+
+    remove: function ( m ) {
+
+        content.remove( m );
 
     },
 

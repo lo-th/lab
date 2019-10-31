@@ -141,7 +141,7 @@ sky = {
 		//options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
 		options = { type:THREE.UnsignedByteType, encoding: THREE.RGBEEncoding, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, anisotropy:1 };
 		
-		camera = new CubeCamera( 0.1, 1, setting.resolution, options );
+		camera = new THREE.CubeCamera( 0.1, 1, setting.resolution, options );
 
 		scene.add( camera );
 
