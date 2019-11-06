@@ -75,35 +75,23 @@ THREE.Terrain = function  ( o ) {
     this.geometry.setAttribute( 'color', new THREE.BufferAttribute( this.colors, 3 ) );
     this.vertices = this.geometry.attributes.position.array;
 
-    this.wn = null;
-    if(this.isWater){
-        this.wn = view.loadTexture('terrain/water_n.jpg')
-        this.wn.repeat = new THREE.Vector2( 3, 3 );
-        this.wn.wrapS = this.wn.wrapT = THREE.RepeatWrapping;
-        this.wn.anisotropy = 1;
-    }
+    this.waterNormal = this.isWater ? view.texture({ url:'terrain/water_n.jpg', repeat:[3,3]}) : null;
+    
 
-    this.material = new THREE.MeshStandardMaterial({ 
-    //this.material = new THREE.MeshPhongMaterial({ 
-
-        vertexColors: THREE.VertexColors, 
+    this.material = view.material({ 
+        
         name:'terrain', 
-
-        //shininess:30,
-        //reflectivity:0.6,
-        //specular : 0x161716,
-
+        vertexColors: THREE.VertexColors, 
         metalness: this.isWater ? 0.8 : 0.2, 
         roughness: this.isWater ? 0.2 : 0.6, 
-        wireframe:false, 
-        envMap: view.getEnvMap(),
-        normalMap:this.wn,
-        normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(-1,-1),
+        //normalMap:this.wn,
+        normalScale:this.isWater ? [0.25,0.25]:[-1,-1],
         //shadowSide:false,
-        transparent:this.isWater ? true : false,
+        transparent: this.isWater ? true : false,
         opacity: this.isWater ? (o.opacity || 0.8) : 1,
 
-        side: this.isWater ? THREE.DoubleSide : THREE.FrontSide,
+        side: this.isWater ? 'Double' : 'Front',
+
     });
 
 
@@ -199,29 +187,24 @@ THREE.Terrain = function  ( o ) {
 
 
         this.mapsLink = [];
-        this.maps = [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
+        this.maps = o.maps || [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
         //for( var i in this.maps ) this.mapsLink[i] = 'terrain/' + this.maps[i] +'.jpg';
 
            // console.log( this.mapsLink )
 
         //pool.load ( this.mapsLink, null, true, true );
 
-        var textures = {}
-        var name, txt;
+        var txt = {}
+        var name;
         for( var i in this.maps ){
 
             name = this.maps[i];
-            //txt = pool.getResult()[name];
-            txt = view.loadTexture('terrain/'+name+'.jpg')
-            txt.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
-            txt.wrapS = txt.wrapT = THREE.RepeatWrapping;
-            txt.anisotropy = 8;
-            textures[name] = txt;
+            txt[name] = view.texture({ url:'terrain/'+name+'.jpg', repeat:this.uvx});
 
         }
 
-        this.material.map = textures[this.maps[0]];
-        this.material.normalMap = textures[this.maps[0]+'_n'];
+        this.material.map = txt[ this.maps[0] ];
+        this.material.normalMap = txt[ this.maps[0] + '_n' ];
 
         var self = this;
 
@@ -229,13 +212,11 @@ THREE.Terrain = function  ( o ) {
 
             var uniforms = shader.uniforms;
 
-            //uniforms['map'] = { value: textures.sand };
-            uniforms['map1'] = { value: textures[self.maps[1]] };
-            uniforms['map2'] = { value: textures[self.maps[2]] };
+            uniforms['map1'] = { value: txt[self.maps[1]] };
+            uniforms['map2'] = { value: txt[self.maps[2]] };
 
-            //uniforms['normalMap'] = { value: textures.sand_n };
-            uniforms['normalMap1'] = { value: textures[self.maps[1]+'_n'] };
-            uniforms['normalMap2'] = { value: textures[self.maps[2]+'_n'] };
+            uniforms['normalMap1'] = { value: txt[self.maps[1]+'_n'] };
+            uniforms['normalMap2'] = { value: txt[self.maps[2]+'_n'] };
 
 
             var vertex = shader.vertexShader;
@@ -265,6 +246,10 @@ THREE.Terrain = function  ( o ) {
 
 
 
+    } else {
+
+        this.material.normalMap = this.waterNormal;
+
     }
 
     //this.uniforms = uniforms;
@@ -284,7 +269,7 @@ THREE.Terrain = function  ( o ) {
     this.castShadow = false;
     this.receiveShadow = true;
 
-    view.getMat()[this.name] = this.material;
+    //view.getMat()[this.name] = this.material;
 
 };
 
@@ -306,21 +291,22 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
     addBorder: function ( o ){
 
-    	this.borderMaterial = new THREE.MeshStandardMaterial({ 
+    	this.borderMaterial = view.material({ 
+
     		vertexColors: THREE.VertexColors, 
     		metalness: this.isWater ? 0.8 : 0.4, 
        		roughness: this.isWater ? 0.2 : 0.6, 
        
-            envMap: view.getEnvMap(),
-            normalMap:this.wn,
-            normalScale:this.isWater ? new THREE.Vector2(0.25,0.25):new THREE.Vector2(2,2),
+            //envMap: view.getEnvMap(),
+            //normalMap:this.wn,
+            normalScale:this.isWater ?  [0.25,0.25]:[-1,-1],
             transparent:this.isWater ? true : false,
             opacity: this.isWater ? (o.opacity || 0.8) : 1,
-    		shadowSide : false
+    		//shadowSide : false
 
     	});
 
-    	view.getMat()[this.name+'border'] = this.borderMaterial;
+    	//view.getMat()[this.name+'border'] = this.borderMaterial;
 
         var front = new THREE.PlaneGeometry( this.size[0], 2, this.sample[0] - 1, 1 );
         var back = new THREE.PlaneGeometry( this.size[0], 2, this.sample[0] - 1, 1 );
@@ -464,8 +450,8 @@ THREE.Terrain.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), 
 
 
         if( this.isWater ){ 
-            this.wn.offset.x+=0.002;
-            this.wn.offset.y+=0.001;
+            this.waterNormal.offset.x+=0.002;
+            this.waterNormal.offset.y+=0.001;
         } else {
             this.material.map.offset.x = this.local.x * this.ruvx;
             this.material.map.offset.y = this.local.z * this.ruvy;

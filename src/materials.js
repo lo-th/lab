@@ -9,7 +9,7 @@ var materials = ( function () {
 
 'use strict';
 
-var data = {};
+var data = new Map();
 var pathTexture = './assets/textures/';
 var shaderShadow = null;
 var settings = {
@@ -19,24 +19,35 @@ var settings = {
 
 };
 
-var current = '';
+var id = 0;
+
 
 
 materials = {
 
+    getMat: function () {
+
+        var mat = {};
+        data.forEach( function ( m, key ) { mat[key] = m; } );
+        return mat;
+
+    },
+
     get: function ( name ){ 
 
-        return data[name] || null;
+        return data.has( name ) ? data.get( name ) : null;
 
     },
 
     clone: function ( name, newName ){
 
         var ref = materials.get( name );
-        if( ref!== null ){
+        if( ref !== null ) {
 
-            data[newName] = ref.clone();
-            return data[newName];
+            var m = ref.clone();
+            m.name = newName;
+            data.set( newName, m );
+            return m;
 
         } else {
             console.log( 'base material not existe !!' );
@@ -46,15 +57,59 @@ materials = {
 
     getList: function () {
 
-        var list = [''];
-        for( var name in data ) list.push( name );
-        return list;
+        //var list = [''];
+        //for( var name in data ) list.push( name );
+        return data.entries();
+
+    },
+
+    reset: function (){
+
+        data.forEach( function ( m, key ) { if( m.isTmp ){ data.delete( key ); m.dispose(); } } );
+        textures.reset();
+
+        //console.log( 'material reset' ); 
 
     },
 
     clear: function (){
 
-        for( var name in data ) data[name].dispose(); 
+        id = 0;
+
+        textures.clear();
+
+        data.forEach( function ( m, key ) { m.dispose(); } );
+        data.clear(); 
+
+        //for( var name in data ) data[name].dispose(); 
+    },
+
+    
+
+    updateEnvmap: function (){ 
+
+        var env = view.getEnvmap();
+
+        data.forEach( function ( m, key ) { 
+
+                if( m.envMap === undefined ) return; 
+                if( m.wireframe ) m.envMap = null;
+                m.envMap = env;
+                m.needsUpdate = true;
+
+            } 
+
+        );
+        
+    },
+
+    // disable shadow for work only in shadow pass
+    // launch on start before create any material
+
+    disableShadow: function ( ) {
+
+        shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
+        shaderShadow = shaderShadow.replace( 'float shadow = 1.0;', ['float shadow = 1.0;','if( renderMode != 3 ) return shadow;',  ''].join( "\n" ) )
 
     },
 
@@ -64,202 +119,112 @@ materials = {
         // 1 depth
         // 2 normal
 
-        for( var name in data ){
-             if( data[name].uniforms ) data[name].uniforms.renderMode.value = n;
-        }
+        data.forEach( function ( value, key ) { value.uniforms.renderMode.value = n; } );
 
     },
 
-    updateEnvmap: function (){ 
 
-        var env = view.getEnvmap();
+    make: function ( o ){
 
-        for( var name in data ){
+        var name;
 
-            if( data[name].envMap !== undefined ){ 
-                
-                data[name].envMap = env;
-                data[name].needsUpdate = true;
-
-            }
-
+        if( o.name !== undefined ) name = o.name;
+        else{ 
+            name = 'mat' + id++;
+            o.name = name;
         }
         
-    },
-
-    select: function ( name ) {
-
-        current = name;
-
-    },
-
-    make: function ( param, special ){
-
-        // disable shadow for work only in shadow pass
-        
-        if( shaderShadow === null ){
-
-            shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
-            shaderShadow = shaderShadow.replace( 'float shadow = 1.0;', ['float shadow = 1.0;','if( renderMode != 3 ) return shadow;',  ''].join( "\n" ) );
-
-        }
-        
-        special = special || false;
-        var name = param.matname !== undefined ? param.matname : param.name;
-
-        var isSpec = false;
-
         // avoid duplication
-        if( data[name] ) return data[name];
-
+        if( data.has( name ) ) return data.get( name );
         
 
-        var type = param.matType !== undefined ? param.matType : 'Standard';//
+        // define material type
+        var type = o.type !== undefined ? o.type : 'Standard';
+        if( o.sheen !== undefined || o.clearcoat !== undefined || o.reflectivity !== undefined || o.transparency !== undefined ) type = 'Physical';
+        delete( o.type );
 
-        if( param.sheen!== undefined || param.clearcoat!== undefined || param.reflectivity!== undefined || param.transparency!== undefined ) type = 'Physical';
-
-        var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]();
-
-        mat.name = name;
-
-        mat.envMapIntensity = settings.envPower;
-
-        //if( param.color ){  mat.color = param.color; }
-        if( param.color ){
-            if( param.color.constructor === String ) param.color =  Number(param.color);
-            mat.color = new THREE.Color( param.color );
+        if( type !== 'Standard' ){
+            delete( o.metalness ); 
+            delete( o.roughness );
         }
-        
 
-        if( param.depthTest !== undefined ) mat.depthTest = param.depthTest;
-        if( param.depthWrite !== undefined ) mat.depthWrite = param.depthWrite;
+        if( type !== 'Phong' ){
+            delete( o.shininess ); 
+            delete( o.specular );
+        }
 
-        // transparency
-        if( param.transparent ) mat.transparent = param.transparent;
-        if( param.transparency ) mat.transparent = param.transparency;
-        if( param.premultipliedAlpha ) mat.premultipliedAlpha = param.premultipliedAlpha;
-        if( param.opacity !== undefined ) mat.opacity = param.opacity;
-        if( param.alphaTest !== undefined ) mat.alphaTest = param.alphaTest;
-        if( param.alphaMap ) mat.alphaMap = view.makeTexture( name+'_a', pathTexture + param.alphaMap, name === 'head_Model' ? true : false );
+        // clear on reset
+        var isTmp = o.isTmp !== undefined ? o.isTmp : true;
+        delete( o.isTmp );  
 
+        // search best setting
+        o.shadowSide = o.shadowSide !== undefined || false;
 
+        // parametre refine 
 
-        if( param.side ){ 
-            switch(param.side){
-                case 'front': mat.side = THREE.FrontSide; break;
-                case 'back': mat.side = THREE.BackSide; break;
-                case 'double': mat.side = THREE.DoubleSide; break;
+        for( var n in o ){
+
+            // is texture
+            if( n.substring( n.length - 3 ) === 'Map' || n === 'map' ){ 
+
+                if( o[n].isTexture ){
+
+                    textures.add( o[n].name, o[n] );
+
+                    // todo add to textures
+
+                } else {
+
+                    var param = o[n];
+                    param.isTmp = isTmp;
+                    o[n] = textures.make( param );
+
+                }
             }
-        }
 
-        if( param.depthFunc ){ 
-            switch(param.depthFunc){
-                case 'never': mat.depthFunc = THREE.NeverDepth; break;
-                case 'alway':mat.depthFunc = THREE.AlwaysDepth; break;
-                case 'less':mat.depthFunc = THREE.LessDepth; break;
-                case 'lessEqual': mat.depthFunc = THREE.LessEqualDepth; break;
-                case 'greaterEqual':mat.depthFunc = THREE.GreaterEqualDepth; break;
-                case 'greater':mat.depthFunc = THREE.GreaterDepth; break;
-                case 'notEqual':mat.depthFunc = THREE.NotEqualDepth; break;
+            // Front, Back, Double
+            if( n === 'side' ){
+                if( typeof o[n]  === 'string' || o[n] instanceof String ) o[n] = THREE[ o[n] + 'Side' ];
             }
+
+            // Never, Always, Less, LessEqual, Greater, GreaterEqual, NotEqual
+            if( n === 'depth' ) o[n] = THREE[ o[n] + 'Depth' ];
+
+            // isVector
+            if( n === 'normalScale' || n === 'clearcoatNormalScale' ){ 
+                if( !o[n].isVector2 ) o[n] = new THREE.Vector2().fromArray( o[n] );
+            }
+
+
         }
 
-        if( param.colorWrite !== undefined ){  mat.colorWrite = param.colorWrite; }
-
+        // create three material
+        var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]( o );
         
-
-         
-        /*if( param.alphaMap && special){  
-            mat.alphaMap = param.alphaMap; 
-            mat.transparent = true;
-        }*/
-        //if( param.transparent ){  mat.opasity = param.opasity; }
-        if( param.map ){
-            mat.map = special ? param.map : view.makeTexture( name+'_d', pathTexture + param.map, false ); 
-        }
-
-        // apply skin color
-        ///if( param.skinColor ){  mat.color = skinColor; }
-
-        //if( param.alphaMap && param.alpha ) mat.alphaMap = view.makeTexture( name+'_a', pathTexture + param.alphaMap, name==='head_Model'? true : false );
-        if( param.normalMap ) mat.normalMap = view.makeTexture( name+'_n', pathTexture + param.normalMap, false );
-
-        if( param.emissiveMap ) mat.emissiveMap = view.makeTexture( name+'_e', pathTexture + param.emissiveMap, false );
-        if( param.emissive ) mat.emissive = new THREE.Color( Number(param.emissive) );
-
-        // extra setting to test ?
-        if( param.reflectivity ) mat.reflectivity = param.reflectivity;// def 0.5
-        if( param.sheen ) mat.sheen = new THREE.Color( Number(param.sheen) );// def null
-
-        if( param.clearcoat !== undefined  ) mat.clearcoat = param.clearcoat;// def 0.0
-        if( param.clearcoatRoughness !== undefined  ) mat.clearcoatRoughness = param.clearcoatRoughness;// def 0.0
-        if( param.clearcoatNormalMap ) mat.clearcoatNormalMap = view.makeTexture( name + '_cc', pathTexture + param.clearcoatNormalMap, false );
-        if( param.clearcoatNormalScale ) mat.clearcoatNormalScale.set( param.clearcoatNormalScale, param.clearcoatNormalScale );
-
-        if( param.aoMap ){ 
-            mat.aoMap = view.makeTexture( name+'_ao', pathTexture + param.aoMap, false );
-            mat.aoMapIntensity = 1;
-        }
-
-        if( param.normalScale ) mat.normalScale.set( param.normalScale, param.normalScale );
-        //else mat.normalScale.set( settings.normal, settings.normal );
-
-        if( param.bumpMap ) mat.bumpMap = view.makeTexture( name+'_b', pathTexture + param.bumpMap, false );
-        if( param.bumpScale )  mat.bumpScale = param.bumpScale;
-        
-
-        //mat.shadowSide = settings.shadowSide;//;
-
-        //if( param.roughness || param.metalness ) specialMat.push( name );
-
-        if( param.roughness !== undefined ) mat.roughness = param.roughness;
-        if( param.metalness !== undefined ) mat.metalness = param.metalness;
-
-        
-
-        if( param.roughnessMap ) mat.roughnessMap = view.makeTexture( name+'_r', pathTexture + param.roughnessMap, false );
-        if( param.metalnessMap ) mat.metalnessMap = view.makeTexture( name+'_m', pathTexture + param.metalnessMap, false );
-        //mat.dithering = true;
-
-        if( param.extraColor ) mat.emissiveMap = view.makeTexture( name+'_x', pathTexture + param.extraColor, false );
-
-        if( param.specular && !special){ 
-
-            mat.metalnessMap = view.makeTexture( name+'_s', pathTexture + param.specular, false );
-            mat.roughness = 1;
-            mat.metalness = 1;
-
-            //specialMat.push( name );
-            isSpec = true;
-            param.isSpec = true;
-
-        }
-
-        if( param.subdermal ){ 
-            mat.subdermal = view.makeTexture( name+'_u', pathTexture + param.subdermal, false );
-        }
-
-        if( param.side ) mat.side = param.side === 'double' ? THREE.DoubleSide : THREE.FrontSide; 
-
+        // auto envmap
         if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
         
-       
-        data[name] = materials.customize( mat, param );
+        // clear on reset
+        mat.isTmp = isTmp;
 
-        //console.log(data[name])
+        // CUSTOM SHADER
+        //data[name] = materials.customize( mat, o );
 
-        return data[name];
+        // add to data
+        data.set( name, mat );
+
+        return mat;
 
     },
 
-    customize: function ( mat, param ) {
+    customize: function ( mat, o ) {
 
         mat.onBeforeCompile = function ( shader ) {
 
             shader.uniforms['renderMode'] = { value: 0 };
             shader.uniforms['extraShadow'] = { value: null };
 
-            shader.uniforms['velvet'] = { value: new THREE.Color( Number( param.velvet || '0x000000' ) ) };
+            shader.uniforms['velvet'] = { value: new THREE.Color( Number( o.velvet || '0x000000' ) ) };
 
             //console.log(view.getDepthPacking() ? 1 : 0)
 
@@ -276,18 +241,18 @@ materials = {
 
             fragment = fragment.replace( 'varying vec3 vViewPosition;', ['varying vec3 vViewPosition;', 'uniform int renderMode;', 'uniform int depthPacking;', 'uniform sampler2D extraShadow;', 'uniform sampler2D subdermal;' , 'uniform vec3 velvet;'].join("\n") );
 
-            if( param.isSpec ){ 
+            if( o.isSpec ){ 
                 fragment = fragment.replace( '#include <roughnessmap_fragment>', ['float roughnessFactor = roughness;', '#ifdef USE_METALNESSMAP', 'vec4 texelRoughness = vec4(1.0) - texture2D( metalnessMap, vUv );', 'roughnessFactor *= texelRoughness.g;', '#endif' ,''].join("\n") );
                 fragment = fragment.replace( '#include <metalnessmap_fragment>', ['float metalnessFactor = metalness;', '#ifdef USE_METALNESSMAP', 'vec4 texelMetalness = texture2D( metalnessMap, vUv );', 'metalnessFactor *= texelMetalness.b;', '#endif' ,''].join("\n") );
             }
 
-            if( param.revers ) fragment = fragment.replace( '#include <normal_fragment_maps>', materials.normalFragRevers );
+            if( o.revers ) fragment = fragment.replace( '#include <normal_fragment_maps>', materials.normalFragRevers );
 
-            if( param.alpha ) fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd + ['float RR = diffuseColor.a;', 'if ( RR < 0.5 ) { discard; }', ''].join("\n") );
+            if( o.alpha ) fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd + ['float RR = diffuseColor.a;', 'if ( RR < 0.5 ) { discard; }', ''].join("\n") );
             else fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd );
 
 
-            if( param.subdermal ){
+            if( o.subdermal ){
                 fragment = fragment.replace( '#include <map_fragment>', materials.mapSkinFrag );
             }
 
@@ -309,7 +274,7 @@ materials = {
 
     },
 
-        // --------------------------
+    // --------------------------
     //
     //  SHADER
     //

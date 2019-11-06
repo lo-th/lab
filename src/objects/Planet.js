@@ -14,31 +14,18 @@ function Planet( o, mat ) {
         height: o.height || 4,
     }
 
-    this.material = new THREE.MeshStandardMaterial({//new THREE.MeshPhongMaterial({// 
-
-        normalScale: new THREE.Vector2(1,1),
-        vertexColors: THREE.VertexColors, 
-        name:'planet', 
-        //shininess:40,
-        //specular:0x333433,
-        wireframe:false,
-        shadowSide:false,
-        envMap: view.getEnvMap()
-
-    });
 
     this.uvx = [2,2];
 
-    this.material.map = view.loadTexture('terrain/crater.jpg'), 
-    this.material.map.repeat = new THREE.Vector2( this.uvx[0], this.uvx[1] );
-    this.material.map.wrapS = THREE.RepeatWrapping;
-    this.material.map.wrapT = THREE.RepeatWrapping;
+    this.material = view.material({
 
-    this.material.normalMap = view.loadTexture('terrain/crater_n.jpg'), 
-    this.material.normalMap.wrapS = THREE.RepeatWrapping;
-    this.material.normalMap.wrapT = THREE.RepeatWrapping;
+        name:'planet',
+        normalScale:[1,1],
+        vertexColors: THREE.VertexColors,
+        map:{ url:'terrain/crater.jpg', repeat:this.uvx },
+        normalMap:{ url:'terrain/crater_n.jpg', repeat:this.uvx },
 
-    
+    });
 
     
 

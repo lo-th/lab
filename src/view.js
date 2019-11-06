@@ -98,7 +98,8 @@ var t = [0,0,0,0];
 var delta = 0;
 var fps = 0;
 
-var bg = bg || 0x222322;
+var bg = 0x222322;
+var alpha = 1;
 var vs = { w:1, h:1, l:0, x:0, y:0 };
 
 var agents = [];
@@ -125,6 +126,9 @@ var isInContainer = false;
 
 var autoAddAudio = null;
 
+var isMirror = false;
+var groundMirror = null;
+
 
 	
 ///
@@ -133,6 +137,8 @@ view = {
 
     pause: false,
 
+    //needsUpdate: false,
+
     byName: {},
 
     loadCallback: function(){},
@@ -140,6 +146,8 @@ view = {
     rayCallBack: function(){},
     resetCallBack: function(){},
     unPause: function(){},
+
+    //updateIntern: function(){},
 
     update: function(){},
 
@@ -172,12 +180,30 @@ view = {
 
         view.update( delta );
 
+       // if( view.needsUpdate ){
+
+        //    view.updateIntern();
+       //     view.needsUpdate = false;
+
+       // }
+
         renderer.render( scene, camera );
 
         // fps
         if ( (t[0] - 1000) > t[1] ){ t[1] = t[0]; fps = t[2]; t[2] = 0; }; t[2]++;
 
     },
+
+    //-----------------------------
+    //
+    //  SET BEFORE INIT
+    //
+    //-----------------------------
+
+
+    setContainer: function ( cc ) { container = cc; },
+
+    setBg: function ( c, Alpha ) { bg = c; alpha = Alpha !== undefined ? Alpha : alpha; },
 
 
     //-----------------------------
@@ -186,14 +212,13 @@ view = {
     //
     //-----------------------------
 
-    init: function ( Callback, noObj, Container, forceGL1, alpha ) {
 
-        alpha = alpha !== undefined ? alpha : false;
+    init: function ( Callback, noObj, Container, forceGL1 ) {
 
         // 1 CANVAS / CONTAINER
 
         isMobile = this.getMobile();
-        container = Container || null;
+        container = Container !== undefined ? Container : container;
 
         canvas = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'canvas' );
         canvas.style.cssText = 'position:absolute; top:0; left:0; pointer-events:auto;'//' image-rendering: pixelated;'
@@ -207,7 +232,7 @@ view = {
 
         try {
 
-            renderer = new THREE.WebGLRenderer( this.getGL( forceGL1, alpha ) );
+            renderer = new THREE.WebGLRenderer( this.getContext( forceGL1 ) );
 
         } catch( error ) {
             if( intro !== undefined ) intro.message('<p>Sorry, your browser does not support WebGL.</p>'
@@ -219,7 +244,7 @@ view = {
 
         console.log('THREE '+THREE.REVISION+' GL'+(isGl2 ? 2 : 1) );
 
-        renderer.setClearColor( bg, (alpha !== undefined ? alpha : true) ? 0:1 );
+        renderer.setClearColor( bg, alpha );
         renderer.setPixelRatio( isMobile ? 1 : window.devicePixelRatio );
 
         // 3 CAMERA / CONTROLER / MOUSE
@@ -269,7 +294,7 @@ view = {
         
         // 8 START BASE
 
-        this.shaderHack();
+        //this.shaderHack();
         this.initGeometry();
         this.initMaterial();
         
@@ -346,6 +371,7 @@ view = {
             }
             scene.remove( c );
         }
+
         
 
         this.update = function () {};
@@ -354,7 +380,11 @@ view = {
 
         this.byName = {};
 
+        
+
         if( full ){
+
+        	materials.reset();
 
             for( var m in tmpTxt ){ tmpTxt[m].dispose(); tmpTxt[m] = undefined; }
             for( var m in tmpMat ){ tmpMat[m].dispose(); tmpMat[m] = undefined; }
@@ -414,13 +444,16 @@ view = {
     //
     //-----------------------------
 
-    getGL: function ( force, alpha ) {
+    getContext: function ( force ) {
 
         var gl;
 
         var options = { 
-            antialias: isMobile ? false : true, alpha: alpha, 
-            stencil:false, depth:true, precision: "highp", premultipliedAlpha:true, preserveDrawingBuffer:false 
+            antialias: isMobile ? false : true, 
+            alpha: alpha === 1 ? false: true, 
+            stencil:false, depth:true, precision: "highp", 
+            premultipliedAlpha:true, 
+            preserveDrawingBuffer:false 
         }
 
         if( !force ){
@@ -457,7 +490,9 @@ view = {
 
     getGL2: function () { return isGl2; },
     getFps: function () { return fps; },
-    getEnvMap: function () { return envmap; },
+
+    getBg: function () { return bg; },
+    
     getAzimuthal: function (){ return -controler.getAzimuthalAngle(); },
     getGeo: function () { return geo; },
     getMat: function () { return mat; },
@@ -487,7 +522,11 @@ view = {
 
     getLightDistance: function () { return lightDistance; },
     getFollowGroup:  function () { return followGroup; },
+
     getContent:  function () { return content; },
+    getCanvas:  function () { return canvas; },
+
+    getVs:  function () { return vs; },
 
 
     //-----------------------------
@@ -495,6 +534,8 @@ view = {
     //  SET
     //
     //-----------------------------
+
+    setPixelRatio: function ( v ) { renderer.setPixelRatio( v ); },
 
     setEditor: function ( v ) { refEditor = v; },
     
@@ -654,7 +695,7 @@ view = {
 
     },
 
-    getTexture: function ( name ) {
+    /*getTexture: function ( name ) {
 
         var t = pool.getResult()[name];
 
@@ -668,11 +709,14 @@ view = {
             return t;
         }
 
-    },
+    },*/
 
-    getGeometry: function ( name, meshName ) {
+    getGeometry: function ( name, meshName, uv2 ) {
 
-        if(this.getMesh( name, meshName )) return this.getMesh( name, meshName ).geometry;
+        var m = this.getMesh( name, meshName );
+        if(uv2) m.geometry.setAttribute( 'uv2', m.geometry.attributes.uv );
+
+        if(m) return m.geometry;
         else return null;
 
     },
@@ -750,14 +794,45 @@ view = {
 
     },
 
+    //-----------------------------
+    //
+    // TEXTURES
+    //
+    //-----------------------------
+
+    texture: function ( o ) {
+
+    	return textures.make( o );
+
+    },
+
+    getTexture: function ( name ){
+
+    	return textures.get( name );
+
+    },
+
 
     //-----------------------------
     //
-    // MATERIALS
+    //  MATERIALS
+    //  need materials.js
     //
     //-----------------------------
 
-    material: function ( option, type ){
+    material: function ( o ){
+
+    	return materials.make( o );
+
+    },
+
+    getMaterial: function ( name ){
+
+    	return materials.get( name );
+
+    },
+
+    /*material_old: function ( option, type ){
 
         var name = option.name;
 
@@ -787,7 +862,7 @@ view = {
 
         option.envMap = envmap;
         
-        option.shadowSide = option.shadowSide || null;
+        option.shadowSide = option.shadowSide || false;
 
         tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
 
@@ -797,10 +872,10 @@ view = {
             }
         }*/
 
-        return tmpMat[ name ];
+   /*     return tmpMat[ name ];
 
     },
-
+*/
     makeMaterial: function ( option, type ){
 
         type = type || matType;
@@ -821,13 +896,13 @@ view = {
 
         option.envMap = envmap;
         
-        //option.shadowSide = false;
+        option.shadowSide = false;
 
         return new THREE['Mesh'+type+'Material']( option );
 
     },
 
-    resetMaterial: function (){
+    /*resetMaterial: function (){
 
         for( var m in this.mat ){
             this.mat[m].dispose();
@@ -835,7 +910,7 @@ view = {
 
         this.initMaterial();
 
-    },
+    },*/
 
     initMaterial: function (){
 
@@ -885,7 +960,7 @@ view = {
 
         }
 
-        for( var m in mat ) mat[m].shadowSide = false;
+        //for( var m in mat ) mat[m].shadowSide = false;
 
     },
 
@@ -908,7 +983,7 @@ view = {
 
     },*/
 
-    addMap: function( url, name ) {
+    /*addMap: function( url, name ) {
 
         if(mat[name]) return;
 
@@ -918,40 +993,10 @@ view = {
         map.flipY = false;
         mat[name] = this.makeMaterial({ name:name, map:map, envMap:envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
 
-    },
+    },*/
 
 
-    //-----------------------------
-    //
-    // TEXTURES
-    //
-    //-----------------------------
-
-    texture: function ( name, o ) {
-
-    	o = o || {};
-
-    	var n = name.substring( name.lastIndexOf('/')+1, name.lastIndexOf('.') );
-
-        if( tmpTxt[ n ] ) return tmpTxt[ n ];
-
-    	tmpTxt[ n ] = loader.load( './assets/textures/' + name, function ( tx ) {
-
-            tx.flipY = o.flip !== undefined ? o.flip : false;
-
-    		//if( o.flip !== undefined ) tx.flipY = o.flip;
-			if( o.repeat !== undefined ){ 
-				tx.repeat.set( o.repeat[0], o.repeat[1] );
-				if(o.repeat[0]>1) tx.wrapS = THREE.RepeatWrapping;
-				if(o.repeat[1]>1) tx.wrapT = THREE.RepeatWrapping;
-			}
-			if( o.anisotropy !== undefined ) tx.anisotropy = o.anisotropy;
-
-    	});
-
-    	return tmpTxt[ n ];
-
-    },
+    
     
 
     //-----------------------------
@@ -1132,6 +1177,8 @@ view = {
     //
     //-----------------------------
 
+    getShadowMap: function () { return shadowMat; },
+
     addShadow: function( o ){
 
         o = o || {};
@@ -1239,6 +1286,43 @@ view = {
         isShadowDebug = false;
 
     },
+
+    showShadowGround: function ( b ) {
+
+        shadowGround.visible = b;
+
+    },
+
+    //-----------------------------
+    //
+    // MIRROR
+    //
+    //-----------------------------
+
+    addMirror: function ( o ) { 
+
+        o = o || {};
+
+        if( isMirror ) return;
+
+        var geometry = new THREE.PlaneBufferGeometry( 200, 200 );
+        groundMirror = new THREE.Reflector( geometry, {
+            clipBias: 0.003,
+            textureWidth: vs.w,
+            textureHeight: vs.h,
+            color: 0x777777,
+            recursion: 1
+        } );
+
+        //groundMirror.scale.set( 200, 1, 200 );
+        groundMirror.position.set(o.x|| 0, o.y||0, o.z||0);
+        //groundMirror.scale.set( 200, 1, 200 );
+        groundMirror.rotateX( - Math.PI / 2 );
+        scene.add( groundMirror );
+
+        isMirror = true;
+
+    },
     
 
     //-----------------------------
@@ -1248,6 +1332,8 @@ view = {
     //-----------------------------
 
     initGrid: function ( o ){
+
+        if(grid!== null) scene.remove( grid );
 
         o = o || {};
         grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
@@ -1263,6 +1349,12 @@ view = {
 
     },
 
+    showGrid: function ( b ) {
+
+        grid.visible = b;
+
+    },
+
 
     //-----------------------------
     //
@@ -1271,9 +1363,18 @@ view = {
     //
     //-----------------------------
 
-    setEnvMap: function ( v ) {
+    showBackground: function ( b ) {
+
+        sky.showBackground( b );
+
+    },
+
+    getEnvmap: function () { return envmap; },
+
+    setEnvmap: function ( v ) {
 
         envmap = v;
+        materials.updateEnvmap();
 
     },
 
@@ -1346,6 +1447,10 @@ view = {
         }
 
         this.extraUpdateMat( envmap, hdr );
+
+        ////
+
+       
 
     },
 
@@ -1638,7 +1743,7 @@ view = {
 
     },
 
-    shaderHack: function () {
+    /*shaderHack: function () {
 
         THREE.ShaderChunk.aomap_fragment = [
             '#ifdef USE_AOMAP',
@@ -1651,7 +1756,7 @@ view = {
             '#endif',
         ].join("\n");
 
-    },
+    },*/
 
 
     //--------------------------------------

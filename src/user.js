@@ -56,7 +56,7 @@ var user = ( function () {
 
         update: function () {
 
-            if(!isInit) return;
+            if( !isInit ) return;
 
 
 

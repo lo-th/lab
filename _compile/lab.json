@@ -39,6 +39,7 @@
     "src/math.js",
     "src/pool.js",
     "src/sky.js",
+    "src/textures.js",
     "src/materials.js",
     "src/view.js"
 ]

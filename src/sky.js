@@ -96,7 +96,20 @@ var ccSize = 2;
 sky = {
 
 	mapReady:0,
+
 	callback: function (){},
+
+    render: function () {
+
+        camera.update( renderer, scene );
+
+        this.showBackground( showBackground );
+
+        view.setEnvmap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
+        view.updateEnvMap();
+
+
+    },
 
 	getHdr: function () { return isHdr; },
 	//getEnvmap: function () { return envmap; },
@@ -184,6 +197,8 @@ sky = {
 
         o = o || {}
 
+        if( o.resolution !== undefined ) this.setResolution( o.resolution );
+
         showBackground = o.visible !== undefined ? o.visible : false;
         isHdr = o.hdr !== undefined ? o.hdr : true;
 
@@ -197,18 +212,6 @@ sky = {
             showBackground = true;
             this.initAutoSky();
         }
-
-    },
-
-    render: function () {
-
-		camera.update( renderer, scene );
-
-        this.showBackground( showBackground );
-
-        view.setEnvMap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
-		view.updateEnvMap();
-
 
     },
 
@@ -820,8 +823,9 @@ var BasicSky = {
     'uniform float alpha;',
 
     'void main() {',
-        'int flip = isHdr;',
-        'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, flip == 1 ? 1.0 - vUv.y : vUv.y );',
+        //'int flip = isHdr;',
+        //'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, flip == 1 ? 1.0 - vUv.y : vUv.y );',
+        'vec2 uVx = vec2( rev == 1 ? 0.5 - vUv.x : vUv.x, vUv.y );',
         'vec4 c = texture2D( map, uVx );',
         'vec4 color = isHdr == 1 ? c : toHDR( c );',
         
