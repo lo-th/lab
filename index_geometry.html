@@ -40,6 +40,9 @@ body{ font-family:Monospace; background-color:#333; }
 <script src="./src/geometries/ChamferBox.js"></script>
 <script src="./src/geometries/SphereBox.js"></script>
 
+<script src="./src/textures.js"></script>
+<script src="./src/materials.js"></script>
+
 <script src="./src/math.js"></script>
 <script src="./src/pool.js"></script>
 <script src="./src/sky.js"></script>
@@ -75,7 +78,8 @@ var geometry = new THREE.BufferGeometry();
 geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( [], 3 ) );
 
 var lineMaterial = new THREE.LineBasicMaterial( { color: 0x000000, transparent: true, opacity: 0.5 } );
-var meshMaterial = view.getMat().check;
+var meshMaterial = view.material({ map:view.makeCheck(), color:0x808080, name:'check', metalness:0.75, roughness:0.25})
+//view.getMat().check;
 
 var l = new THREE.LineSegments( geometry, lineMaterial );
 l.castShadow = false;
@@ -93,7 +97,6 @@ view.add( group );
 view.update = function(){
 
 	if( !autoRotation ) return;
-
 	group.rotation.x += 0.0025;
 	group.rotation.y += 0.0025;
 

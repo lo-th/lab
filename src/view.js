@@ -213,7 +213,7 @@ view = {
     //-----------------------------
 
 
-    init: function ( Callback, noObj, Container, forceGL1 ) {
+    init: function ( Callback, Container, forceGL1 ) {
 
         // 1 CANVAS / CONTAINER
 
@@ -250,7 +250,6 @@ view = {
         // 3 CAMERA / CONTROLER / MOUSE
 
         camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
-        //camera.position.set( 0, 15, 30 );
         controler = new THREE.OrbitControlsExtra( camera, renderer.domElement ); //this.canvas );
         controler.target.set( 0, 0, 0 );
         controler.enableKeys = false;
@@ -296,21 +295,17 @@ view = {
 
         //this.shaderHack();
         this.initGeometry();
-        this.initMaterial();
+        //this.initMaterial();
         
         this.setTone();
         this.addLights();
         this.addShadow();
         this.initGrid();
 
-        //if ( !noObj ) this.loadObject( 'basic', Callback );
-        //else { if( Callback !== undefined ) Callback(); }
+
 
         if( container !== null ) container.appendChild( canvas );
         else document.body.appendChild( canvas );
-
-        
-
 
         this.extandGroup();
 
@@ -419,10 +414,7 @@ view = {
 
         Object.defineProperty( THREE.Group.prototype, 'material', {
             get: function() { return this.children[0].material; },
-            set: function( value ) { this.children.forEach( function ( b ) { b.material = value; });
-                //var i = this.children.length;
-                //while(i--) this.children[i].material = value; 
-            }
+            set: function( value ) { this.children.forEach( function ( b ) { b.material = value; }); }
         });
         
         Object.defineProperty( THREE.Group.prototype, 'receiveShadow', {
@@ -444,32 +436,35 @@ view = {
     //
     //-----------------------------
 
+
     getContext: function ( force ) {
 
         var gl;
 
-        var options = { 
+        var o = { 
             antialias: isMobile ? false : true, 
             alpha: alpha === 1 ? false: true, 
             stencil:false, depth:true, precision: "highp", 
             premultipliedAlpha:true, 
-            preserveDrawingBuffer:false 
+            preserveDrawingBuffer:false,
+            //xrCompatible: true,
         }
 
         if( !force ){
-            gl = canvas.getContext( 'webgl2', options );
-            if ( !gl ) gl = canvas.getContext( 'experimental-webgl2', options );
+            gl = canvas.getContext( 'webgl2', o );
+            if ( !gl ) gl = canvas.getContext( 'experimental-webgl2', o );
             isGl2 = !!gl;
         }
 
         if( !isGl2 ) {
-            gl = canvas.getContext( 'webgl', options );
-            if (!gl) gl = canvas.getContext( 'experimental-webgl', options );
+            //delete( option.xrCompatible );
+            gl = canvas.getContext( 'webgl', o );
+            if (!gl) gl = canvas.getContext( 'experimental-webgl', o );
         }
 
-        options.canvas = canvas;
-        options.context = gl;
-        return options;
+        o.canvas = canvas;
+        o.context = gl;
+        return o;
 
     },
 
@@ -695,22 +690,6 @@ view = {
 
     },
 
-    /*getTexture: function ( name ) {
-
-        var t = pool.getResult()[name];
-
-        if(t.isTexture){
-            t.flipY = false;
-            return t;
-        }else{ // is img
-            t = new THREE.Texture( t );
-            t.needsUpdate = true;
-            t.flipY = false;
-            return t;
-        }
-
-    },*/
-
     getGeometry: function ( name, meshName, uv2 ) {
 
         var m = this.getMesh( name, meshName );
@@ -876,7 +855,7 @@ view = {
 
     },
 */
-    makeMaterial: function ( option, type ){
+ /*   makeMaterial: function ( option, type ){
 
         type = type || matType;
 
@@ -900,7 +879,7 @@ view = {
 
         return new THREE['Mesh'+type+'Material']( option );
 
-    },
+    },*/
 
     /*resetMaterial: function (){
 
@@ -912,7 +891,7 @@ view = {
 
     },*/
 
-    initMaterial: function (){
+    /*initMaterial: function (){
 
         //check = new THREE.Texture( this.makeCheck() );
 
@@ -962,7 +941,7 @@ view = {
 
         //for( var m in mat ) mat[m].shadowSide = false;
 
-    },
+    },*/
 
     /*addMaterial: function( option ) {
 
@@ -1715,6 +1694,8 @@ view = {
 
     makeCheck: function () {
 
+        if( check !== null ) return check;
+
         var c = document.createElement('canvas');
         c.width = c.height = 128;
         var ctx = c.getContext("2d");
@@ -1733,13 +1714,13 @@ view = {
         var img = new Image( 128, 128 );
         img.src = c.toDataURL( 'image/png' );
 
-        var t = new THREE.Texture( img );
-        t.repeat = new THREE.Vector2( 2, 2 );
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        check = new THREE.Texture( img );
+        check.repeat = new THREE.Vector2( 2, 2 );
+        check.wrapS = check.wrapT = THREE.RepeatWrapping;
 
-        img.onload = function(){ t.needsUpdate = true; }
+        img.onload = function(){ check.needsUpdate = true; }
 
-        return t;
+        return check;
 
     },
 

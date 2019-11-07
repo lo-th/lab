@@ -25,6 +25,8 @@
 <script src="./src/sky.js"></script>
 <script src="./src/objects/Terrain.js"></script>
 <script src="./src/objects/Instance.js"></script>
+<script src="./src/textures.js"></script>
+<script src="./src/materials.js"></script>
 <script src="./src/view.js"></script>
 <script src="./src/editor.js"></script>
 </head>
@@ -78,7 +80,8 @@ gui.resize( 260 );
 addTerrain();
 
 //treeMaterial = view.material({ name:'treeMat', map: view.texture( 'tree.png'), alphaTest:0.3, side:THREE.DoubleSide }, 'Lambert' );
-treeMaterial = new THREE.MeshLambertMaterial({ map: view.texture( 'heros_c.jpg'), skinning:true });
+//treeMaterial = new THREE.MeshLambertMaterial({ map: view.texture( 'heros_c.jpg')});
+treeMaterial = view.material({ name:'treeMat', map: {url:'heros_c.jpg'}, skinning:true  } );
 
 debugMaterial = view.material({ name:'debugMat', color:0xCECECE, metalness:1, roughness:0.1 }, 'Standard' );
 debugGeo = new THREE.SphereBufferGeometry(1, 26,20);
