@@ -20490,7 +20490,7 @@ var Map;
 			if ( extension !== null ) {
 
 				equationToGL[ MinEquation ] = extension.MIN_EXT;
-				equationToGL[ MaxEquation ] = extension.MIN_EXT;
+				equationToGL[ MaxEquation ] = extension.MAX_EXT;
 
 			}
 
@@ -26853,6 +26853,8 @@ var Map;
 
 			}
 
+			this.autoUpdate = source.autoUpdate;
+
 			return this;
 
 		},
@@ -26887,27 +26889,39 @@ var Map;
 
 			var levels = this.levels;
 
-			for ( var i = 1, l = levels.length; i < l; i ++ ) {
+			if ( levels.length > 0 ) {
 
-				if ( distance < levels[ i ].distance ) {
+				for ( var i = 1, l = levels.length; i < l; i ++ ) {
 
-					break;
+					if ( distance < levels[ i ].distance ) {
+
+						break;
+
+					}
 
 				}
 
+				return levels[ i - 1 ].object;
+
 			}
 
-			return levels[ i - 1 ].object;
+			return null;
 
 		},
 
 		raycast: function ( raycaster, intersects ) {
 
-			_v1$4.setFromMatrixPosition( this.matrixWorld );
+			var levels = this.levels;
 
-			var distance = raycaster.ray.origin.distanceTo( _v1$4 );
+			if ( levels.length > 0 ) {
 
-			this.getObjectForDistance( distance ).raycast( raycaster, intersects );
+				_v1$4.setFromMatrixPosition( this.matrixWorld );
+
+				var distance = raycaster.ray.origin.distanceTo( _v1$4 );
+
+				this.getObjectForDistance( distance ).raycast( raycaster, intersects );
+
+			}
 
 		},
 
@@ -64578,6 +64592,8 @@ THREE.PMREMGenerator = ( function () {
 
 			}
 
+			shader.dispose();
+
 		},
 
 	};
@@ -72204,6 +72220,22 @@ Math.rgbToHex = function( rgb ){
 
 };
 
+Math.hexToRgb = function( hex ){
+
+    hex = Math.floor( hex );
+    var r = ( hex >> 16 & 255 ) / 255;
+    var g = ( hex >> 8 & 255 ) / 255;
+    var b = ( hex & 255 ) / 255;
+    return [ r, g, b ];
+
+};
+
+Math.htmlToHex = function ( v ) { 
+    
+    return v.toUpperCase().replace("#", "0x");
+    
+};
+
 Math.hexToHtml = function ( v ) { 
     
     v = v === undefined ? 0x000000 : v;
@@ -74241,7 +74273,7 @@ materials = {
         data.forEach( function ( m, key ) { 
 
                 if( m.envMap === undefined ) return; 
-                if( m.wireframe ) m.envMap = null;
+                if( m.wireframe || m.noEnv) m.envMap = null;
                 m.envMap = env;
                 m.needsUpdate = true;
 
@@ -74284,6 +74316,13 @@ materials = {
         
         // avoid duplication
         if( data.has( name ) ) return data.get( name );
+
+        // dissable environement
+        var noEnv = false;
+        if(o.noEnv){ 
+            noEnv = true;
+            delete( o.noEnv );
+        }
         
 
         // define material type
@@ -74350,7 +74389,13 @@ materials = {
         var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]( o );
         
         // auto envmap
-        if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
+        
+
+        if(noEnv){
+            mat.noEnv = true;
+        }else {
+            if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
+        }
         
         // clear on reset
         mat.isTmp = isTmp;

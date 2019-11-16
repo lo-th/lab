@@ -179,6 +179,22 @@ Math.rgbToHex = function( rgb ){
 
 };
 
+Math.hexToRgb = function( hex ){
+
+    hex = Math.floor( hex );
+    var r = ( hex >> 16 & 255 ) / 255;
+    var g = ( hex >> 8 & 255 ) / 255;
+    var b = ( hex & 255 ) / 255;
+    return [ r, g, b ];
+
+};
+
+Math.htmlToHex = function ( v ) { 
+    
+    return v.toUpperCase().replace("#", "0x");
+    
+};
+
 Math.hexToHtml = function ( v ) { 
     
     v = v === undefined ? 0x000000 : v;

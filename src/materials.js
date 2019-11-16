@@ -93,7 +93,7 @@ materials = {
         data.forEach( function ( m, key ) { 
 
                 if( m.envMap === undefined ) return; 
-                if( m.wireframe ) m.envMap = null;
+                if( m.wireframe || m.noEnv) m.envMap = null;
                 m.envMap = env;
                 m.needsUpdate = true;
 
@@ -136,6 +136,13 @@ materials = {
         
         // avoid duplication
         if( data.has( name ) ) return data.get( name );
+
+        // dissable environement
+        var noEnv = false;
+        if(o.noEnv){ 
+            noEnv = true;
+            delete( o.noEnv );
+        }
         
 
         // define material type
@@ -202,7 +209,13 @@ materials = {
         var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]( o );
         
         // auto envmap
-        if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
+        
+
+        if(noEnv){
+            mat.noEnv = true;
+        }else {
+            if( mat.envMap !== undefined ) mat.envMap = view.getEnvmap();
+        }
         
         // clear on reset
         mat.isTmp = isTmp;
