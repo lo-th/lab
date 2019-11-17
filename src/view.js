@@ -176,6 +176,7 @@ view = {
         if( refUser ) refUser.update(); // gamepad
         if( controler.enableDamping ) controler.update();
 
+
         TWEEN.update(); // tweener
 
         view.update( delta );
@@ -247,7 +248,20 @@ view = {
         renderer.setClearColor( bg, alpha );
         renderer.setPixelRatio( isMobile ? 1 : window.devicePixelRatio );
 
-        // 3 CAMERA / CONTROLER / MOUSE
+        // 3 SCENE / GROUP
+
+        scene = new THREE.Scene();
+
+        content = new THREE.Group();
+        scene.add( content );
+
+        followGroup = new THREE.Group();//= controler.followGroup;
+        scene.add( followGroup );
+
+        extraMesh = new THREE.Group();
+        scene.add( extraMesh );
+
+        // 4 CAMERA / CONTROLER / MOUSE
 
         camera = new THREE.PerspectiveCamera( 50 , 1 , 0.1, 20000 );
         controler = new THREE.OrbitControlsExtra( camera, renderer.domElement ); //this.canvas );
@@ -262,19 +276,6 @@ view = {
         mouse = new THREE.Vector3();
         offset = new THREE.Vector3();
         
-        // 4 SCENE / GROUP
-
-        scene = new THREE.Scene();
-
-        content = new THREE.Group();
-        scene.add( content );
-
-        followGroup = controler.followGroup;
-        scene.add( followGroup );
-
-        extraMesh = new THREE.Group();
-        scene.add( extraMesh );
-
 
         // 5 TEXTURE LOADER / ENVMAP
 
@@ -314,6 +315,8 @@ view = {
         if( Callback !== undefined ) Callback();
 
     },
+
+
 
 
     //-----------------------------
@@ -754,6 +757,7 @@ view = {
             circle: new THREE.CircleBufferGeometry( 1, 6 ),
 
             plane:      new THREE.PlaneBufferGeometry(1,1,1,1),
+            planeX:      new THREE.PlaneBufferGeometry(1,1,2,2),
             box:        new THREE.BoxBufferGeometry(1,1,1),
             hardbox:    new THREE.BoxBufferGeometry(1,1,1),
             cone:       new THREE.CylinderBufferGeometry( 0,1,0.5 ),
@@ -769,13 +773,15 @@ view = {
         geo.agent.rotateX( -Math.PI90 );
         geo.agent.rotateY( -Math.PI90 );
         geo.plane.rotateX( -Math.PI90 );
+        geo.planeX.rotateX( -Math.PI90 );
         geo.wheel.rotateZ( -Math.PI90 );
 
     },
 
     //-----------------------------
     //
-    // TEXTURES
+    //  TEXTURES
+    //  need textures.js
     //
     //-----------------------------
 
@@ -810,172 +816,6 @@ view = {
     	return materials.get( name );
 
     },
-
-    /*material_old: function ( option, type ){
-
-        var name = option.name;
-
-        if( tmpMat[ name ] ){
-
-            for( var o in option ){
-                if( o === 'color' ) this.tmpMat[ name ].color.setHex( option[o] );
-                else tmpMat[ name ][o] = option[o];
-            }
-
-            return tmpMat[ name ];
-        }
-
-        type = type || matType;
-
-        if( type !== 'Phong' ){
-            delete( option.shininess ); 
-            delete( option.specular );
-        }
-
-        if( type !== 'Standard' ){
-            option.reflectivity = option.metalness || 0.5;
-            delete( option.metalness ); 
-            delete( option.roughness );
-            delete( option.envMapIntensity );
-        }
-
-        option.envMap = envmap;
-        
-        option.shadowSide = option.shadowSide || false;
-
-        tmpMat[ name ] = new THREE['Mesh'+type+'Material']( option );
-
-        /*if( type === 'Standard' ){
-            this.tmpMat[ name ].onBeforeCompile = function ( shader ) {
-
-            }
-        }*/
-
-   /*     return tmpMat[ name ];
-
-    },
-*/
- /*   makeMaterial: function ( option, type ){
-
-        type = type || matType;
-
-        if( type !== 'Phong' ){
-            delete( option.shininess ); 
-            delete( option.specular );
-        }
-
-        if( type !== 'Standard' ){
-            option.reflectivity = option.metalness || 0.5;
-            delete( option.metalness ); 
-            delete( option.roughness );
-            
-        } else {
-            option.envMapIntensity = setting.envIntensity;
-        }
-
-        option.envMap = envmap;
-        
-        option.shadowSide = false;
-
-        return new THREE['Mesh'+type+'Material']( option );
-
-    },*/
-
-    /*resetMaterial: function (){
-
-        for( var m in this.mat ){
-            this.mat[m].dispose();
-        }
-
-        this.initMaterial();
-
-    },*/
-
-    /*initMaterial: function (){
-
-        //check = new THREE.Texture( this.makeCheck() );
-
-        check = this.makeCheck();
-        //check.needsUpdate = true;
-        //check.repeat = new THREE.Vector2( 2, 2 );
-        //check.wrapS = check.wrapT = THREE.RepeatWrapping;
-
-        //http://www.color-hex.com/popular-colors.php
-
-        mat = {
-
-            white: this.makeMaterial({ color:0xFFFFFF, name:'basic',  metalness:0.5, roughness:0.5 }),
-
-            ttest: new THREE.MeshBasicMaterial( { color: 0xffffff, depthTest:true, depthWrite:false } ),//this.makeMaterial({ color:0xFFFFFF, name:'basic', envMap:this.envmap, metalness:0, roughness:0 }),
-           
-
-            contactOn: this.makeMaterial({ color:0x33FF33, name:'contactOn', metalness:0.8, roughness:0.5 }),
-            contactOff: this.makeMaterial({ color:0xFF3333, name:'contactOff', metalness:0.8, roughness:0.5 }),
-
-            check: this.makeMaterial({ map:check, color:0x808080, name:'check', metalness:0.75, roughness:0.25 }),
-            basic: this.makeMaterial({ color:0xDDDEDD, name:'basic',  metalness:0.7, roughness:0.5 }),
-            movehigh: this.makeMaterial({ color:0xff4040, name:'movehigh', metalness:0.5, roughness:0.5 }),
-            
-
-            sleep: this.makeMaterial({ color:0x8080CC, name:'sleep', metalness:0.5, roughness:0.5 }),
-            move: this.makeMaterial({  color:0xCCCCCC, name:'move', metalness:0.5, roughness:0.5 }),
-            speed: this.makeMaterial({  color:0xCCAA80, name:'speed', metalness:0.5, roughness:0.5 }),
-
-            statique: this.makeMaterial({ color:0x626362, name:'statique',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false }),
-            static: this.makeMaterial({ color:0x626362, name:'static',  transparent:true, opacity:0.3, depthTest:true, depthWrite:false, metalness:0.7, roughness:0.3, premultipliedAlpha:true }),
-            plane: new THREE.MeshBasicMaterial({ color:0x111111, name:'plane', wireframe:true }),
-           
-            kinematic: this.makeMaterial({ name:'kinematic', color:0xD4AF37,  metalness:0.7, roughness:0.4 } ),//0xD4AF37
-            donut: this.makeMaterial({ name:'donut', color:0xAA9933,  metalness:0.6, roughness:0.4 }),
-
-            hide: this.makeMaterial({ color:0x000000, name:'hide', wireframe:true, visible:false }, 'Basic'),
-            debug: this.makeMaterial({ color:0x11ff11, name:'debug', wireframe:true}, 'Basic'),
-            skyUp: this.makeMaterial({ color:0xFFFFFF }, 'Basic'),
-
-            hero: this.makeMaterial({ color:0xffffff, name:'hero', metalness:0.4, roughness:0.6, skinning:true }), 
-            soft: this.makeMaterial({ vertexColors:THREE.VertexColors, name:'soft', transparent:true, opacity:0.9, side: THREE.DoubleSide }),
-
-            shadow: new THREE.ShadowMaterial({ name:'shadow', opacity:0.4, depthWrite:false }), 
-
-        }
-
-        //for( var m in mat ) mat[m].shadowSide = false;
-
-    },*/
-
-    /*addMaterial: function( option ) {
-
-        var maptype = ['map', 'emissiveMap', 'lightMap', 'aoMap', 'alphaMap', 'normalMap', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap'];
-
-        var i = maptype.length;
-        while(i--){
-            if( option[maptype[i]] ){ 
-                option[maptype[i]] = loader.load( './assets/textures/' + option[maptype[i]] );
-                option[maptype[i]].flipY = false;
-            }
-        }
-        
-        option.envMap = envmap;
-        
-
-        mat[option.name] = this.makeMaterial( option );
-
-    },*/
-
-    /*addMap: function( url, name ) {
-
-        if(mat[name]) return;
-
-        var map = loader.load( './assets/textures/' + url );
-        //map.wrapS = THREE.RepeatWrapping;
-        //map.wrapT = THREE.RepeatWrapping;
-        map.flipY = false;
-        mat[name] = this.makeMaterial({ name:name, map:map, envMap:envmap, metalness:0.6, roughness:0.4, shadowSide:false });//
-
-    },*/
-
-
-    
     
 
     //-----------------------------
@@ -1190,33 +1030,26 @@ view = {
         }
 
         isWithShadow = true;
+
         renderer.shadowMap.enabled = true;
 
         if( !isHighShadow ){
             renderer.shadowMap.soft = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         }
-        
 
-        shadowGround = new THREE.Mesh( geo.plane, shadowMat );
-        shadowGround.scale.set( 200, 1, 200 );
-        //this.shadowGround.position.y = 0.001;
+        shadowGround = new THREE.Mesh( geo.planeX, shadowMat );
         shadowGround.castShadow = false;
         shadowGround.receiveShadow = true;
         scene.add( shadowGround );
 
-        var d = 150;
-        //this.camShadow = new THREE.OrthographicCamera( -d, d, d, -d,  100, 300 );
-        camShadow = new THREE.OrthographicCamera( d, -d, d, -d,  100, 300 );
-        //this.followGroup.add( this.camShadow );
+        camShadow = new THREE.OrthographicCamera();
         sun.shadow = new THREE.LightShadow( camShadow );
+        //followGroup.add( camShadow );
 
-        sun.shadow.mapSize.width = o.resolution || 2048;
-        sun.shadow.mapSize.height = o.resolution || 2048;
-        sun.shadow.bias = o.bias || 0.00001;
-        //this.sun.shadow.bias = 0.0001;
         sun.castShadow = true;
 
+        this.setShadow( o );
 
     },
 
@@ -1236,7 +1069,11 @@ view = {
         cam.far = ( o.far !== undefined ) ? o.far : 300;
         cam.updateProjectionMatrix();
 
-        var gr = o.groundSize || 100;
+        sun.shadow.mapSize.width = o.resolution || 2048;
+        sun.shadow.mapSize.height = o.resolution || 2048;
+        sun.shadow.bias = o.bias || 0.00001;
+
+        var gr = o.groundSize || 200;
         var py = o.groundY || 0;
 
         shadowGround.scale.set( gr*2, 1, gr*2 );
@@ -1251,8 +1088,8 @@ view = {
         if( isShadowDebug ) {
             campHelper.update();
         } else {
-            campHelper = new THREE.CameraHelper( camShadow )
-            followGroup.add( campHelper );
+            campHelper = new THREE.CameraHelper( camShadow );
+            scene.add( campHelper );
             isShadowDebug = true;
         }
 
@@ -1261,7 +1098,7 @@ view = {
     removeShadowDebug: function () {
 
         if( !isShadowDebug ) return;
-        followGroup.remove( campHelper );
+        scene.remove( campHelper );
         isShadowDebug = false;
 
     },
@@ -1317,6 +1154,7 @@ view = {
         o = o || {};
         grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
         grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.15, depthTest:true, depthWrite:false } );
+        grid.position.y = 0.01;
         scene.add( grid );
 
     },

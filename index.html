@@ -15,13 +15,12 @@
 <body>
 <script>
 
-var h = 9;
-
+var h = new Date().getHours();
 
 view.init();
 view.moveCam({ theta:180, phi:10, distance:30, target:[0,1,0], time:0 });
 
-var mat = view.getMat().basic;
+var mat = view.material({ color:0xDDDEDD, name:'basic',  metalness:0.7, roughness:0.5 });
 
 var s = new THREE.Mesh( new THREE.SphereBox(2), mat );
 s.position.set(0,2,0);

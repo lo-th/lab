@@ -10,7 +10,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	this.cam = {
 
-	    isFollow: false,
+	    //isFollow: false,
 	    theta:180,
         phi:20,
 	    height:0.6,
@@ -33,7 +33,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 
 	}
 
-	this.followGroup = new THREE.Group();
+	this.followGroup = view.getFollowGroup();
 
     /*this.originUpdate = this.update;
 
@@ -91,7 +91,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 	resetFollow: function () {
 
 		this.followTarget = null;
-        this.cam.isFollow = false;
+        //this.cam.isFollow = false;
         this.enabled = true;
 
 	},
@@ -116,10 +116,10 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         if( this.isDecal ){
 
-            this.followGroup.position.sub(cam.old);
+            //this.followGroup.position.sub( cam.old );
             //console.log(cam.old)
             var yy = this.object.position.y;
-            this.object.position.sub(cam.old);
+            this.object.position.sub( cam.old );
             this.object.position.y = yy;
             this.target.copy( p ).add(cam.d);
             this.object.lookAt( this.target ); 
@@ -127,7 +127,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         }
 
         //this.enabled = false;
-        cam.isFollow = true;
+        //cam.isFollow = true;
 
         var rotMatrix = new THREE.Matrix4().makeRotationFromQuaternion( this.followTarget.quaternion );
         var tRotation = Math.atan2( rotMatrix.elements[8], rotMatrix.elements[10] );//yaw
@@ -172,7 +172,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         
         //if(!cam.isDecal) 
         this.object.position.add( cam.v );
-        this.target.copy( p ).add(this.cam.offset).add(cam.d);
+        this.target.copy( p ).add( this.cam.offset ).add( cam.d );
         this.object.lookAt( this.target );
 
         //cam.distance = sph.radius
@@ -187,7 +187,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
     },
 
 
-    updateFollowGroup: function(){
+    updateFollowGroup: function( p ){
 
         this.followGroup.position.copy( this.target );
         this.followGroup.position.y = 0;
@@ -294,7 +294,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         this.object.position.set( 0,0,0 ).setFromSpherical( cam.s ).add( this.target );
         this.object.lookAt( this.target );
 
-        this.updateFollowGroup();
+        //this.updateFollowGroup();
 
     },
 
