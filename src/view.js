@@ -280,7 +280,7 @@ view = {
         // 5 TEXTURE LOADER / ENVMAP
 
         loader = new THREE.TextureLoader();
-        envmap = null;//new THREE.CubeTexture();
+        envmap = null;
         
         // 6 RESIZE
 
@@ -296,7 +296,6 @@ view = {
 
         //this.shaderHack();
         this.initGeometry();
-        //this.initMaterial();
         
         this.setTone();
         this.addLights();
@@ -338,6 +337,7 @@ view = {
         this.resetLight();
         this.removeJoystick();
         this.removeShadowDebug();
+        this.initGrid();
 
         this.removeAudio();
 
@@ -414,6 +414,15 @@ view = {
     //-----------------------------
 
     extandGroup: function () {
+
+        /*Object.defineProperty( THREE.Mesh.prototype, 'inverse', {
+            get: function() { 
+                this.updateMatrixWorld(true);
+                return new THREE.Matrix4().getInverse( this.matrixWorld ); 
+            },
+        });*/
+
+
 
         Object.defineProperty( THREE.Group.prototype, 'material', {
             get: function() { return this.children[0].material; },
@@ -696,6 +705,7 @@ view = {
     getGeometry: function ( name, meshName, uv2 ) {
 
         var m = this.getMesh( name, meshName );
+
         if(uv2) m.geometry.setAttribute( 'uv2', m.geometry.attributes.uv );
 
         if(m) return m.geometry;
@@ -853,19 +863,6 @@ view = {
             helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
             helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
             helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
-
-
-            /*this.vMid = new THREE.Vector3( 1,0.1,0 );
-            this.camPixel = new THREE.OrthographicCamera( -0.1,0.1,0.1,-0.1, 1, 2 );
-            this.scene.add( this.camPixel );
-            this.camPixel.lookAt( this.vMid );
-
-            this.helper[2].add(this.camPixel)
-
-            this.scene.add(new THREE.CameraHelper(this.camPixel))
-            */
-
-            
 
             sun.add( helper[0] )
             moon.add( helper[1] )
@@ -1059,6 +1056,8 @@ view = {
 
         o = o || {};
 
+        shadowMat.opacity = o.opacity || 0.5;
+
         var cam = camShadow;
         var d = ( o.size !== undefined ) ? o.size : 150;
         cam.left =  d;
@@ -1149,12 +1148,16 @@ view = {
 
     initGrid: function ( o ){
 
-        if(grid!== null) scene.remove( grid );
+        if( grid !== null ){ 
+            scene.remove( grid );
+            grid.geometry.dispose();
+            grid.material.dispose();
+        }
 
         o = o || {};
         grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
         grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.15, depthTest:true, depthWrite:false } );
-        grid.position.y = 0.01;
+        grid.position.y = -0.01;
         scene.add( grid );
 
     },
@@ -1187,6 +1190,7 @@ view = {
     },
 
     getEnvmap: function () { return envmap; },
+    getSkyCube: function () { return sky.getCube(); },
 
     setEnvmap: function ( v ) {
 

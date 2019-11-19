@@ -28,6 +28,7 @@
     "src/objects/Lensflare.js",
     "src/objects/Instance.js",
     "src/objects/CubeCamera.js",
+    "src/shaders/Diamond.js",
     "src/helpers/CarHelper.js",
     "src/helpers/PointHelper.js",
     "src/lth/BVHLoader_Add.js",

@@ -14221,7 +14221,7 @@ var Map;
 
 	var clearcoat_normalmap_pars_fragment = "#ifdef USE_CLEARCOAT_NORMALMAP\n\tuniform sampler2D clearcoatNormalMap;\n\tuniform vec2 clearcoatNormalScale;\n#endif";
 
-	var packing = "vec3 packNormalToRGB( const in vec3 normal ) {\n\treturn normalize( normal ) * 0.5 + 0.5;\n}\nvec3 unpackRGBToNormal( const in vec3 rgb ) {\n\treturn 2.0 * rgb.xyz - 1.0;\n}\nconst float PackUpscale = 256. / 255.;const float UnpackDownscale = 255. / 256.;\nconst vec3 PackFactors = vec3( 256. * 256. * 256., 256. * 256.,  256. );\nconst vec4 UnpackFactors = UnpackDownscale / vec4( PackFactors, 1. );\nconst float ShiftRight8 = 1. / 256.;\nvec4 packDepthToRGBA( const in float v ) {\n\tvec4 r = vec4( fract( v * PackFactors ), v );\n\tr.yzw -= r.xyz * ShiftRight8;\treturn r * PackUpscale;\n}\nfloat unpackRGBAToDepth( const in vec4 v ) {\n\treturn dot( v, UnpackFactors );\n}\nvec4 encodeHalfRGBA ( vec2 v ) {\n\tvec4 encoded = vec4( 0.0 );\n\tconst vec2 offset = vec2( 1.0 / 255.0, 0.0 );\n\tencoded.xy = vec2( v.x, fract( v.x * 255.0 ) );\n\tencoded.xy = encoded.xy - ( encoded.yy * offset );\n\tencoded.zw = vec2( v.y, fract( v.y * 255.0 ) );\n\tencoded.zw = encoded.zw - ( encoded.ww * offset );\n\treturn encoded;\n}\nvec2 decodeHalfRGBA( vec4 v ) {\n\treturn vec2( v.x + ( v.y / 255.0 ), v.z + ( v.w / 255.0 ) );\n}\nfloat viewZToOrthographicDepth( const in float viewZ, const in float near, const in float far ) {\n\treturn ( viewZ + near ) / ( near - far );\n}\nfloat orthographicDepthToViewZ( const in float linearClipZ, const in float near, const in float far ) {\n\treturn linearClipZ * ( near - far ) - near;\n}\nfloat viewZToPerspectiveDepth( const in float viewZ, const in float near, const in float far ) {\n\treturn (( near + viewZ ) * far ) / (( far - near ) * viewZ );\n}\nfloat perspectiveDepthToViewZ( const in float invClipZ, const in float near, const in float far ) {\n\treturn ( near * far ) / ( ( far - near ) * invClipZ - far );\n}";
+	var packing = "vec3 packNormalToRGB( const in vec3 normal ) {\n\treturn normalize( normal ) * 0.5 + 0.5;\n}\nvec3 unpackRGBToNormal( const in vec3 rgb ) {\n\treturn 2.0 * rgb.xyz - 1.0;\n}\nconst float PackUpscale = 256. / 255.;const float UnpackDownscale = 255. / 256.;\nconst vec3 PackFactors = vec3( 256. * 256. * 256., 256. * 256.,  256. );\nconst vec4 UnpackFactors = UnpackDownscale / vec4( PackFactors, 1. );\nconst float ShiftRight8 = 1. / 256.;\nvec4 packDepthToRGBA( const in float v ) {\n\tvec4 r = vec4( fract( v * PackFactors ), v );\n\tr.yzw -= r.xyz * ShiftRight8;\treturn r * PackUpscale;\n}\nfloat unpackRGBAToDepth( const in vec4 v ) {\n\treturn dot( floor( v * 255.0 + 0.5 ) / 255.0, UnpackFactors );\n}\nvec4 packHalfToRGBA( vec2 v ) {\n\tvec4 r = vec4( v.x, fract( v.x * 255.0 ), v.y, fract( v.y * 255.0 ));\n\treturn vec4( r.x - r.y / 255.0, r.y, r.z - r.w / 255.0, r.w);\n}\nvec2 unpackHalfToRGBA( vec4 v ) {\n\tv = floor( v * 255.0 + 0.5 ) / 255.0;\n\treturn vec2( v.x + ( v.y / 255.0 ), v.z + ( v.w / 255.0 ) );\n}\nfloat viewZToOrthographicDepth( const in float viewZ, const in float near, const in float far ) {\n\treturn ( viewZ + near ) / ( near - far );\n}\nfloat orthographicDepthToViewZ( const in float linearClipZ, const in float near, const in float far ) {\n\treturn linearClipZ * ( near - far ) - near;\n}\nfloat viewZToPerspectiveDepth( const in float viewZ, const in float near, const in float far ) {\n\treturn (( near + viewZ ) * far ) / (( far - near ) * viewZ );\n}\nfloat perspectiveDepthToViewZ( const in float invClipZ, const in float near, const in float far ) {\n\treturn ( near * far ) / ( ( far - near ) * invClipZ - far );\n}";
 
 	var premultiplied_alpha_fragment = "#ifdef PREMULTIPLIED_ALPHA\n\tgl_FragColor.rgb *= gl_FragColor.a;\n#endif";
 
@@ -14235,7 +14235,7 @@ var Map;
 
 	var roughnessmap_pars_fragment = "#ifdef USE_ROUGHNESSMAP\n\tuniform sampler2D roughnessMap;\n#endif";
 
-	var shadowmap_pars_fragment = "#ifdef USE_SHADOWMAP\n\t#if NUM_DIR_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D directionalShadowMap[ NUM_DIR_LIGHT_SHADOWS ];\n\t\tvarying vec4 vDirectionalShadowCoord[ NUM_DIR_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_SPOT_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D spotShadowMap[ NUM_SPOT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vSpotShadowCoord[ NUM_SPOT_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_POINT_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D pointShadowMap[ NUM_POINT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vPointShadowCoord[ NUM_POINT_LIGHT_SHADOWS ];\n\t#endif\n\tfloat texture2DCompare( sampler2D depths, vec2 uv, float compare ) {\n\t\treturn step( compare, unpackRGBAToDepth( texture2D( depths, uv ) ) );\n\t}\n\tvec2 texture2DDistribution( sampler2D shadow, vec2 uv ) {\n\t\treturn decodeHalfRGBA( texture2D( shadow, uv ) );\n\t}\n\tfloat VSMShadow (sampler2D shadow, vec2 uv, float compare ){\n\t\tfloat occlusion = 1.0;\n\t\tvec2 distribution = texture2DDistribution( shadow, uv );\n\t\tfloat hard_shadow = step( compare , distribution.x );\n\t\tif (hard_shadow != 1.0 ) {\n\t\t\tfloat distance = compare - distribution.x ;\n\t\t\tfloat variance = max( 0.00000, distribution.y * distribution.y );\n\t\t\tfloat softness_probability = variance / (variance + distance * distance );\t\t\tsoftness_probability = clamp( ( softness_probability - 0.3 ) / ( 0.95 - 0.3 ), 0.0, 1.0 );\t\t\tocclusion = clamp( max( hard_shadow, softness_probability ), 0.0, 1.0 );\n\t\t}\n\t\treturn occlusion;\n\t}\n\tfloat texture2DShadowLerp( sampler2D depths, vec2 size, vec2 uv, float compare ) {\n\t\tconst vec2 offset = vec2( 0.0, 1.0 );\n\t\tvec2 texelSize = vec2( 1.0 ) / size;\n\t\tvec2 centroidUV = ( floor( uv * size - 0.5 ) + 0.5 ) * texelSize;\n\t\tfloat lb = texture2DCompare( depths, centroidUV + texelSize * offset.xx, compare );\n\t\tfloat lt = texture2DCompare( depths, centroidUV + texelSize * offset.xy, compare );\n\t\tfloat rb = texture2DCompare( depths, centroidUV + texelSize * offset.yx, compare );\n\t\tfloat rt = texture2DCompare( depths, centroidUV + texelSize * offset.yy, compare );\n\t\tvec2 f = fract( uv * size + 0.5 );\n\t\tfloat a = mix( lb, lt, f.y );\n\t\tfloat b = mix( rb, rt, f.y );\n\t\tfloat c = mix( a, b, f.x );\n\t\treturn c;\n\t}\n\tfloat getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord ) {\n\t\tfloat shadow = 1.0;\n\t\tshadowCoord.xyz /= shadowCoord.w;\n\t\tshadowCoord.z += shadowBias;\n\t\tbvec4 inFrustumVec = bvec4 ( shadowCoord.x >= 0.0, shadowCoord.x <= 1.0, shadowCoord.y >= 0.0, shadowCoord.y <= 1.0 );\n\t\tbool inFrustum = all( inFrustumVec );\n\t\tbvec2 frustumTestVec = bvec2( inFrustum, shadowCoord.z <= 1.0 );\n\t\tbool frustumTest = all( frustumTestVec );\n\t\tif ( frustumTest ) {\n\t\t#if defined( SHADOWMAP_TYPE_PCF )\n\t\t\tvec2 texelSize = vec2( 1.0 ) / shadowMapSize;\n\t\t\tfloat dx0 = - texelSize.x * shadowRadius;\n\t\t\tfloat dy0 = - texelSize.y * shadowRadius;\n\t\t\tfloat dx1 = + texelSize.x * shadowRadius;\n\t\t\tfloat dy1 = + texelSize.y * shadowRadius;\n\t\t\tfloat dx2 = dx0 / 2.0;\n\t\t\tfloat dy2 = dy0 / 2.0;\n\t\t\tfloat dx3 = dx1 / 2.0;\n\t\t\tfloat dy3 = dy1 / 2.0;\n\t\t\tshadow = (\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy, shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, dy1 ), shadowCoord.z )\n\t\t\t) * ( 1.0 / 17.0 );\n\t\t#elif defined( SHADOWMAP_TYPE_PCF_SOFT )\n\t\t\tvec2 texelSize = vec2( 1.0 ) / shadowMapSize;\n\t\t\tfloat dx0 = - texelSize.x * shadowRadius;\n\t\t\tfloat dy0 = - texelSize.y * shadowRadius;\n\t\t\tfloat dx1 = + texelSize.x * shadowRadius;\n\t\t\tfloat dy1 = + texelSize.y * shadowRadius;\n\t\t\tshadow = (\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( 0.0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy, shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( 0.0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, dy1 ), shadowCoord.z )\n\t\t\t) * ( 1.0 / 9.0 );\n\t\t#elif defined( SHADOWMAP_TYPE_VSM )\n\t\t\tshadow = VSMShadow( shadowMap, shadowCoord.xy, shadowCoord.z );\n\t\t#else\n\t\t\tshadow = texture2DCompare( shadowMap, shadowCoord.xy, shadowCoord.z );\n\t\t#endif\n\t\t}\n\t\treturn shadow;\n\t}\n\tvec2 cubeToUV( vec3 v, float texelSizeY ) {\n\t\tvec3 absV = abs( v );\n\t\tfloat scaleToCube = 1.0 / max( absV.x, max( absV.y, absV.z ) );\n\t\tabsV *= scaleToCube;\n\t\tv *= scaleToCube * ( 1.0 - 2.0 * texelSizeY );\n\t\tvec2 planar = v.xy;\n\t\tfloat almostATexel = 1.5 * texelSizeY;\n\t\tfloat almostOne = 1.0 - almostATexel;\n\t\tif ( absV.z >= almostOne ) {\n\t\t\tif ( v.z > 0.0 )\n\t\t\t\tplanar.x = 4.0 - v.x;\n\t\t} else if ( absV.x >= almostOne ) {\n\t\t\tfloat signX = sign( v.x );\n\t\t\tplanar.x = v.z * signX + 2.0 * signX;\n\t\t} else if ( absV.y >= almostOne ) {\n\t\t\tfloat signY = sign( v.y );\n\t\t\tplanar.x = v.x + 2.0 * signY + 2.0;\n\t\t\tplanar.y = v.z * signY - 2.0;\n\t\t}\n\t\treturn vec2( 0.125, 0.25 ) * planar + vec2( 0.375, 0.75 );\n\t}\n\tfloat getPointShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord, float shadowCameraNear, float shadowCameraFar ) {\n\t\tvec2 texelSize = vec2( 1.0 ) / ( shadowMapSize * vec2( 4.0, 2.0 ) );\n\t\tvec3 lightToPosition = shadowCoord.xyz;\n\t\tfloat dp = ( length( lightToPosition ) - shadowCameraNear ) / ( shadowCameraFar - shadowCameraNear );\t\tdp += shadowBias;\n\t\tvec3 bd3D = normalize( lightToPosition );\n\t\t#if defined( SHADOWMAP_TYPE_PCF ) || defined( SHADOWMAP_TYPE_PCF_SOFT ) || defined( SHADOWMAP_TYPE_VSM )\n\t\t\tvec2 offset = vec2( - 1, 1 ) * shadowRadius * texelSize.y;\n\t\t\treturn (\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xyy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yyy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xyx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yyx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xxy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yxy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xxx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yxx, texelSize.y ), dp )\n\t\t\t) * ( 1.0 / 9.0 );\n\t\t#else\n\t\t\treturn texture2DCompare( shadowMap, cubeToUV( bd3D, texelSize.y ), dp );\n\t\t#endif\n\t}\n#endif";
+	var shadowmap_pars_fragment = "#ifdef USE_SHADOWMAP\n\t#if NUM_DIR_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D directionalShadowMap[ NUM_DIR_LIGHT_SHADOWS ];\n\t\tvarying vec4 vDirectionalShadowCoord[ NUM_DIR_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_SPOT_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D spotShadowMap[ NUM_SPOT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vSpotShadowCoord[ NUM_SPOT_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_POINT_LIGHT_SHADOWS > 0\n\t\tuniform sampler2D pointShadowMap[ NUM_POINT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vPointShadowCoord[ NUM_POINT_LIGHT_SHADOWS ];\n\t#endif\n\tfloat texture2DCompare( sampler2D depths, vec2 uv, float compare ) {\n\t\treturn step( compare, unpackRGBAToDepth( texture2D( depths, uv ) ) );\n\t}\n\tvec2 texture2DDistribution( sampler2D shadow, vec2 uv ) {\n\t\treturn unpackHalfToRGBA( texture2D( shadow, uv ) );\n\t}\n\tfloat VSMShadow (sampler2D shadow, vec2 uv, float compare ){\n\t\tfloat occlusion = 1.0;\n\t\tvec2 distribution = texture2DDistribution( shadow, uv );\n\t\tfloat hard_shadow = step( compare , distribution.x );\n\t\tif (hard_shadow != 1.0 ) {\n\t\t\tfloat distance = compare - distribution.x ;\n\t\t\tfloat variance = max( 0.00000, distribution.y * distribution.y );\n\t\t\tfloat softness_probability = variance / (variance + distance * distance );\t\t\tsoftness_probability = clamp( ( softness_probability - 0.3 ) / ( 0.95 - 0.3 ), 0.0, 1.0 );\t\t\tocclusion = clamp( max( hard_shadow, softness_probability ), 0.0, 1.0 );\n\t\t}\n\t\treturn occlusion;\n\t}\n\tfloat texture2DShadowLerp( sampler2D depths, vec2 size, vec2 uv, float compare ) {\n\t\tconst vec2 offset = vec2( 0.0, 1.0 );\n\t\tvec2 texelSize = vec2( 1.0 ) / size;\n\t\tvec2 centroidUV = ( floor( uv * size - 0.5 ) + 0.5 ) * texelSize;\n\t\tfloat lb = texture2DCompare( depths, centroidUV + texelSize * offset.xx, compare );\n\t\tfloat lt = texture2DCompare( depths, centroidUV + texelSize * offset.xy, compare );\n\t\tfloat rb = texture2DCompare( depths, centroidUV + texelSize * offset.yx, compare );\n\t\tfloat rt = texture2DCompare( depths, centroidUV + texelSize * offset.yy, compare );\n\t\tvec2 f = fract( uv * size + 0.5 );\n\t\tfloat a = mix( lb, lt, f.y );\n\t\tfloat b = mix( rb, rt, f.y );\n\t\tfloat c = mix( a, b, f.x );\n\t\treturn c;\n\t}\n\tfloat getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord ) {\n\t\tfloat shadow = 1.0;\n\t\tshadowCoord.xyz /= shadowCoord.w;\n\t\tshadowCoord.z += shadowBias;\n\t\tbvec4 inFrustumVec = bvec4 ( shadowCoord.x >= 0.0, shadowCoord.x <= 1.0, shadowCoord.y >= 0.0, shadowCoord.y <= 1.0 );\n\t\tbool inFrustum = all( inFrustumVec );\n\t\tbvec2 frustumTestVec = bvec2( inFrustum, shadowCoord.z <= 1.0 );\n\t\tbool frustumTest = all( frustumTestVec );\n\t\tif ( frustumTest ) {\n\t\t#if defined( SHADOWMAP_TYPE_PCF )\n\t\t\tvec2 texelSize = vec2( 1.0 ) / shadowMapSize;\n\t\t\tfloat dx0 = - texelSize.x * shadowRadius;\n\t\t\tfloat dy0 = - texelSize.y * shadowRadius;\n\t\t\tfloat dx1 = + texelSize.x * shadowRadius;\n\t\t\tfloat dy1 = + texelSize.y * shadowRadius;\n\t\t\tfloat dx2 = dx0 / 2.0;\n\t\t\tfloat dy2 = dy0 / 2.0;\n\t\t\tfloat dx3 = dx1 / 2.0;\n\t\t\tfloat dy3 = dy1 / 2.0;\n\t\t\tshadow = (\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, dy2 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy, shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx2, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx3, dy3 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( 0.0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DCompare( shadowMap, shadowCoord.xy + vec2( dx1, dy1 ), shadowCoord.z )\n\t\t\t) * ( 1.0 / 17.0 );\n\t\t#elif defined( SHADOWMAP_TYPE_PCF_SOFT )\n\t\t\tvec2 texelSize = vec2( 1.0 ) / shadowMapSize;\n\t\t\tfloat dx0 = - texelSize.x * shadowRadius;\n\t\t\tfloat dy0 = - texelSize.y * shadowRadius;\n\t\t\tfloat dx1 = + texelSize.x * shadowRadius;\n\t\t\tfloat dy1 = + texelSize.y * shadowRadius;\n\t\t\tshadow = (\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( 0.0, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, dy0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy, shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, 0.0 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( 0.0, dy1 ), shadowCoord.z ) +\n\t\t\t\ttexture2DShadowLerp( shadowMap, shadowMapSize, shadowCoord.xy + vec2( dx1, dy1 ), shadowCoord.z )\n\t\t\t) * ( 1.0 / 9.0 );\n\t\t#elif defined( SHADOWMAP_TYPE_VSM )\n\t\t\tshadow = VSMShadow( shadowMap, shadowCoord.xy, shadowCoord.z );\n\t\t#else\n\t\t\tshadow = texture2DCompare( shadowMap, shadowCoord.xy, shadowCoord.z );\n\t\t#endif\n\t\t}\n\t\treturn shadow;\n\t}\n\tvec2 cubeToUV( vec3 v, float texelSizeY ) {\n\t\tvec3 absV = abs( v );\n\t\tfloat scaleToCube = 1.0 / max( absV.x, max( absV.y, absV.z ) );\n\t\tabsV *= scaleToCube;\n\t\tv *= scaleToCube * ( 1.0 - 2.0 * texelSizeY );\n\t\tvec2 planar = v.xy;\n\t\tfloat almostATexel = 1.5 * texelSizeY;\n\t\tfloat almostOne = 1.0 - almostATexel;\n\t\tif ( absV.z >= almostOne ) {\n\t\t\tif ( v.z > 0.0 )\n\t\t\t\tplanar.x = 4.0 - v.x;\n\t\t} else if ( absV.x >= almostOne ) {\n\t\t\tfloat signX = sign( v.x );\n\t\t\tplanar.x = v.z * signX + 2.0 * signX;\n\t\t} else if ( absV.y >= almostOne ) {\n\t\t\tfloat signY = sign( v.y );\n\t\t\tplanar.x = v.x + 2.0 * signY + 2.0;\n\t\t\tplanar.y = v.z * signY - 2.0;\n\t\t}\n\t\treturn vec2( 0.125, 0.25 ) * planar + vec2( 0.375, 0.75 );\n\t}\n\tfloat getPointShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord, float shadowCameraNear, float shadowCameraFar ) {\n\t\tvec2 texelSize = vec2( 1.0 ) / ( shadowMapSize * vec2( 4.0, 2.0 ) );\n\t\tvec3 lightToPosition = shadowCoord.xyz;\n\t\tfloat dp = ( length( lightToPosition ) - shadowCameraNear ) / ( shadowCameraFar - shadowCameraNear );\t\tdp += shadowBias;\n\t\tvec3 bd3D = normalize( lightToPosition );\n\t\t#if defined( SHADOWMAP_TYPE_PCF ) || defined( SHADOWMAP_TYPE_PCF_SOFT ) || defined( SHADOWMAP_TYPE_VSM )\n\t\t\tvec2 offset = vec2( - 1, 1 ) * shadowRadius * texelSize.y;\n\t\t\treturn (\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xyy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yyy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xyx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yyx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xxy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yxy, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.xxx, texelSize.y ), dp ) +\n\t\t\t\ttexture2DCompare( shadowMap, cubeToUV( bd3D + offset.yxx, texelSize.y ), dp )\n\t\t\t) * ( 1.0 / 9.0 );\n\t\t#else\n\t\t\treturn texture2DCompare( shadowMap, cubeToUV( bd3D, texelSize.y ), dp );\n\t\t#endif\n\t}\n#endif";
 
 	var shadowmap_pars_vertex = "#ifdef USE_SHADOWMAP\n\t#if NUM_DIR_LIGHT_SHADOWS > 0\n\t\tuniform mat4 directionalShadowMatrix[ NUM_DIR_LIGHT_SHADOWS ];\n\t\tvarying vec4 vDirectionalShadowCoord[ NUM_DIR_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_SPOT_LIGHT_SHADOWS > 0\n\t\tuniform mat4 spotShadowMatrix[ NUM_SPOT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vSpotShadowCoord[ NUM_SPOT_LIGHT_SHADOWS ];\n\t#endif\n\t#if NUM_POINT_LIGHT_SHADOWS > 0\n\t\tuniform mat4 pointShadowMatrix[ NUM_POINT_LIGHT_SHADOWS ];\n\t\tvarying vec4 vPointShadowCoord[ NUM_POINT_LIGHT_SHADOWS ];\n\t#endif\n#endif";
 
@@ -19525,7 +19525,7 @@ var Map;
 
 	};
 
-	var vsm_frag = "uniform sampler2D shadow_pass;\nuniform vec2 resolution;\nuniform float radius;\n#include <packing>\nvoid main() {\n  float mean = 0.0;\n  float squared_mean = 0.0;\n  \n\tfloat depth = unpackRGBAToDepth( texture2D( shadow_pass, ( gl_FragCoord.xy  ) / resolution ) );\n  for ( float i = -1.0; i < 1.0 ; i += SAMPLE_RATE) {\n    #ifdef HORIZONAL_PASS\n      vec2 distribution = decodeHalfRGBA ( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( i, 0.0 ) * radius ) / resolution ) );\n      mean += distribution.x;\n      squared_mean += distribution.y * distribution.y + distribution.x * distribution.x;\n    #else\n      float depth = unpackRGBAToDepth( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( 0.0,  i )  * radius ) / resolution ) );\n      mean += depth;\n      squared_mean += depth * depth;\n    #endif\n  }\n  mean = mean * HALF_SAMPLE_RATE;\n  squared_mean = squared_mean * HALF_SAMPLE_RATE;\n  float std_dev = pow( squared_mean - mean * mean, 0.5 );\n  gl_FragColor = encodeHalfRGBA( vec2( mean, std_dev ) );\n}";
+	var vsm_frag = "uniform sampler2D shadow_pass;\nuniform vec2 resolution;\nuniform float radius;\n#include <packing>\nvoid main() {\n  float mean = 0.0;\n  float squared_mean = 0.0;\n\tfloat depth = unpackRGBAToDepth( texture2D( shadow_pass, ( gl_FragCoord.xy  ) / resolution ) );\n  for ( float i = -1.0; i < 1.0 ; i += SAMPLE_RATE) {\n    #ifdef HORIZONAL_PASS\n      vec2 distribution = unpackHalfToRGBA ( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( i, 0.0 ) * radius ) / resolution ) );\n      mean += distribution.x;\n      squared_mean += distribution.y * distribution.y + distribution.x * distribution.x;\n    #else\n      float depth = unpackRGBAToDepth( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( 0.0,  i )  * radius ) / resolution ) );\n      mean += depth;\n      squared_mean += depth * depth;\n    #endif\n  }\n  mean = mean * HALF_SAMPLE_RATE;\n  squared_mean = squared_mean * HALF_SAMPLE_RATE;\n  float std_dev = pow( squared_mean - mean * mean, 0.5 );\n  gl_FragColor = packHalfToRGBA( vec2( mean, std_dev ) );\n}";
 
 	var vsm_vert = "void main() {\n\tgl_Position = vec4( position, 1.0 );\n}";
 
@@ -26966,6 +26966,8 @@ var Map;
 		toJSON: function ( meta ) {
 
 			var data = Object3D.prototype.toJSON.call( this, meta );
+
+			if ( this.autoUpdate === false ) { data.object.autoUpdate = false; }
 
 			data.object.levels = [];
 
@@ -35502,6 +35504,8 @@ var Map;
 				var regex = handlers[ i ];
 				var loader = handlers[ i + 1 ];
 
+				if ( regex.global ) { regex.lastIndex = 0; } // see #17920
+
 				if ( regex.test( file ) ) {
 
 					return loader;
@@ -40539,6 +40543,8 @@ var Map;
 			}
 
 			if ( data.type === 'LOD' ) {
+
+				if ( data.autoUpdate !== undefined ) { object.autoUpdate = data.autoUpdate; }
 
 				var levels = data.levels;
 
@@ -70312,6 +70318,379 @@ THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.protot
 
 });
 
+
+// --------------------------------
+//  DIAMOND MATERIAL
+// --------------------------------
+
+var Diamond = function ( geometry, renderer, envmap ) {
+
+    //this.envMap = envMap;
+    this.cubeCamera = new THREE.CubeCamera( 0.1, 100, 1024, { format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter } );
+    //this.cubeCamera.renderTarget.texture.generateMipmaps = false
+    this.localScene = new THREE.Scene();
+    this.localScene.add( this.cubeCamera );
+
+    this.normalBakeHelperMesh = new THREE.Mesh( geometry.clone(), new THREE.ShaderMaterial( NormalMapCaptureShader ) )
+    this.normalBakeHelperMesh.geometry.center();
+
+    this.geometry = this.normalBakeHelperMesh.geometry;
+    this.geometry.computeVertexNormals()
+    this.geometry.computeBoundingBox();
+    this.offset = new THREE.Vector3();
+    this.geometry.boundingBox.getCenter( this.offset );
+    this.geometry.computeBoundingSphere();
+    this.normalBakeHelperMesh.position.set(0, 0, 0);
+    this.normalBakeHelperMesh.rotation.set(0, 0, 0);
+    this.normalBakeHelperMesh.quaternion.set(0, 0, 0, 1);
+    this.normalBakeHelperMesh.scale.set(1, 1, 1);
+    this.boundingRadius = this.geometry.boundingSphere.radius;
+
+    this.localScene.add( this.normalBakeHelperMesh );
+
+    THREE.ShaderMaterial.call( this, DiamondShader );
+
+    this.uniforms = THREE.UniformsUtils.clone( this.uniforms );
+    this.uniforms.centreOffset.value.copy( this.offset );
+    this.uniforms.radius.value = this.boundingRadius;
+    this.uniforms.envMap.value = envmap;
+    this.prepareNormalsCubeMap( renderer );
+
+
+}
+
+Diamond.prototype = Object.assign( Object.create( THREE.ShaderMaterial.prototype ), {
+
+    prepareNormalsCubeMap: function ( renderer ) {
+
+        //if( !this.needsNormalsUpdate ) return;
+
+        this.cubeCamera.update( renderer, this.localScene );
+        this.uniforms.tCubeMapNormals.value = this.cubeCamera.renderTarget.texture;
+        //this.material.uniforms.invMat.value = new THREE.Matrix4().getInverse( this.mesh.matrixWorld )
+        this.needsUpdate = true;
+       // this.needsNormalsUpdate = false;
+
+    },
+
+});
+
+// --------------------------------
+// SHADERS
+// --------------------------------
+
+var NormalMapCaptureShader = {
+    vertexShader: ["varying vec3 vNormalm;", "void main() {", "vNormalm = normal;", "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );", "}"].join("\n"),
+    fragmentShader: ["varying vec3 vNormalm;", "void main() {", "vec3 color = normalize(vNormalm);", "color = color * 0.5 + 0.5;", "gl_FragColor = vec4( color.x, color.y, color.z, 1.0 );", "}"].join("\n"),
+    side: THREE.DoubleSide
+}
+
+var DiamondShader = {
+    defines: {
+        RAY_BOUNCES: 5
+    },
+    uniforms: {
+        tCubeMapNormals: { value: null },
+        envMap: { value: null },
+        bDebugBounces: { value: 0 },
+        //envRefractionMap: {  value: null },
+        sphereMap: { value: null },
+        envMapIntensity: { value: 1 },
+        //maxBounces: { value: 5 },//1
+        //tanAngleSqCone: { value: 0 },//0
+        //coneHeight: { value: 0 },//0
+
+        mFresnelBias: { value: 0.02 },//0.1
+        mFresnelScale: { value:0.1},//1
+        mFresnelPower: { value: 1 },//2
+
+        //glowStart: { value: 0.1 },//2
+        //glowEnd: { value: 0.8 },//2
+        
+        aberration: { value: .012 },//.012
+        refraction: { value: 2.417 },//2.4
+        
+        normalOffset: { value: 0 },
+        squashFactor: { value: .98 },//.98
+        distanceOffset: { value: 0 }, // 0
+        geometryFactor: { value: 0.28 },//.28
+        absorbption: { value: new THREE.Color(0, 0, 0) },
+        correction: { value: new THREE.Color(1, 1, 1) },
+        boost: { value: new THREE.Color(.892, .892, .98595025) },
+        // from geometry
+        radius: { value: 1 },
+        centreOffset: { value: new THREE.Vector3(0, 0, 0)  },
+        //invMat: { value: new THREE.Matrix4() },
+    },
+    vertexShader: [
+        "varying vec2 vUv;", 
+        "varying vec3 vNormal;", 
+        "varying vec3 worldNormal;",
+        "varying vec3 vecPos;", 
+        //"varying vec3 viewPos;", 
+        "varying vec3 vI;",
+        "varying vec3 vEye;",
+        "varying mat4 invMat;",
+
+        "mat4 InverseMatrix(mat4 m) {",
+
+            "float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3], a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3], a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3], a30 = m[3][0], a31 = m[3][1], a32 = m[3][2], a33 = m[3][3],",
+
+            "b00 = a00 * a11 - a01 * a10,",
+            "b01 = a00 * a12 - a02 * a10,",
+            "b02 = a00 * a13 - a03 * a10,",
+            "b03 = a01 * a12 - a02 * a11,",
+            "b04 = a01 * a13 - a03 * a11,",
+            "b05 = a02 * a13 - a03 * a12,",
+            "b06 = a20 * a31 - a21 * a30,",
+            "b07 = a20 * a32 - a22 * a30,",
+            "b08 = a20 * a33 - a23 * a30,",
+            "b09 = a21 * a32 - a22 * a31,",
+            "b10 = a21 * a33 - a23 * a31,",
+            "b11 = a22 * a33 - a23 * a32,",
+
+          "det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;",
+
+          "return mat4( a11 * b11 - a12 * b10 + a13 * b09, a02 * b10 - a01 * b11 - a03 * b09, a31 * b05 - a32 * b04 + a33 * b03, a22 * b04 - a21 * b05 - a23 * b03, a12 * b08 - a10 * b11 - a13 * b07,",
+              "a00 * b11 - a02 * b08 + a03 * b07, a32 * b02 - a30 * b05 - a33 * b01, a20 * b05 - a22 * b02 + a23 * b01, a10 * b10 - a11 * b08 + a13 * b06, a01 * b08 - a00 * b10 - a03 * b06,",
+              "a30 * b04 - a31 * b02 + a33 * b00, a21 * b02 - a20 * b04 - a23 * b00, a11 * b07 - a10 * b09 - a12 * b06, a00 * b09 - a01 * b07 + a02 * b06, a31 * b01 - a30 * b03 - a32 * b00,",
+              "a20 * b03 - a21 * b01 + a22 * b00) / det;",
+        "}",
+
+        "void main() {", 
+            "vUv = uv;",
+            "vNormal = normalize(normal);",
+            //"vNormal = normalize( mat3( modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz ) * normal );",
+            //"vec4 worldPosition = modelMatrix * vec4( position, 1.0 );",
+            'invMat = InverseMatrix( modelMatrix );',
+            
+
+            "worldNormal = (modelMatrix * vec4(normal,0.0)).xyz;",
+            "vecPos = (modelMatrix * vec4(position, 1.0 )).xyz;",
+
+            "vEye = normalize(-cameraPosition);",//cameraPosition;",
+            "vI = vecPos - cameraPosition;",
+            //"viewPos = (modelViewMatrix * vec4(position, 1.0 )).xyz;",
+            "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+        "}"
+    ].join("\n"),
+
+    fragmentShader: [
+        
+        "varying vec2 vUv;", 
+        "varying vec3 vNormal;", 
+        "varying vec3 worldNormal;", 
+        "varying vec3 vecPos;", 
+        //"varying vec3 viewPos;",
+        "varying vec3 vI;",
+        "varying vec3 vEye;",
+        "varying mat4 invMat;",
+
+        "uniform samplerCube tCubeMapNormals;", 
+        "uniform samplerCube envMap;", 
+        //"uniform samplerCube envRefractionMap;", 
+        "uniform sampler2D sphereMap;", 
+        "uniform float envMapIntensity;", 
+        //"uniform float tanAngleSqCone;", 
+        //"uniform float coneHeight;", 
+        //"uniform int maxBounces;", 
+        "uniform mat4 modelMatrix;", 
+        //"uniform mat4 invMat;", 
+        //"uniform mat4 invModelMatrix;", 
+        "uniform float refraction;", 
+        "uniform float radius;", 
+        "uniform bool bDebugBounces;", 
+        "uniform float aberration;", 
+        "uniform float normalOffset;", 
+        "uniform float squashFactor;", 
+        "uniform float distanceOffset;", 
+        "uniform float geometryFactor;", 
+        "uniform vec3 absorbption;", 
+        "uniform vec3 correction;", 
+        "uniform vec3 boost;", 
+        "uniform vec3 centreOffset;", 
+
+        "uniform float mFresnelBias;",
+        "uniform float mFresnelScale;",
+        "uniform float mFresnelPower;",
+
+        //"uniform float glowStart;",
+        //"uniform float glowEnd;",
+
+        "vec3 BRDF_Specular_GGX_EnvironmentTest( const in vec3 viewDir, const in vec3 normal, const in vec3 specularColor, const in float roughness ) {",
+            "float dotNV = abs( dot( normal, viewDir ) );",
+            "const vec4 c0 = vec4( - 1, - 0.0275, - 0.572, 0.022 );", 
+            "const vec4 c1 = vec4( 1, 0.0425, 1.04, - 0.04 );", 
+            "vec4 r = roughness * c0 + c1;", 
+            "float a004 = min( r.x * r.x, exp2( - 9.28 * dotNV ) ) * r.x + r.y;", 
+            "vec2 AB = vec2( -1.04, 1.04 ) * a004 + r.zw;", 
+            "return specularColor * AB.x + AB.y;", 
+        "}", 
+
+        "vec4 SampleSpecularReflectionTest( vec4 specularColor, vec3 direction ) {",
+            "direction.x *= -1.0;", "direction.z *= -1.0;",
+            "vec3 tempDir = normalize(vec3(0., 0., 1.) + direction);", 
+            "vec4 sampleColorRGB = envMapIntensity * envMapTexelToLinear( textureCube( envMap, direction ) );", 
+            "vec4 sampleColorRefraction = envMapIntensity * ( texture2D( sphereMap, tempDir.xy * 0.5 + 0.5 ) );", 
+            "vec3 toneMappedColor = pow(abs(toneMapping(sampleColorRGB.rgb)),vec3(1./1.));", 
+            "return vec4(toneMappedColor, 1.0);", 
+        "}", 
+
+        "vec4 SampleSpecularContributionTest(vec4 specularColor, vec3 direction ) {", 
+            "direction = normalize(direction);", 
+            "direction.x *= -1.0;", 
+            "direction.z *= -1.0;", 
+            "vec4 sampleColorRGB = envMapIntensity * envMapTexelToLinear( textureCube( envMap, direction ) );", 
+            "vec3 tempDir = normalize(vec3(0., 0., 1.) + direction);", 
+            "float m = 2.8284271247461903 * sqrt( direction.z+1.0 );", 
+            "vec4 sampleColorRefraction = envMapIntensity * texture2D( sphereMap, clamp(direction.xy / m + 0.45, vec2(0.), vec2(1.)) );",
+            "vec3 toneMappedColor = pow(abs(toneMapping( sampleColorRGB.rgb )),vec3(1./1.));", 
+            "return vec4(toneMappedColor, 1.0);", 
+        "}", 
+
+        "vec3 intersectSphereTest(vec3 origin, vec3 direction) {", 
+            "origin -= centreOffset;", "direction.y /= squashFactor;", 
+            "float A = dot(direction, direction);",
+            "float B = 2.0*dot(origin, direction);", 
+            "float C = dot(origin, origin) - radius * radius;", 
+            "float disc = B*B - 4.0 * A * C;", 
+            "if(disc > 0.0){", 
+                "disc = sqrt(disc);", 
+                "float t1 = (-B + disc)*geometryFactor/A;", 
+                "float t2 = (-B - disc)*geometryFactor/A;", 
+                "float t = (t1 > t2) ? t1 : t2;", 
+                "direction.y *= squashFactor;", 
+                "return vec3(origin + centreOffset + direction * t);",
+             "}", 
+             "return vec3(0.0);", 
+        "}", 
+
+        "vec3 debugBounces(int count) {", 
+            "vec3 color = vec3(1.,1.,1.);", 
+            "if(count == 1)", 
+            "color = vec3(0.0,1.0,0.0);", 
+            "else if(count == 2)", 
+            "color = vec3(0.0,0.0,1.0);", 
+            "else if(count == 3)", 
+            "color = vec3(1.0,1.0,0.0);", 
+            "else if(count == 4)", 
+            "color = vec3(0.0,1.0,1.0);", 
+            "else", 
+            "color = vec3(0.0,1.0,0.0);", 
+            "if(count == 0)", 
+            "color = vec3(1.0,0.0,0.0);", 
+            "return color;", 
+        "}",
+
+        "vec3 traceRayTest( vec3 origin, vec3 direction, vec3 normal ) {", 
+
+            //"mat4 invModelMat = inverseMAT4(modelMatrix);",
+            "mat4 invModelMat = invMat;",
+
+            "vec3 outColor = vec3(0.0);", 
+            // Reflect/Refract ray entering the diamond 
+            "const float n1 = 1.0;", 
+            "const float epsilon = 1e-4;", 
+            "float f0 = (2.4- n1)/(2.4 + n1);", 
+            "f0 *= f0;", 
+            "vec3 attenuationFactor = vec3(1.0);",
+            "vec3 newDirection = refract(direction, normal, n1/refraction);", 
+            "vec3 reflectedDirection = reflect(direction, normal);", 
+            "vec3 brdfReflected = BRDF_Specular_GGX_EnvironmentTest(reflectedDirection, normal, vec3(f0), 0.0);", 
+            "vec3 brdfRefracted = BRDF_Specular_GGX_EnvironmentTest(newDirection, -normal, vec3(f0), 0.0);", 
+            "attenuationFactor *= ( vec3(1.0) - brdfRefracted);", 
+            "outColor += SampleSpecularReflectionTest(vec4(1.0), reflectedDirection ).rgb * brdfReflected;", 
+            "int count = 0;",
+            //"newDirection = (invModelMatrix * vec4(newDirection, 0.0)).xyz;", 
+            "newDirection = (invModelMat * vec4(newDirection, 0.0)).xyz;", 
+            "newDirection = normalize(newDirection);", 
+            //"origin = (invModelMatrix * vec4(origin, 1.0)).xyz;", 
+            "origin = (invModelMat * vec4(origin, 1.0)).xyz;",
+
+            // ray bounces 
+            "for( int i=0; i<RAY_BOUNCES; i++) { ",
+
+                "vec3 intersectedPos;", 
+                "intersectedPos = intersectSphereTest(origin + vec3(epsilon), newDirection);", 
+                "vec3 dist = intersectedPos - origin;", 
+                "vec3 d = normalize(intersectedPos - centreOffset);",
+                "vec3 mappedNormal = textureCube( tCubeMapNormals, d ).xyz;", 
+                "mappedNormal = 2. * mappedNormal - 1.;", "mappedNormal.y += normalOffset;", 
+                "mappedNormal = normalize(mappedNormal);", 
+                "dist = (modelMatrix * vec4(dist, 1.)).xyz;", 
+                "float r = sqrt(dot(dist, dist));", 
+                "attenuationFactor *= exp(-r*absorbption);", 
+                // refract the ray at first intersection 
+                "vec3 oldOrigin = origin;", 
+                "origin = intersectedPos - normalize(intersectedPos - centreOffset) * distanceOffset;", 
+                "vec3 oldDir = newDirection;", 
+                "newDirection = refract(newDirection, mappedNormal, refraction/n1);", 
+                 
+                "if( dot(newDirection, newDirection) == 0.0) { ", // Total Internal Reflection. Continue inside the diamond
+                    "newDirection = reflect(oldDir, mappedNormal);", 
+                     //If the ray got trapped even after max iterations, simply sample along the outgoing refraction!
+                    "if(i == RAY_BOUNCES-1 ) {", 
+                        "vec3 brdfReflected = BRDF_Specular_GGX_EnvironmentTest(-oldDir, mappedNormal, vec3(f0), 0.0);", 
+                        "vec3 d1 = (modelMatrix * vec4(oldDir, 0.0)).xyz;", 
+                        "outColor += SampleSpecularContributionTest(vec4(1.0), d1 ).rgb * correction * attenuationFactor  * boost * (vec3(1.0) - brdfReflected);", 
+                        //"outColor = vec3(1.,0.,0.);", 
+                        //"if(d1.y > 0.95) outColor += d1.y * vec3(1.,0.,0) * attenuationFactor * (vec3(1.0) - brdfReflected) * boost;",
+                    "}", 
+                
+                "} else { ", // Add the contribution from outgoing ray, and continue the reflected ray inside the diamond 
+                   "vec3 brdfRefracted = BRDF_Specular_GGX_EnvironmentTest(newDirection, -mappedNormal, vec3(f0), 0.0);",
+                   // outgoing(refracted) ray's contribution
+                   "vec3 d1 = (modelMatrix * vec4(newDirection, 0.0)).xyz;",
+                   "vec3 colorG = SampleSpecularContributionTest(vec4(1.0), d1 ).rgb * ( vec3(1.0) - brdfRefracted);", "vec3 dir1 = refract(oldDir, mappedNormal, (refraction+aberration)/n1);", "vec3 dir2 = refract(oldDir, mappedNormal, (refraction-aberration)/n1);", 
+                   "vec3 d2 = (modelMatrix * vec4(dir1, 0.0)).xyz;", 
+                   "vec3 d3 = (modelMatrix * vec4(dir2, 0.0)).xyz;", 
+                   "vec3 colorR = SampleSpecularContributionTest(vec4(1.0), d2 ).rgb * ( vec3(1.0) - brdfRefracted);", 
+                   "vec3 colorB = SampleSpecularContributionTest(vec4(1.0), d3 ).rgb * ( vec3(1.0) - brdfRefracted);", 
+                   "outColor += vec3(colorR.r, colorG.g, colorB.b) * correction * attenuationFactor * boost;", 
+                   //"outColor = oldDir;",
+                   //new reflected ray inside the diamond "
+                   "newDirection = reflect(oldDir, mappedNormal);", 
+                   "vec3 brdfReflected = BRDF_Specular_GGX_EnvironmentTest(newDirection, mappedNormal, vec3(f0), 0.0);", 
+                   "attenuationFactor *= brdfReflected * boost;", 
+                   "count++;",
+                "}", 
+            "}", 
+            "if(bDebugBounces) outColor = debugBounces(count);", 
+            //"outColor = (textureCube( tCubeMapNormals, direction )).rgb;",//vec3(outColor.r,1.0, outColor.b);",
+            //"outColor = texture2D( sphereMap, vUv ).rgb;",
+            "return outColor;",
+        "}", 
+
+        "void main() {", 
+
+            "float vReflectionFactor = mFresnelBias + mFresnelScale * pow( abs((1.0 + dot( normalize( vI ), vNormal ))), mFresnelPower );",
+
+            "vec3 normalizedNormal = normalize( worldNormal );",
+            "vec3 viewVector = normalize( vI );",
+            "vec3 refractedColor = traceRayTest( vecPos, viewVector, normalizedNormal );", 
+            //"vec3 colorTT = vec3( 1.0,0.0,0.0 );",
+            "vec3 vReflect = reflect( vI, vNormal );",
+            "vec3 reflectedColor = vec3( 1.0 );",
+            "reflectedColor.rgb = textureCube( envMap, vec3( -vReflect.x, vReflect.yz ) ).rgb;",
+            //"reflectedColor.rgb = vec3( 0.0,1.0,0.0 );",
+
+            //"float rim = 1.0 - smoothstep( glowStart, glowEnd, 1.0 - dot( vNormal, normalize( vI ) ));",
+
+            "vec3 finalColor = mix( refractedColor , reflectedColor , clamp( vReflectionFactor, 0.0, 1.0 ) );",
+            //"vec3 finalColor = mix( refractedColor, reflectedColor , clamp( rim, 0.0, 1.0 ) );",
+
+            "gl_FragColor = vec4( finalColor, 0.9);",
+            "#include <tonemapping_fragment>", 
+            //"#include <encodings_fragment>",
+        "}"
+    ].join("\n"),
+    
+    side: THREE.DoubleSide,
+    transparent:true,
+    //depthTest: true, 
+    //depthWrite: false,
+    //flatShading:true,
+}
 THREE.CarHelper = function ( p, center, deep ) {
 
     var s = 0.2;
@@ -72110,6 +72489,12 @@ Math.ranSeed = Math.seed(Math.seed2());
 Math.randFix = function ( low, high ) { return low + Math.ranSeed() * ( high - low ); };
 Math.randIntFix = function ( low, high ) { return low + Math.floor( Math.ranSeed() * ( high - low + 1 ) ); };
 
+Math.nearEquals = function (a, b, t) { 
+
+    return Math.abs(a - b) <= t ? true : false; 
+
+};
+
 Math.distanceVector = function ( a, b ) { 
 
     var x = b.x-a.x;
@@ -73122,6 +73507,12 @@ sky = {
             showBackground = true;
             this.initAutoSky();
         }
+
+    },
+
+    getCube: function () {
+
+        return camera.renderTarget.texture;
 
     },
 
@@ -74872,7 +75263,7 @@ view = {
         // 5 TEXTURE LOADER / ENVMAP
 
         loader = new THREE.TextureLoader();
-        envmap = null;//new THREE.CubeTexture();
+        envmap = null;
         
         // 6 RESIZE
 
@@ -74888,7 +75279,6 @@ view = {
 
         //this.shaderHack();
         this.initGeometry();
-        //this.initMaterial();
         
         this.setTone();
         this.addLights();
@@ -74930,6 +75320,7 @@ view = {
         this.resetLight();
         this.removeJoystick();
         this.removeShadowDebug();
+        this.initGrid();
 
         this.removeAudio();
 
@@ -75006,6 +75397,15 @@ view = {
     //-----------------------------
 
     extandGroup: function () {
+
+        /*Object.defineProperty( THREE.Mesh.prototype, 'inverse', {
+            get: function() { 
+                this.updateMatrixWorld(true);
+                return new THREE.Matrix4().getInverse( this.matrixWorld ); 
+            },
+        });*/
+
+
 
         Object.defineProperty( THREE.Group.prototype, 'material', {
             get: function() { return this.children[0].material; },
@@ -75288,6 +75688,7 @@ view = {
     getGeometry: function ( name, meshName, uv2 ) {
 
         var m = this.getMesh( name, meshName );
+
         if(uv2) m.geometry.setAttribute( 'uv2', m.geometry.attributes.uv );
 
         if(m) return m.geometry;
@@ -75445,19 +75846,6 @@ view = {
             helper[0] = new THREE.PointHelper( 20, 0xFFFF00 );
             helper[1] = new THREE.PointHelper( 20, 0x00FFFF );
             helper[2] = new THREE.PointHelper( 5, 0xFF8800 );
-
-
-            /*this.vMid = new THREE.Vector3( 1,0.1,0 );
-            this.camPixel = new THREE.OrthographicCamera( -0.1,0.1,0.1,-0.1, 1, 2 );
-            this.scene.add( this.camPixel );
-            this.camPixel.lookAt( this.vMid );
-
-            this.helper[2].add(this.camPixel)
-
-            this.scene.add(new THREE.CameraHelper(this.camPixel))
-            */
-
-            
 
             sun.add( helper[0] )
             moon.add( helper[1] )
@@ -75651,6 +76039,8 @@ view = {
 
         o = o || {};
 
+        shadowMat.opacity = o.opacity || 0.5;
+
         var cam = camShadow;
         var d = ( o.size !== undefined ) ? o.size : 150;
         cam.left =  d;
@@ -75741,12 +76131,16 @@ view = {
 
     initGrid: function ( o ){
 
-        if(grid!== null) scene.remove( grid );
+        if( grid !== null ){ 
+            scene.remove( grid );
+            grid.geometry.dispose();
+            grid.material.dispose();
+        }
 
         o = o || {};
         grid = new THREE.GridHelper( o.s1 || 40, o.s2 || 16, o.c1 || 0x000000, o.c2 || 0x020202 );
         grid.material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, transparent:true, opacity:0.15, depthTest:true, depthWrite:false } );
-        grid.position.y = 0.01;
+        grid.position.y = -0.01;
         scene.add( grid );
 
     },
@@ -75779,6 +76173,7 @@ view = {
     },
 
     getEnvmap: function () { return envmap; },
+    getSkyCube: function () { return sky.getCube(); },
 
     setEnvmap: function ( v ) {
 

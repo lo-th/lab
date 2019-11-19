@@ -215,6 +215,12 @@ sky = {
 
     },
 
+    getCube: function () {
+
+        return camera.renderTarget.texture;
+
+    },
+
     convertToHdr: function () {
 
     	var pmremGenerator = new THREE.PMREMGenerator( camera.renderTarget.texture, 32, 256 );

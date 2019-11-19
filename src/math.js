@@ -69,6 +69,12 @@ Math.ranSeed = Math.seed(Math.seed2());
 Math.randFix = function ( low, high ) { return low + Math.ranSeed() * ( high - low ); };
 Math.randIntFix = function ( low, high ) { return low + Math.floor( Math.ranSeed() * ( high - low + 1 ) ); };
 
+Math.nearEquals = function (a, b, t) { 
+
+    return Math.abs(a - b) <= t ? true : false; 
+
+};
+
 Math.distanceVector = function ( a, b ) { 
 
     var x = b.x-a.x;
