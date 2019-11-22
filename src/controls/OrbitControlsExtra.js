@@ -4,7 +4,7 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
 	THREE.OrbitControls.call( this, object, domElement );
 
 	this.followTarget = null;
-    this.camTween = null;
+    this.camTween = [];
 
     this.isDecal = false;
 
@@ -29,11 +29,14 @@ THREE.OrbitControlsExtra = function ( object, domElement ) {
         decal:[0,0,0],
 
         //isDecal: false,
-        start: false
+        start: false,
+        free: true,
 
 	}
 
 	this.followGroup = view.getFollowGroup();
+
+    this.info = this.getInfo();
 
     /*this.originUpdate = this.update;
 
@@ -102,6 +105,8 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         var cam = this.cam;
 
+        cam.free = false;
+
         var p = this.followTarget.position;
         //p.add(this.cam.offset);
 
@@ -145,10 +150,12 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         	if( Math.abs(sph.radius-cam.distance) < 1  && Math.abs(sph.phi-phi)<0.1 ){ 
 
         		cam.start = false;
+                
         	}
         }
 
-        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; radius = sph.radius;/*cam.distance = sph.radius;*/ }
+
+        if( state === 0 || state === 3 || dist < 0.01 ){ phi = sph.phi; theta = sph.theta; radius = sph.radius;/*cam.distance = sph.radius;*/ cam.free = true;}
         if( state === -1 && !cam.start ) { sph.phi = phi; sph.theta = theta;  sph.radius = radius;/*radius = cam.distance;*/ } 
 
         cam.s.set( radius, phi, theta );
@@ -179,7 +186,7 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         this.updateFollowGroup();
 
-        if( !cam.start ) cam.old.copy( p );
+        if( !cam.start ){ cam.old.copy( p ); }
 
         if( this.isDecal ) this.isDecal = false
         //cam.oldObj.copy( this.object.position );
@@ -202,67 +209,58 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
         var c = this.object.position;
         return {
             x:t.x, y:t.y, z:t.z, 
-            distance: Math.floor( c.distanceTo( t )), 
+            distance: Math.floor( c.distanceTo( t ) ), 
             phi: -Math.floor( this.getPolarAngle() * THREE.Math.RAD2DEG ) + 90,
-            theta: Math.floor( this.getAzimuthalAngle() * THREE.Math.RAD2DEG )
+            theta: Math.floor( this.getAzimuthalAngle() * THREE.Math.RAD2DEG ),
+            fov:c.fov,
         };
+
 
     },
 
     stopMoveCam: function (){
 
-        if( this.camTween !== null ){
-            TWEEN.remove( this.camTween );
-            this.camTween = null;
+        var i = this.camTween.length;
+        while(i--){
+            TWEEN.remove( this.camTween[i] );
+            this.camTween[i] = null;
         }
+
+        this.camTween = [];
+        this.info = this.getInfo();
 
     },
 
     moveCam: function ( o, callback ) {
 
     	var self = this;
-        var c = this.getInfo();
+        this.info = this.getInfo();
 
         if( o === undefined ) o = {}
 
-        /*if( o.constructor === Array ){ 
-           //var t = o;
-            var tmp = {};
-
-            if(o[0]) tmp.azim = o[0];
-            if(o[1]) tmp.polar = o[1];
-            if(o[2]) tmp.distance = o[2];
-            if( o[3] ){
-                tmp.x = o[3][0];
-                tmp.y = o[3][1];
-                tmp.z = o[3][2];
-            }
-
-            o = tmp;
-
-        } else if( !o ) o = {};*/
-
-        o.x = o.x !== undefined ? o.x : c.x;
-    	o.y = o.y !== undefined ? o.y : c.y;
-    	o.z = o.z !== undefined ? o.z : c.z;
-
-        o.distance = o.distance !== undefined ? o.distance : c.distance;
+        var c = [];
 
         if(o.target){
             o.x = o.target[0];
             o.y = o.target[1];
             o.z = o.target[2];
+
+            delete ( o.target );
         }
 
-    	o.phi = o.phi !== undefined ? o.phi : 0;
-    	o.theta = o.theta !== undefined ? o.theta : 0;
+        var time = o.time !== undefined ? o.time : 2000;
+        if(o.time) delete ( o.time );
 
-    	o.phi = o.polar !== undefined ? o.polar : o.phi;
-    	o.theta = o.azim !== undefined ? o.azim : o.theta;
+        var tween = o.tween !== undefined ? o.tween : TWEEN.Easing.Quadratic.Out;//Easing.Linear.None;
+        if(o.tween) delete ( o.tween );
 
-        //this.enabled = false;
+        var delay = o.delay !== undefined ? o.delay : 0;
+        if(o.delay) delete ( o.delay );
 
-        if( o.time === 0 ){
+        for( var n in o ) c[n] = this.info[n];
+
+
+        if( time === 0 ){
 
             for( var n in o ) c[n] = o[n];
             this.stopMoveCam();
@@ -274,18 +272,33 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         callback = callback || function(){};
 
-        this.camTween = new TWEEN.Tween( c ).to( o, o.time || 2000 )
-            .delay( o.delay || 0 )
-            .easing( o.tween || TWEEN.Easing.Quadratic.Out )
-            .onUpdate( function() { self.orbit( c ); } )
+        var t = new TWEEN.Tween( c ).to( o, time )
+            .delay( delay )
+            .easing( tween )
+            .onUpdate( function() { self.orbit( this ); } )
             .onComplete( function() { self.enabled = true;  callback(); } )
-            .start();
+            .start()
+
+        this.camTween.push( t );
 
     },
 
-    orbit: function ( o ) {
+    orbit: function ( c ) {
+
+        //console.log(h)
+
+        var o = this.info;// this.getInfo();
+
+        for( var n in c ) o[n] = c[n];
+
+        //if(n.theta !== o.theta) o.theta = n.theta
 
     	var cam = this.cam;
+
+        if(cam.fov !== o.fov){ 
+            this.object.fov = o.fov; 
+            this.object.updateProjectionMatrix(); 
+        }
 
         cam.s.set( o.distance, (-o.phi+90) * THREE.Math.DEG2RAD, o.theta * THREE.Math.DEG2RAD );
     	cam.s.makeSafe();

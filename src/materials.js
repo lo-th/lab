@@ -94,8 +94,10 @@ materials = {
 
                 if( m.envMap === undefined ) return; 
                 if( m.wireframe || m.noEnv) m.envMap = null;
-                m.envMap = env;
-                m.needsUpdate = true;
+                else {
+                    m.envMap = env;
+                    m.needsUpdate = true;
+                }
 
             } 
 

@@ -79,15 +79,15 @@ THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.protot
 
 	},
 
-	getPixel: function ( renderer, scene, w, h, gl2 ){
+	getPixel: function ( renderer, scene, w, h, face, nFaces, gl2 ){
 
 		w = w || 2;
 		h = h || 2;
 		gl2 = gl2 || false;
+		nFaces = nFaces || 6;
+		face = face || 0;
 
 		var inv255 = 1/256;
-
-
 
 		var pixelRender = new THREE.WebGLRenderTarget( w, h, { encoding: THREE.RGBEEncoding, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat, type: gl2 ? THREE.UnsignedByteType : THREE.FloatType } );
 		//pixelRender.texture.generateMipmaps = false;
@@ -96,16 +96,13 @@ THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.protot
 
         var pixel = [], read;
 
-
         if ( this.parent === null ) this.updateMatrixWorld();
 
 		var currentRenderTarget = renderer.getRenderTarget();
 
 		var color = new THREE.Color();
 
-		
-
-		for ( var i = 0; i < 6; i ++ ) {
+		for ( var i = face; i < nFaces; i ++ ) {
 
 			read = gl2 ? new Uint8Array( px ) : new Float32Array( px );
 
@@ -114,10 +111,10 @@ THREE.CubeCamera.prototype = Object.assign( Object.create( THREE.Object3D.protot
 			renderer.readRenderTargetPixels( pixelRender, 0, 0, w, h, read );
 
 			if( !gl2 ){
+
 				var j = read.length; 
 				while(j--) read[j] *= inv255;
 
-				//
 			} else {
 
 				var j = w * h, n, a;

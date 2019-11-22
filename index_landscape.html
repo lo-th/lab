@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>Lab terrain</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+
+<script src="./src/libs/three.js"></script>
+<script src="./src/libs/sea3d.js"></script>
+<script src="./src/libs/tween.js"></script>
+<script src="./src/libs/uil.js"></script>
+<script src="./src/shaders/shadowPCSS.js"></script>
+<script src="./src/math.js"></script>
+<script src="./src/SimplexNoise.js"></script>
+<script src="./src/pool.js"></script>
+<script src="./src/gui.js"></script>
+<script src="./src/pmrem/PMREMCubeUVPacker.js"></script>
+<script src="./src/pmrem/PMREMGenerator.js"></script>
+<script src="./src/controls/OrbitControls.js"></script>
+<script src="./src/controls/OrbitControlsExtra.js"></script>
+<script src="./src/objects/Lensflare.js"></script>
+<script src="./src/sky.js"></script>
+<script src="./src/objects/Terrain.js"></script>
+<script src="./src/objects/Instance.js"></script>
+<script src="./src/objects/CubeCamera.js"></script>
+<script src="./src/textures.js"></script>
+<script src="./src/materials.js"></script>
+<script src="./src/user.js"></script>
+<script src="./src/view.js"></script>
+<script src="./src/editor.js"></script>
+</head>
+
+<body>
+<script>
+
+var comment = 'Use keyboard to move'
+
+var player, controler;
+var euler = new THREE.Euler(0,0,0,'YXZ');
+var direction = new THREE.Vector3();
+var axis = new THREE.Vector3(0,1,0);
+
+var debug = false;
+
+var terra;
+var instances = [];
+var treeMaterial, debugMaterial;
+
+var hour = new Date().getHours();
+
+var option = {
+	hour: hour,
+	//colors:false,
+	//demo:[ 3000, 6000, 9000, 12000 ],
+}
+
+
+view.init();
+view.setUser( user );
+view.hideGrid();
+controler = view.getControler();
+
+view.addFog({ exp:0.0025 });
+
+view.moveCam({ theta:10, phi:15, distance:150, target:[0,1,0], fov:90, time:0 })
+
+view.addSky({ hour:hour, hdr:true });
+//view.addSky({ url:'photo.jpg', hdr:true, visible:true });
+
+var options = {
+
+	//withFps:true,
+    base:option,
+    function: applyOption,
+    hour: { min:0, max:24, precision:0, color:0xFFFF44, p:15, sc:30, mode:2, h:30 },
+    //colors:{ type:'button', p:0, h:25, radius:10 },
+    //demo: { type:'button', p:0, h:30, radius:3 },
+
+};
+
+
+gui.init( document.body, options );
+option.demo = 3000;
+gui.resize( 260 );
+
+
+addTerrain();
+addHero();
+initText();
+
+//sky.testColor( 64 );
+
+
+
+view.update = update;
+
+//-----------------------------------
+
+function update ( delta ) {
+
+	var d = view.getDistanceToCenter();
+    if( d>300 && !controler.isDecal ) decale();
+
+	
+
+	var s = user.key[7] ? 1.0 : 0.25;
+	var rs = user.key[2] ? user.key[2] : user.key[0]; // Q-D or A-D or left-right
+    var ts = user.key[1] ? user.key[1] : user.key[3]; // Z-S or W-S or up-down
+
+   //player.rotation.y -= rs * Math.torad;
+
+    //
+
+
+    //euler.setFromQuaternion( player.quaternion );
+    direction.set( -rs*s, 0, -ts*s ).applyAxisAngle( axis, player.rotation.y  );
+    player.position.x += direction.x;
+    player.position.z += direction.z;
+
+    var y = terra.getHeight( player.position.x, player.position.z );
+
+    player.position.y = Math.lerp( player.position.y, y, 0.05 );
+
+    
+
+    if( controler.cam.free ) player.rotation.y = Math.PI-view.getAzimuthal(); 
+
+    controler.follow();
+
+
+
+    
+
+}
+
+function decale() {
+
+    var p = player.position.clone(); //view.getCenterPosition();
+
+    player.position.x = 0;
+    player.position.z = 0;
+
+    terra.local.x += p.x;
+    terra.local.z += p.z;
+    terra.update();
+
+    controler.isDecal = true;
+
+}
+
+
+function addHero () {
+
+	/*var h = view.material({ type:'Basic', color:0xFF0000, wireframe:true })
+
+	player = new THREE.Mesh( new THREE.SphereBufferGeometry( 1, 6, 6 ), h );
+	player.position.y = terra.getHeight( 0, 0 )+0.5;
+	view.add( player );
+	*/
+
+	player = new THREE.Group();
+
+	view.setFollow( player, {distance:10, height:10, phi:5 } );
+
+}
+
+function addTerrain () {
+
+
+
+	terra = new THREE.Terrain({
+
+		local:[200,0,300],
+
+		uv:10,
+        pos : [ 0, -10, 0 ], // terrain position
+        size : [ 1200, 50, 1200 ], // terrain size in meter
+        sample : [ 512, 512 ], // number of subdivision
+        frequency : [0.016,0.05,0.2], // frequency of noise
+        level : [ 1, 0.2, 0.05 ], // influence of octave
+        normalScale: [-1.3,-1.3],
+        expo: 2,
+        ao:1,
+        //displacementScale:2,
+        maps:[
+        'snow/glass','snow/snow', 'snow/snow_rock', 
+        'snow/glass_n', 'snow/snow_n', 'snow/snow_rock_n', 
+        'snow/glass_orm', 'snow/snow_orm', 'snow/snow_rock_orm',
+        //'snow/glass_d', 'snow/snow_d', 'snow/snow_rock_d',
+        ]
+
+	});
+
+	view.add( terra );
+
+	//var sph = new THREE.Mesh( new THREE.SphereBufferGeometry( 20, 128, 128 ), terra.material );
+	//sph.position.y = 20;
+	//view.add( sph );
+
+}
+
+
+function testTerrain ( limit ) {
+
+	var x = Math.rand(-600, 600);
+	var z = Math.rand(-600, 600);
+	var y = terra.getHeight( x, z );
+	return [x,y,z];
+
+}
+
+
+function applyOption () {
+
+	/*if( option.colors ){ 
+		sky.getColor();
+		option.colors=false;
+	}*/
+
+    if( hour !== option.hour ){ upSky(); }
+
+}
+
+var timeout = null;
+
+function upSky () {
+
+	hour = option.hour;
+    view.updateSky({ hour:hour });
+    
+}
+
+
+//------------------------------------
+//
+//  Extra text
+//
+//------------------------------------
+
+function initText () {
+
+	text = document.createElement( 'div' );
+	text.style.cssText = "position:absolute; margin:0px; padding:0px; bottom:10px; left:10px; width:300px; pointer-events:none; display:inline-block; text-align: left; vertical-align:bottom;";
+	document.body.appendChild( text );
+	tell(comment)//<br>arrow key to move<br>A-D key to rotate<br>F10 toggle Gui<br>F11 toggle FullScreen')
+
+}
+
+function tell ( s ){
+
+	text.innerHTML = s;
+
+}
+</script>
+</body>
+</html>

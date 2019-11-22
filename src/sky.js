@@ -43,6 +43,8 @@ var setting = {
 
 };
 
+var timeout = null;
+
 var torad = 0.0174532925199432957;
 
 var colors = null;
@@ -55,8 +57,6 @@ var n = 0;
 var debug = true;
 
 
-//var viewBg = false;
-
 var sv0 = null;
 var sv1 = null;
 var lup = null;
@@ -68,7 +68,7 @@ var moonSphere = null;
 var isPreload = false;
 
 var noiseMap = null;
-var nightSpaceMap = null;
+var stars = null;
 var lensflare = null;
 
 
@@ -93,6 +93,8 @@ var isInit = false;
 var ctxPixel = null;
 var ccSize = 2;
 
+var finalFog = null;
+
 sky = {
 
 	mapReady:0,
@@ -106,7 +108,10 @@ sky = {
         this.showBackground( showBackground );
 
         view.setEnvmap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
+
         view.updateEnvMap();
+
+        this.getFogColor();
 
 
     },
@@ -119,6 +124,8 @@ sky = {
 		if( isInit ) return;
 
 		renderer = view.getRenderer();
+
+        finalFog = new THREE.Color(0,0,0);
 
 
 		// contant sun color
@@ -282,7 +289,8 @@ sky = {
         	sky.mapReady++; 
         	sky.callback(); 
         });
-        //nightSpaceMap = loader.load( "assets/textures/sky/milkyway.jpg", function ( texture ) {  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; sky.mapReady++; sky.callback(); }  );
+
+        stars = loader.load( "assets/textures/envmap/stars.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping; sky.mapReady++; sky.callback(); }  );
 
     },
 
@@ -292,7 +300,7 @@ sky = {
 
     	if( !isPreload ) this.preloadder();
 
-        if( sky.mapReady !== 1 ){
+        if( sky.mapReady !== 2 ){
             sky.callback = sky.initAutoSky;
             return;
         } else {
@@ -302,7 +310,7 @@ sky = {
     	material.dispose();
 
     	//var milky = loader.load( "assets/textures/envmap/milkyway.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping;  }  );
-    	var stars = loader.load( "assets/textures/envmap/stars.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping;  }  );
+    	//var stars = loader.load( "assets/textures/envmap/stars.jpg", function ( texture ) { texture.wrapS = THREE.RepeatWrapping;  }  );
 
 
 	    var lens0 = loader.load( "assets/textures/sky/lens0.png" );
@@ -465,7 +473,8 @@ sky = {
 			if( s[i] !== undefined ) s[i] = o[i];
 		}
 
-		this.updateAutoSky();
+        if( timeout ){ clearTimeout(timeout); timeout = null; }
+        timeout = setTimeout( function(){ sky.updateAutoSky() }, 20 );
 
     },
 
@@ -593,15 +602,47 @@ sky = {
 
 	},
 
+    testColor2: function ( w ){
+
+        ccSize = w || 2;
+
+        var canvas = document.createElement('canvas'); 
+        canvas.width = ccSize;
+        canvas.height = ccSize;
+
+        canvas.style.cssText = 'position:absolute; bottom:10px; left:10px; border:1px solid #000;'
+
+        document.body.appendChild( canvas );
+
+        ctxPixel = canvas.getContext("2d");
+
+
+    },
+
 	getCtxPixel: function () {
 
 		return ctxPixel;
 
 	},
 
-    getColor: function () {
+    getFogColor:  function () {
 
-       // var currentRenderTarget = renderer.getRenderTarget();
+        if ( !view.getWithFog() ) return;
+
+        var gl2 = view.getGL2();
+        var face = 0;
+        var reads = camera.getPixel( renderer, scene, 64, 64, face, 1, gl2 );
+
+        var p = (32+(32 * 64)) * 4;
+
+        finalFog.setRGB( reads[0][p+0] / 255, reads[0][p+1] / 255, reads[0][p+2] / 255 ); 
+        finalFog.copyLinearToGamma( finalFog, 2.5 );
+
+        view.setFogColor( finalFog );
+
+    },
+
+    getColor: function () {
 
         var gl2 = view.getGL2();
 
@@ -609,19 +650,12 @@ sky = {
 
         var color = new THREE.Color();
         var face = 0;
-        /*var coord = new THREE.Vector3();
-        var dir = new THREE.Vector3();
 
-        var norm, lengthSq, weight, totalWeight = 0;
-        var shBasis = [ 0, 0, 0, 0, 0, 0, 0, 0, 0 ];
-        var sh = new THREE.SphericalHarmonics3();
-        var shCoefficients = sh.coefficients;*/
-
-        var reads = camera.getPixel( renderer, scene, w, w, gl2 );
+        var reads = camera.getPixel( renderer, scene, w, w, 0, 6, gl2 );
 
         if( ctxPixel ){
 
-        	for(var k = 0; k<6; k++){
+        	for( var k = 0; k<6; k++ ){
 
 	        	var d = ctxPixel.createImageData( w, w );
 	        	var data = d.data;
@@ -635,45 +669,10 @@ sky = {
                     color.setRGB( reads[k][n+0] / 255, reads[k][n+1] / 255, reads[k][n+2] / 255 );
                     color.copyLinearToGamma( color, 2.5 );
 
-                    /*var col = - 1 + ( n % w + 0.5 ) * pixelSize;
-                    var row = 1 - ( Math.floor( n / w ) + 0.5 ) * pixelSize;
-
-                    switch ( k ) {
-
-                        case 0: coord.set( - 1, row, - col ); break;
-                        case 1: coord.set( 1, row, col ); break;
-                        case 2: coord.set( - col, 1, - row ); break;
-                        case 3: coord.set( - col, - 1, row ); break;
-                        case 4: coord.set( - col, row, 1 ); break;
-                        case 5: coord.set( col, row, - 1 ); break;
-
-                    }
-
-                    // weight assigned to this pixel
-
-                    lengthSq = coord.lengthSq();
-                    weight = 4 / ( Math.sqrt( lengthSq ) * lengthSq );
-                    totalWeight += weight;
-
-                    // direction vector to this pixel
-                    dir.copy( coord ).normalize();
-
-                    // evaluate SH basis functions in direction dir
-                    THREE.SphericalHarmonics3.getBasisAt( dir, shBasis );
-
-                    // accummuulate
-                    for ( var j = 0; j < 9; j ++ ) {
-
-                        shCoefficients[ j ].x += shBasis[ j ] * color.r * weight;
-                        shCoefficients[ j ].y += shBasis[ j ] * color.g * weight;
-                        shCoefficients[ j ].z += shBasis[ j ] * color.b * weight;
-
-                    }*/
-
-			    	data[n+0] = color.r*255;//reads[k][n+0];
-			    	data[n+1] = color.g*255;//reads[k][n+1];
-			    	data[n+2] = color.b*255;//reads[k][n+2];
-			    	data[n+3] = 255;//reads[k][n+3];
+			    	data[n+0] = color.r*255;
+			    	data[n+1] = color.g*255;
+			    	data[n+2] = color.b*255;
+			    	data[n+3] = 255;
 			    }
 
                 switch ( k ) {
@@ -687,23 +686,9 @@ sky = {
 
                 }
 
-			    ctxPixel.putImageData(d, face*w, 0);
+			    ctxPixel.putImageData( d, face*w, 0 );
 
 			}
-
-            // normalize
-            /*norm = ( 4 * Math.PI ) / totalWeight;
-
-            for ( var j = 0; j < 9; j ++ ) {
-
-                shCoefficients[ j ].x *= norm;
-                shCoefficients[ j ].y *= norm;
-                shCoefficients[ j ].z *= norm;
-
-            }
-
-            view.getProbe().copy( new THREE.LightProbe( sh ) );
-            view.getProbe().intensity = 1.0;*/
 
         }
 
@@ -883,6 +868,7 @@ var SuperSkyShader = {
         iteration: { value: 0 },
 
         withGamma: { value: 0 },
+        noGround:{value:0},
 
 	},
 
@@ -908,6 +894,7 @@ var SuperSkyShader = {
 	    'varying vec2 vUv;',
 
 	    'uniform int withGamma;',
+        'uniform int noGround;',
 
 	    'uniform int isHdr;',
 		'uniform vec3 fogColor;',
@@ -1006,7 +993,7 @@ var SuperSkyShader = {
 
 		'}',
 
-		'void cloudLayer( in vec3 r,out float s,out float t,out float u ){',
+		'void cloudLayer( in vec3 r, out float s, out float t, out float u ){',
 
 		'	float v,w;',
 		'	v = length( r-vm ) - c;',
@@ -1136,17 +1123,23 @@ var SuperSkyShader = {
 
 		'	vec3 s = vec3( 0, 0.99, 0 );',
 		'	float m = 0.0;',
+
 		'	vec3 sky = clamp( makeSky( s, r, m ), vec3( 0.0 ), vec3( 10000.0 ) );',
 
 			//float u = pow( abs( 1.0 - abs(r.y) ), 10.0 );
 			//float top = r.y >= 0.0 ? 1.0 : u; 
 			//float low = r.y <= 0.0 ? 1.0 : 
 		//'	float luma = 0.005 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
-		'	float luma = 0.05 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
+		'	float luma = 0.005 + max( dot( vec3( 0, 1.0, 0 ), light ), 0.0 ) * 0.2;',
 			//x = ;
 			//sky = mix(vec3(x),t,v*0.8);
 			// cloudColor
+        'if ( noGround == 0 ){',
 		'	sky = mix( groundColor*luma, sky , top);',
+        '}else{',
+        '   vec3 cc = sky.b > 0.0 ? sky : vec3(1.0, 0.0, 0.0);',
+        //'   sky = mix( cc*luma, sky , top);',
+        '}',
 			//sky = smoothstep( groundColor*x, sky , vec3(v));
 		'	float alpha = clamp( m + low, 0.0 , 0.99 ) + 0.01;',
 

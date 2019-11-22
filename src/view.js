@@ -890,6 +890,12 @@ view = {
     //
     //-----------------------------
 
+    getWithFog: function (){
+        
+        return isFog;
+
+    },
+
     addFog: function ( o ) {
         
         if( isFog ) return;
@@ -1292,14 +1298,21 @@ view = {
 
     },
 
-    setFollow: function( name, o ){
+    setFollow: function( m, o ){
 
-        if( name === 'none' ) controler.resetFollow();
-        if( !this.byName[ name ] ) return;
+        var mesh = null;
+
+        if ( typeof m === 'string' || m instanceof String ) mesh = this.byName[ m ];
+        else if( m.isMesh || m.isGroup ) mesh = m;
+
+        if( mesh === null ){ 
+            controler.resetFollow();
+            return;
+        }
+        
         o = o || {};
-
-        controler.initFollow( this.byName[ name ], o );
-        //this.controler.enableDamping = false;
+        controler.initFollow( mesh, o );
+        //controler.enableDamping = false;
 
     },
 
