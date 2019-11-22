@@ -68547,27 +68547,35 @@ THREE.Terrain = function  ( o ) {
     //this.geometry.setAttribute( 'uv2', this.geometry.attributes.uv );
     this.vertices = this.geometry.attributes.position.array;
 
-    this.waterNormal = this.isWater ? view.texture({ url:'terrain/water_n.jpg', repeat:[3,3]}) : null;
+    this.waterNormal = this.isWater ? view.texture({ url:'terrain/water_n.jpg', repeat:[ o.uv || 3, o.uv || 3 ]}) : null;
     
 
     var materialData = { 
         
         name:'terrain', 
         vertexColors: THREE.VertexColors, 
+
         metalness: this.isWater ? 0.8 : 0.2, 
         roughness: this.isWater ? 0.2 : 0.6, 
 
-        normalScale:o.normalScale || (this.isWater ? [0.25,0.25]:[-1,-1]),
+        normalScale:o.normalScale || (this.isWater ? [0.25,0.25]:[2,2]),
      
         transparent: this.isWater ? true : false,
         opacity: this.isWater ? (o.opacity || 0.8) : 1,
+        premultipliedAlpha: this.isWater,
 
-        side: this.isWater ? 'Double' : 'Front',
+
+        //side: this.isWater ? 'Double' : 'Front',
+        //depthWrite: !this.isWater,
 
     };
 
 
-    if(!this.isWater){
+    if( this.isWater ){ 
+
+        materialData.normalMap = this.waterNormal;
+
+    } else {
 
         this.maps = o.maps || [ 'sand', 'grass', 'rock', 'sand_n', 'grass_n', 'rock_n' ];
 
@@ -68676,10 +68684,6 @@ THREE.Terrain = function  ( o ) {
 
             //return shader;
         }
-
-    } else {
-
-        materialData.normalMap = this.waterNormal;
 
     }
 
