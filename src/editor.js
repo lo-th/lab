@@ -10,6 +10,11 @@
 
 var editor = ( function () {
 
+var mode = 'javascript'; // glsl
+
+var codes = {};
+var types = {};
+
 
 var styles;
 
@@ -51,23 +56,22 @@ var isMenu = false;
 var isWithCode = false;
 var isWithUI = false;
 var isWithUIopen = false;
-var isCodeInit = false;
+var isCodeEditorOpen = false;
 var isPause = false;
 var isUiInit = false;
 var isWithOption = false;
 
 var currentCode = '';
+var current = '';
 var fileName = '';
 var link = '';
 
-var golden = 1.6180339887498948420;
+var golden = 1.618;
 
 var octo, octoArm;
 
 var unselectable = '-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; -webkit-user-select:none; -moz-user-select: none;';
 var inbox = 'box-sizing:border-box; -moz-box-sizing:border-box; -webkit-box-sizing:border-box;';
-
-var mode = 'javascript'; // x-glsl
 
 var saveButton;
 
@@ -84,19 +88,25 @@ editor = {
 
         selectColor = color || '#DE5825';
 
-        menuImg = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAKCAYAAABrGwT5AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAIpJREFUeNpiYKAAMIIITk5OFWyS379/v0NQMwgICQl5YVPw7t27bQQ1g4C0tHQeNkVPnz6dRFAzCCgpKfVgU3jv3r0SgppBQENDYzE28Rs3bsQS1AwCurq6O7GJX7582Z2gZhAwNja+gE387NmzBgQ1g4ClpeVzbOLHjx+XZCQmMdjZ2f3DJg4QYABPYiHCoBQF9AAAAABJRU5ErkJggg==)"
+        menuImg = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAGCAQAAABKxSfDAAAAI0lEQVR42kXCsQ0AIAzAsKgDAwM/8P+R6RjZSHCCJ3iDL/izpHclY0Bn72IAAAAASUVORK5CYII=)";
+
+        //menuImg = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAKCAYAAABrGwT5AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAIpJREFUeNpiYKAAMIIITk5OFWyS379/v0NQMwgICQl5YVPw7t27bQQ1g4C0tHQeNkVPnz6dRFAzCCgpKfVgU3jv3r0SgppBQENDYzE28Rs3bsQS1AwCurq6O7GJX7582Z2gZhAwNja+gE387NmzBgQ1g4ClpeVzbOLHjx+XZCQmMdjZ2f3DJg4QYABPYiHCoBQF9AAAAABJRU5ErkJggg==)"
 
         styles = {
 
             content : unselectable + 'position:absolute; background:none; pointer-events:none; top:0;  height:100%;',
-            codeContent : 'position:absolute; background:none; pointer-events:none; display:block; left:0px; top:45px; width:100%; background:none; height:calc(100% - 45px);',
+            
             separator:  inbox+'position:absolute; background:none; pointer-events:auto; display:block; border-left:1px solid #3f3f3f; border-right:1px solid #3f3f3f; top:0px; width:10px; height:100%; color: rgba(255, 255, 255, 0.2); cursor: e-resize;',
-            menuCode :  'position:absolute; top : 0px; left: 0px; width: 100%; font-size: 14px;  font-weight: 500; height: 40px; background: none; border-bottom:1px solid #3f3f3f; line-height: 40px;',
-
-            saveButton: 'position:absolute; width:30px; height:30px; right:5px; top:5px; border-radius:6px; pointer-events:auto; cursor:pointer; ',
-
+            
             buttonStyle : 'padding:0 0; width:70px; height:30px; font-size: 16px; font-weight: 900; letter-spacing: 1px; text-align: center; pointer-events:auto; cursor:pointer; display: inline-block; margin-left:'+space+'px; border-radius:6px;line-height: 30px; text-shadow: 1px 1px #000000;',//
-            menuButton : 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; margin: 3px 3px; padding: 3px 3px; border-radius:6px; text-shadow: 1px 1px #000000;',
+            
+            menuButton : 'font-size: 13px; pointer-events:auto; cursor: pointer; text-align: left; display: inline-block; width:120px; padding:2px 3px; text-shadow: 1px 1px #000000;',
+            menuRubric : 'vertical-align: top; pointer-events:none; font-size: 12px; height: 12px; padding: 2px 0px; margin : 2px 0px; width:calc(100% - 40px); display: block; text-align: left; border-bottom: 1px dashed #626262; color:#626262;',
+
+            codeContent : 'position:absolute; background:none; pointer-events:none; display:block; left:0px; top:45px; width:100%; background:none; height:calc(100% - 45px);',
+            menuCode : 'position:absolute; top:0px; left:0px; width:100%; height:40px; background:none; border-bottom:1px solid #3f3f3f; box-sizing:border-box;',
+            buttonCode : 'pointer-events:auto; cursor:pointer; border-top-left-radius:6px; border-top-right-radius:6px; height: 35px; font-size: 14px; font-weight: 500; text-align: center; padding:10px 10px; margin-left:5px; margin-top:5px; border:1px solid #3f3f3f; border-bottom:none; display:inline-block; box-sizing:border-box;',
+            saveButton: 'position:absolute; width:30px; height:30px; right:5px; top:5px; border-radius:6px; pointer-events:auto; cursor:pointer; ',
 
         }
 
@@ -110,9 +120,17 @@ editor = {
         bigmenu.style.cssText = inbox + unselectable + 'position: absolute; padding-top:'+space+'px; border-bottom:none; overflow:hidden;';
         document.body.appendChild( bigmenu );
 
-        editor.resizeMenu()
-
+        editor.resizeMenu();
         editor.makeBigMenu();
+
+        // demo list 
+
+        demoContent = document.createElement( 'div' );
+        demoContent.style.cssText = 'padding: 10px 20px; width:100%; display: block; background-position: bottom; background-repeat: repeat-x;';
+        bigmenu.appendChild( demoContent );
+
+
+        //
 
         bottomRight = document.createElement( 'div' );
         bottomRight.style.cssText = unselectable + 'position:absolute; right:0; bottom:0;';
@@ -285,12 +303,7 @@ editor = {
 
     },
 
-    setMode: function ( m ) {
-
-        mode = m;
-        if( isCodeInit ) code.setOption('mode', 'text/' + mode);
-
-    },
+    
 
     addUI: function () {
 
@@ -376,7 +389,9 @@ editor = {
         saveButton.addEventListener('mouseout', editor.save_out, false );
         saveButton.addEventListener('click', editor.save, false );
 
-        menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
+        //menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
+
+        editor.addCode( fileName, true );//
 
         code = CodeMirror( codeContent, {
             value: currentCode,
@@ -397,7 +412,15 @@ editor = {
         //document.oncontextmenu = function(e){ e.preventDefault(); };
         //code.oncontextmenu = function(e){ };
 
-        isCodeInit = true;
+        isCodeEditorOpen = true;
+
+    },
+
+    setMode: function ( m ) {
+
+        // javascript or glsl
+        mode = m;
+        if( isCodeEditorOpen ) code.setOption('mode', mode === 'glsl' ? 'text/x-' + mode : 'text/' + mode );
 
     },
 
@@ -420,7 +443,7 @@ editor = {
         document.body.removeChild( separatorLeft );
         document.body.removeChild( contentLeft );
 
-        isCodeInit = false;
+        isCodeEditorOpen = false;
 
     },
 
@@ -481,7 +504,7 @@ editor = {
 
     hide: function (){
 
-        if( isCodeInit ) this.removeCodeEditor();
+        if( isCodeEditorOpen ) this.removeCodeEditor();
 
         isWithCode = false;
         oldLeft = left;
@@ -494,7 +517,7 @@ editor = {
 
     show: function (){
 
-        if( !isCodeInit ) this.addCodeEditor();
+        if( !isCodeEditorOpen ) this.addCodeEditor();
 
         isWithCode = true;
         if( oldLeft ) left = oldLeft;
@@ -537,11 +560,6 @@ editor = {
         
         bigmenu.style.left = left +'px';
 
-        //editor.resizeMenu();
-
-        //title.style.left = left +'px';
-        //subtitle.style.left = left +'px';
-        //subtitleS.style.left = ( left + 1 ) +'px';
         github.style.right = right + 'px';
 
         if( isUiInit ){
@@ -552,7 +570,7 @@ editor = {
 
         }
 
-        if( isCodeInit ){
+        if( isCodeEditorOpen ){
 
 	        separatorLeft.style.left = (left-10) + 'px';
 	        contentLeft.style.width = (left-10) + 'px';
@@ -576,11 +594,13 @@ editor = {
 
     },
 
-    // bigmenu
+    //-------------------------------------
+    //
+    //   MAIN MENU
+    //
+    //-------------------------------------
 
     makeBigMenu: function(){
-
-        //bigmenu.style.width = window.innerWidth - left +'px';
 
         var m = [ 'DEMO', 'CODE', 'UI', 'PAUSE' ];
 
@@ -614,12 +634,6 @@ editor = {
 
         }
 
-        demoContent = document.createElement( 'div' );
-        demoContent.style.cssText = 'padding: 10px 40px; width:100%; display: block; background-position: bottom; background-repeat: repeat-x;';
-        bigmenu.appendChild( demoContent );
-
-        //editor.Bdesative( bigButton[2] );
-
         var i = bigButton.length;
         while(i--){
             bigButton[i].addEventListener('mouseover', editor.Bover, false );
@@ -631,7 +645,6 @@ editor = {
     clickDEMO: function ( e ) {
 
         e.preventDefault();
-
         if( isMenu ) editor.hideBigMenu();
         else editor.showBigMenu();
 
@@ -672,21 +685,47 @@ editor = {
 
     },
 
-    
+    //-------------------------------------
+    //
+    //   MENU DEMO
+    //
+    //-------------------------------------
 
     showBigMenu: function () {
 
+        var i, lng;
+
+        var checkType = Array.isArray( demos );
+
         bigmenu.style.background = bgMenu;
-        bigmenu.style.borderBottom = "1px solid #3f3f3f";
+        //bigmenu.style.borderBottom = "1px solid rgb(255,255,255,0.25);"//#3f3f3f";
         demoContent.style.backgroundImage = menuImg;
         isMenu = true;
 
-        var lng = demos.length, name;
-        for( var i = 0; i < lng ; i++ ) {
-            name = demos[i];
-            if( name !== fileName ) editor.addButtonMenu( demos[i], false );
-            else editor.addButtonMenu( demos[i], true );
+        if( checkType ){ // simple array menu
+
+
+            demos.sort();
+
+            lng = demos.length;
+            for( i = 0; i < lng; i++ ) editor.addButtonMenu( demos[i], demos[i] === fileName );
+
+            
+        } else { // object menu
+
+            for( var m in demos ){
+
+                editor.addRubric( m );
+                
+                demos[m].sort();
+
+                lng = demos[m].length;
+                for( i = 0; i < lng; i++ ) editor.addButtonMenu( demos[m][i], demos[m][i] === fileName );
+
+            }
+
         }
+
     },
 
     hideBigMenu: function () {
@@ -699,7 +738,7 @@ editor = {
         var i = demoContent.childNodes.length, b;
         while(i--){
             b = demoContent.childNodes[i];
-            if( b.name !== fileName ){
+            if( b.isButton ){
                 b.removeEventListener('click', editor.demoSelect );
                 b.removeEventListener('mouseover', editor.MBover );
                 b.removeEventListener('mouseout', editor.MBout );
@@ -711,6 +750,15 @@ editor = {
 
     },
 
+    addRubric : function ( name ) {
+
+        var r = document.createElement('div');
+        r.style.cssText = styles.menuRubric;
+        r.innerHTML = name;
+        demoContent.appendChild( r );
+
+    },
+
     addButtonMenu: function ( name, select ) {
 
         var b = document.createElement('div');
@@ -718,6 +766,7 @@ editor = {
         b.innerHTML = '&bull; ' + name.charAt(0).toUpperCase() + name.substring(1).toLowerCase();
         b.name = name;
         if(!select){
+            b.isButton = true;
             b.addEventListener('click', editor.demoSelect, false );
             b.addEventListener('mouseover', editor.MBover, false );
             b.addEventListener('mouseout', editor.MBout, false );
@@ -787,8 +836,6 @@ editor = {
         
     },
 
-
-
     Bdefault: function( b ){
 
         b.style.background = 'none';
@@ -857,7 +904,64 @@ editor = {
 
     },
 
-    // code
+    //-------------------------------------
+    //
+    //   MENU CODE
+    //
+    //-------------------------------------
+
+    clearMenuCode : function () {
+
+        var i = menuCode.childNodes.length, b;
+        while(i--){
+            b = menuCode.childNodes[i];
+            b.removeEventListener('mousedown', editor.codeDown );
+            menuCode.removeChild( b );
+        }
+
+    },
+
+    selectMenuCode : function () {
+
+        var i = menuCode.childNodes.length, b;
+        while(i--){
+            b = menuCode.childNodes[i];
+            if( b.name === current ) b.style.borderBottom = '1px solid #222322';
+            else b.style.borderBottom = 'none';
+        }
+
+    },
+
+    addCode : function ( name, m ) {
+
+        var b = document.createElement('div');
+        b.style.cssText = styles.buttonCode;
+        b.name = name;
+        b.innerHTML = name;
+        b.addEventListener('mousedown', editor.codeDown );
+        if( m ) b.style.borderBottom = '1px solid #222322';
+        menuCode.appendChild( b );
+
+    },
+
+    codeDown : function ( e ) {
+
+        var name = e.target.name;
+
+        if( name === current ) return;
+
+        current = name;
+
+        editor.selectMenuCode();
+        code.setValue( codes[name] );
+
+    },
+
+    //-------------------------------------
+    //
+    //   CODE
+    //
+    //-------------------------------------
 
     save_over: function ( e ) {
 
@@ -883,30 +987,63 @@ editor = {
     
     },
 
+    clearTmpCode : function ( name ){
+
+        codes = {};
+        types = {};
+
+    }, 
+
+    getChannelNumber : function ( name ){
+
+        var n = 0;
+        var t = name.substring( name.length - 1 );
+        if(t === 'A') n = 1;
+        if(t === 'B') n = 2;
+        if(t === 'C') n = 3;
+        if(t === 'D') n = 4;
+        if(t === 'V') n = 5;
+        if(t === 'E') n = 6;
+        return n;
+
+    },
+
+
     load: function ( url ) {
 
-        fileName = url.substring(url.indexOf("/")+1, url.indexOf("."));
+        var name = url.substring( url.lastIndexOf("/")+1, url.lastIndexOf(".") );
+        var type = url.substring( url.lastIndexOf(".")+1 );
+
+        var n = editor.getChannelNumber( name );
+        var isMain = n === 0 ? true : false;
 
         var xhr = new XMLHttpRequest();
         xhr.overrideMimeType('text/plain; charset=x-user-defined'); 
-        xhr.open('GET', url, true);
+        xhr.open( 'GET', url, true );
+
         xhr.onload = function(){ 
 
-            //if( isUiInit ) isWithUIopen = true;
-
+            codes[ name ] = xhr.responseText;
+            types[ name ] = type === 'js' ? 'javascript' : 'glsl';
             
 
+            //if( isUiInit ) isWithUIopen = true;
             editor.uiReset();
 
+            if( isCodeEditorOpen ){ 
 
+                editor.clearMenuCode();
+                editor.addCode( name, true );
 
-             
-
-            if( isCodeInit ){ 
-                code.setValue( xhr.responseText );
+                fileName = name;
+                code.setValue( codes[ name ] );
+                
             } else { 
-                currentCode = xhr.responseText;
+                
+                fileName = name;
+                currentCode = codes[ name ];
                 editor.inject();
+
             }
 
         }
@@ -917,7 +1054,7 @@ editor = {
 
     unFocus: function () {
 
-        if( isCodeInit ) code.getInputField().blur();
+        if( isCodeEditorOpen ) code.getInputField().blur();
         if( view ) view.haveFocus();
 
     },
@@ -925,6 +1062,43 @@ editor = {
     getFocus: function () {
 
         return isFocus;
+
+    }, 
+
+    onChange: function () {
+
+        clearTimeout( interval );
+
+        currentCode = code.getValue();
+        if( this.validate() ) interval = setTimeout( function() { editor.inject(); }, 300 );
+
+    },
+
+    inject: function ( n ) {
+
+    	n = n || 0;
+
+    	if( n===0 ){
+
+    		var full = true;
+	        var hash = location.hash.substr( 1 );
+	        if( hash === fileName ) full = false;
+
+	        location.hash = fileName;
+	        title.innerHTML = fileName.charAt(0).toUpperCase() + fileName.substring(1).toLowerCase();
+
+    	}
+
+    	// insert script
+
+        var oScript = document.createElement("script");
+        oScript.language = "javascript";
+        oScript.type = "text/javascript";
+        oScript.text = currentCode;
+        document.getElementsByTagName('BODY').item( n ).appendChild( oScript );
+        
+
+        if( n===0 ) callback( fileName, full );
 
     },
 
@@ -965,48 +1139,12 @@ editor = {
 
     },
 
-    onChange: function () {
 
-
-
-        //var full = true;
-        //var hash = location.hash.substr( 1 );
-        //if( hash === fileName ) full = false;
-
-        //callbackReset( full );
-
-        clearTimeout( interval );
-
-        currentCode = code.getValue();
-        if( this.validate() ) interval = setTimeout( function() { editor.inject(); }, 0);
-
-    },
-
-    inject: function () {
-
-        var full = true;
-        var hash = location.hash.substr( 1 );
-        if( hash === fileName ) full = false;
-
-        location.hash = fileName;
-
-        var oScript = document.createElement("script");
-        oScript.language = "javascript";
-        oScript.type = "text/javascript";
-        oScript.text = currentCode;
-        document.getElementsByTagName('BODY').item(0).appendChild(oScript);
-
-        if( isCodeInit ) menuCode.innerHTML = '&nbsp;&bull; ' + fileName + '.js';
-        title.innerHTML = fileName.charAt(0).toUpperCase() + fileName.substring(1).toLowerCase();
-
-        callback( fileName, full );
-
-    },
-
-
-    //--------------------------
-    // GITHUB LINK
-    //--------------------------
+    //-------------------------------------
+    //
+    //   GITHUB LINK
+    //
+    //-------------------------------------
 
     setLink: function ( l ) {
         
@@ -1060,7 +1198,11 @@ editor = {
     },
 
 
-    // JOYSTICK
+    //-------------------------------------
+    //
+    //   JOYSTICK
+    //
+    //-------------------------------------
 
     joyMove: function ( t ) {
 
@@ -1088,11 +1230,17 @@ editor = {
 
     },
 
+
+    //-------------------------------------
+    //
+    //   FULL SCREEN
+    //
+    //-------------------------------------
+
     screenChange: function () {
 
         editor.isFullScreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement ? true : false;
         fullSc.innerHTML = editor.icon( !editor.isFullScreen ? 'scrIn' : 'scrOut', '#787978', 30, 30);
-        //console.log(isFullScreen)
 
     },
 
@@ -1125,4 +1273,5 @@ editor = {
 }
 
 return editor;
+
 })();
