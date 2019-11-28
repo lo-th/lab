@@ -130,10 +130,10 @@ var saveAs = saveAs || function(e) {
     w.error = w.onwritestart = w.onprogress = w.onwrite = w.onabort = w.onerror = w.onwriteend = null;
     return m
 }(typeof self !== "undefined" && self || typeof window !== "undefined" && window || this.content);
-if (typeof module !== "undefined" && module.exports) {
+/*if (typeof module !== "undefined" && module.exports) {
     module.exports.saveAs = saveAs
 } else if (typeof define !== "undefined" && define !== null && define.amd !== null) {
     define("FileSaver.js", function() {
         return saveAs
     })
-}
+}*/

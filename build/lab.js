@@ -8,7 +8,7 @@ var Map;
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
 	(global = global || self, factory(global.THREE = {}));
-}(this, function (exports) { 'use strict';
+}(this, (function (exports) { 'use strict';
 
 	// Polyfills
 
@@ -103,7 +103,7 @@ var Map;
 
 	}
 
-	var REVISION = '111dev';
+	var REVISION = '111';
 	var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
 	var TOUCH = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 };
 	var CullFaceNone = 0;
@@ -22783,8 +22783,6 @@ var Map;
 		var device = null;
 		var frameData = null;
 
-		var poseTarget = null;
-
 		var controllers = [];
 		var standingMatrix = new Matrix4();
 		var standingMatrixInverse = new Matrix4();
@@ -22803,6 +22801,8 @@ var Map;
 		var matrixWorldInverse = new Matrix4();
 		var tempQuaternion = new Quaternion();
 		var tempPosition = new Vector3();
+
+		var tempCamera = new PerspectiveCamera();
 
 		var cameraL = new PerspectiveCamera();
 		cameraL.viewport = new Vector4();
@@ -23036,12 +23036,6 @@ var Map;
 
 		};
 
-		this.setPoseTarget = function ( object ) {
-
-			if ( object !== undefined ) { poseTarget = object; }
-
-		};
-
 		this.getCamera = function ( camera ) {
 
 			var userHeight = referenceSpaceType === 'local-floor' ? 1.6 : 0;
@@ -23071,16 +23065,14 @@ var Map;
 
 
 			var pose = frameData.pose;
-			var poseObject = poseTarget !== null ? poseTarget : camera;
 
-			// We want to manipulate poseObject by its position and quaternion components since users may rely on them.
-			poseObject.matrix.copy( standingMatrix );
-			poseObject.matrix.decompose( poseObject.position, poseObject.quaternion, poseObject.scale );
+			tempCamera.matrix.copy( standingMatrix );
+			tempCamera.matrix.decompose( tempCamera.position, tempCamera.quaternion, tempCamera.scale );
 
 			if ( pose.orientation !== null ) {
 
 				tempQuaternion.fromArray( pose.orientation );
-				poseObject.quaternion.multiply( tempQuaternion );
+				tempCamera.quaternion.multiply( tempQuaternion );
 
 			}
 
@@ -23089,11 +23081,23 @@ var Map;
 				tempQuaternion.setFromRotationMatrix( standingMatrix );
 				tempPosition.fromArray( pose.position );
 				tempPosition.applyQuaternion( tempQuaternion );
-				poseObject.position.add( tempPosition );
+				tempCamera.position.add( tempPosition );
 
 			}
 
-			poseObject.updateMatrixWorld();
+			tempCamera.updateMatrixWorld();
+
+			//
+
+			camera.matrixWorld.copy( tempCamera.matrixWorld );
+
+			var children = camera.children;
+
+			for ( var i = 0, l = children.length; i < l; i ++ ) {
+
+				children[ i ].updateMatrixWorld( true );
+
+			}
 
 			//
 
@@ -23117,7 +23121,7 @@ var Map;
 
 			}
 
-			var parent = poseObject.parent;
+			var parent = camera.parent;
 
 			if ( parent !== null ) {
 
@@ -50213,7 +50217,7 @@ var Map;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-}));
+})));
 
 //var THREE, performance;
 /**
@@ -75328,7 +75332,7 @@ var autoAddAudio = null;
 
 var isMirror = false;
 var groundMirror = null;
-
+var isRenderPause = false;
 
 	
 ///
@@ -75358,9 +75362,12 @@ view = {
     //
     //-----------------------------
 
+    pauseRender: function () { isRenderPause = true; },
+    restartRender: function () { if(isRenderPause){ isRenderPause = false; view.render(0); } },
+
     render: function ( stamp ) {
 
-        requestAnimationFrame( view.render );
+        if( !isRenderPause ) requestAnimationFrame( view.render );
 
         t[0] = stamp === undefined ? now() : stamp;
         delta = ( t[0] - t[3] ) * 0.001;

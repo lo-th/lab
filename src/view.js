@@ -128,7 +128,7 @@ var autoAddAudio = null;
 
 var isMirror = false;
 var groundMirror = null;
-
+var isRenderPause = false;
 
 	
 ///
@@ -158,9 +158,12 @@ view = {
     //
     //-----------------------------
 
+    pauseRender: function () { isRenderPause = true; },
+    restartRender: function () { if(isRenderPause){ isRenderPause = false; view.render(0); } },
+
     render: function ( stamp ) {
 
-        requestAnimationFrame( view.render );
+        if( !isRenderPause ) requestAnimationFrame( view.render );
 
         t[0] = stamp === undefined ? now() : stamp;
         delta = ( t[0] - t[3] ) * 0.001;
