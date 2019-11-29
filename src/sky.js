@@ -95,24 +95,37 @@ var ccSize = 2;
 
 var finalFog = null;
 
+var isNewPmrem = true;
+
+var tmptexture = null;
+
 sky = {
 
 	mapReady:0,
 
+    setPmrem: function ( b ){
+        isNewPmrem = b;
+    },
+
+
 	callback: function (){},
+    renderCallback: function (){},
 
     render: function () {
 
-        camera.update( renderer, scene );
+        if( !isNewPmrem || !isHdr ) camera.update( renderer, scene );
 
-        this.showBackground( showBackground );
+        
 
         view.setEnvmap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
+
+        this.showBackground( showBackground );
 
         view.updateEnvMap();
 
         this.getFogColor();
 
+        this.renderCallback();
 
     },
 
@@ -160,6 +173,7 @@ sky = {
 		
 		//options = { type:THREE.UnsignedByteType, encoding:THREE.RGBEEncoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps:false, anisotropy:0 };
 		options = { type:THREE.UnsignedByteType, encoding: THREE.RGBEEncoding, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, anisotropy:1 };
+        //options = { type:THREE.UnsignedByteType, encoding: THREE.RGBM16Encoding, format: THREE.RGBAFormat, magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, anisotropy:1 };
 		
 		camera = new THREE.CubeCamera( 0.1, 1, setting.resolution, options );
 
@@ -198,7 +212,7 @@ sky = {
         
     },
 
-    setSky: function ( o ) {
+    setSky: function ( o, Callback ) {
 
     	if( !isInit ) this.init();
 
@@ -220,26 +234,57 @@ sky = {
             this.initAutoSky();
         }
 
+        if(Callback) this.renderCallback = Callback;
+
     },
 
     getCube: function () {
 
-        return camera.renderTarget.texture;
+        if(isNewPmrem){ 
+
+            console.log(view.getEnvmap())
+            return view.getEnvmap();
+        } else { 
+            return camera.renderTarget.texture;
+        }
 
     },
 
     convertToHdr: function () {
 
-    	var pmremGenerator = new THREE.PMREMGenerator( camera.renderTarget.texture, 32, 256 );
-        pmremGenerator.update( renderer );
+        var rgbmCubeMap = camera.renderTarget.texture;//.clone();
+        //rgbmCubeMap.__webglTexture = camera.renderTarget.texture.__webglTexture;
+        //rgbmCubeMap.__webglInit = true;
+        //rgbmCubeMap.needsUpdate = true;
 
-        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
-        pmremCubeUVPacker.update( renderer );
+        if( isNewPmrem ){
 
-        var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
+            //var rgbmCubeMap = camera.renderTarget.texture;//.clone();
+            //rgbmCubeMap.encoding = THREE.RGBM16Encoding;
+            //rgbmCubeMap.format = THREE.RGBAFormat;
 
-        pmremGenerator.dispose();
-        pmremCubeUVPacker.dispose();
+            //rgbmCubeMap.needsUpdate = true;
+
+            var pmremGenerator = new THREE.PMREMGenerator( renderer );
+            var hdrCubeRenderTarget = pmremGenerator.fromScene( scene, 0, 0.1, 10 );
+            //var hdrCubeRenderTarget = pmremGenerator.fromEquirectangular( tmptexture );
+            //var hdrCubeRenderTarget = pmremGenerator.fromCubemap( rgbmCubeMap );
+            pmremGenerator.dispose();
+
+        } else {
+
+            var pmremGenerator = new THREE.PMREMGenerator( rgbmCubeMap, 32, 256 );
+            pmremGenerator.update( renderer );
+
+            var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+            pmremCubeUVPacker.update( renderer );
+
+            var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
+
+            pmremGenerator.dispose();
+            pmremCubeUVPacker.dispose();
+
+        }
 
         return hdrCubeRenderTarget.texture;
 
@@ -247,13 +292,18 @@ sky = {
 
     showBackground: function ( b ) {
 
-        view.getScene().background = b ? camera.renderTarget : null;
+      //  
+
+        if( isNewPmrem ) view.getScene().background = b ? view.getEnvmap() : null;
+        else view.getScene().background = b ? camera.renderTarget : null;
+        //tmptexture.mapping = THREE.EquirectangularReflectionMapping;
+        //view.getScene().background = b ? tmptexture : null;
 
     },
 
     initBasicSky: function ( texture, mapHdr ) {
 
-    	var tmptexture, tmpMapHdr = false;
+    	var tmpMapHdr = false;
 
         if( texture !== undefined ) tmptexture = texture;
         if( mapHdr !== undefined ) tmpMapHdr = mapHdr !== undefined ? mapHdr : false;

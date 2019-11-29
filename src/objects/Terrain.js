@@ -151,7 +151,7 @@ THREE.Terrain = function  ( o ) {
 
         var self = this;
 
-        materialData.onBeforeCompile = function ( shader ) {
+        materialData.extraCompile = function ( shader ) {
 
             //console.log(shader)
 
@@ -213,7 +213,7 @@ THREE.Terrain = function  ( o ) {
             shader.fragmentShader = fragment;
             shader.vertexShader = vertex;
 
-            //return shader;
+            return shader;
         }
 
     }

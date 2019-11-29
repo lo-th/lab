@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>lab dev</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="shortcut icon" href="favicon.ico">
+<style>
+*{ 
+	margin: 0; padding: 0; border: 0; 
+	-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; 
+	-webkit-user-select:none; -moz-user-select:none; pointer-events:none;
+}
+body{ font-family:Monospace; background-color:#333; }
+</style>
+
+
+<script src="./src/libs/three.js"></script>
+<script src="./src/pmrem/PMREMGenerator.js"></script>
+
+<script src="./src/libs/sea3d.js"></script>
+<script src="./src/libs/tween.js"></script>
+<script src="./src/libs/uil.js"></script>
+
+<script src="./src/controls/OrbitControls.js"></script>
+<script src="./src/controls/OrbitControlsExtra.js"></script>
+
+
+
+<script src="./src/objects/Lensflare.js"></script>
+<script src="./src/objects/CubeCamera.js"></script>
+
+<script src="./src/geometries/TorusGeometry.js"></script>
+<script src="./src/geometries/SphereGeometry.js"></script>
+<script src="./src/geometries/Capsule.js"></script>
+<script src="./src/geometries/ChamferCyl.js"></script>
+<script src="./src/geometries/ChamferBox.js"></script>
+<script src="./src/geometries/SphereBox.js"></script>
+
+<script src="./src/textures.js"></script>
+<script src="./src/materials.js"></script>
+<script src="./src/gui.js"></script>
+<script src="./src/math.js"></script>
+<script src="./src/pool.js"></script>
+<script src="./src/sky.js"></script>
+<script src="./src/view.js"></script>
+</head>
+
+<body>
+<script>
+
+var user;
+var editor;
+var view;
+var hour = 12;
+var timout = null;
+
+var option = {
+	hour: 12,
+	colors:false,
+}
+
+
+
+view.init();
+
+
+view.moveCam({ theta:-45, phi:45, distance:40, target:[0,2,0], time:200 });
+//view.moveCam({ phi:100, time:8000 });
+
+var geo = view.getGeo()
+var mat = view.material({ map:view.makeCheck(), color:0x808080, name:'check', metalness:0.75, roughness:0.25})
+
+var mat22 = view.material({ map:view.getEnvmap(), color:0xFFFFFF, type:'Basic', name:'ggo',  noEnv:true})
+var mat23 = view.material({ map:view.makeCheck(), color:0xFF8080, type:'Phong', name:'ggo1', metalness:0.75, roughness:0.25})
+var mat24 = view.material({ map:view.makeCheck(), color:0xFF8080, type:'Lambert', name:'ggo2', metalness:0.75, roughness:0.25})
+
+var s = new THREE.Mesh( geo.sphere, mat );
+s.scale.set(2,2,2);
+s.position.set(0,2,0);
+view.addMesh( s );
+
+var s2 = new THREE.Mesh( geo.box, mat );
+s2.scale.set(4,4,4);
+s2.position.set(-5,2,0);
+view.addMesh( s2 );
+
+var s3 = new THREE.Mesh( geo.cylinder, mat );
+s3.scale.set(2,4,2);
+s3.position.set(5,2,0);
+view.addMesh( s3 );
+
+var s4 = new THREE.Mesh( new THREE.Capsule( 1, 2, 32 ), mat );
+s4.position.set(10,2,0);
+view.addMesh( s4 );
+
+var s5 = new THREE.Mesh( new THREE.ChamferCyl( 2, 2, 4, 0.5, 24, 1, 3 ), mat );
+s5.position.set(5,2,-5);
+view.addMesh( s5 );
+
+var s6 = new THREE.Mesh( new THREE.ChamferBox( 4,4,4,0.2, 1, 1, 1, 1 ), mat );
+s6.position.set(-5,2,-5);
+view.addMesh( s6 );
+
+var s7 = new THREE.Mesh( new THREE.SphereBox( 2 ), mat );
+s7.position.set(0,2,-5);
+view.addMesh( s7 );
+
+
+view.setShadow({ size:150, near:100, far:300 })
+
+var sx = new THREE.Mesh( geo.plane, mat22 );
+sx.scale.set(30,1,30);
+sx.position.set(0,-1,0);
+view.addMesh( sx );
+
+
+
+//view.getSky().setPmrem( true );
+
+view.addSky({ hour:option.hour, hdr:true }, upDebug );
+//view.addSky({ url:'colors.jpg', visible:true }, upDebug);
+
+
+function upDebug(){ 
+	sx.material.map = view.getEnvmap(); 
+	sx.material.needsUpdate = true; 
+}
+
+//
+
+var options = {
+
+	withFps:true,
+    base:option,
+    function: applyOption,
+    hour: { min:0, max:24, precision:2, color:0xFFFF44, p:15, sc:25, mode:2, h:20 },
+    colors:{ type:'button', p:0, h:25, radius:10 },
+
+};
+
+gui.init( document.body, options );
+gui.resize( 260 );
+
+//sky.testColor( 64 );
+
+
+
+function applyOption () {
+
+	if( option.colors ){ 
+		sky.getColor();
+		option.colors=false;
+	}
+
+    if( hour !== option.hour ){ 
+
+    	clearTimeout(timout);
+    	timout = setTimeout( function (){ hour = option.hour; view.updateSky({hour:hour}); }, 0);
+    	
+    }
+
+}
+
+</script>
+</body>
+</html>

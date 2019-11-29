@@ -272,12 +272,13 @@ THREE.OrbitControlsExtra.prototype = Object.assign( Object.create( THREE.OrbitCo
 
         callback = callback || function(){};
 
-        var t = new TWEEN.Tween( c ).to( o, time )
+        var t = new TWEEN.Tween( c )
+            .to( o, time )
             .delay( delay )
             .easing( tween )
-            .onUpdate( function() { self.orbit( this ); } )
+            .onUpdate( function( o ) { self.orbit( o ); } )
             .onComplete( function() { self.enabled = true;  callback(); } )
-            .start()
+            .start();
 
         this.camTween.push( t );
 

@@ -145,6 +145,13 @@ materials = {
             noEnv = true;
             delete( o.noEnv );
         }
+
+        // extrra shader 
+        var extraCompile = null;
+        if( o.extraCompile ){
+        	extraCompile = o.extraCompile;
+        	delete( o.extraCompile );
+        }
         
 
         // define material type
@@ -161,6 +168,17 @@ materials = {
             delete( o.shininess ); 
             delete( o.specular );
         }
+
+        
+        /*if( type === 'Basic' ){
+        	type = 'Lambert';
+        	if( o.color ) o.emissive = o.color;
+        	if( o.map ) o.emissiveMap = o.map;
+        	delete( o.map );
+
+        	o.lights = false;
+
+        }*/
 
         // clear on reset
         var isTmp = o.isTmp !== undefined ? o.isTmp : true;
@@ -209,6 +227,8 @@ materials = {
 
         // create three material
         var mat = data[name] ? data[name] : new THREE[ 'Mesh' + type + 'Material' ]( o );
+
+        //mat.lights = withLight;
         
         // auto envmap
         
@@ -222,8 +242,11 @@ materials = {
         // clear on reset
         mat.isTmp = isTmp;
 
+
+
         // CUSTOM SHADER
-        //data[name] = materials.customize( mat, o );
+        materials.customize( mat, o, extraCompile );
+
 
         // add to data
         data.set( name, mat );
@@ -232,7 +255,60 @@ materials = {
 
     },
 
-    customize: function ( mat, o ) {
+    customize: function ( mat, o, extraCompile ) {
+
+    	 mat.onBeforeCompile = function ( shader ) {
+
+    	 	
+
+    	 	var uniforms = shader.uniforms;
+
+    	 	uniforms['renderMode'] = { value: 0 };
+    	 	uniforms['depthPacking'] = { value: 1 };
+            uniforms['extraShadow'] = { value: null };
+            
+
+            shader.uniforms = uniforms;
+
+            this.uniforms = shader.uniforms;
+
+
+
+            var fragment = shader.fragmentShader;
+
+            fragment = fragment.replace( 'uniform vec3 diffuse;', ['uniform vec3 diffuse;', 'uniform int renderMode;', 'uniform int depthPacking;', 'uniform sampler2D extraShadow;'].join("\n") );
+
+            // depth pass
+            fragment = fragment.replace('#include <alphatest_fragment>', materials.directDepth );
+
+            // normal pass
+            if( mat.type === 'MeshBasicMaterial' ){
+            	//fragment = fragment.replace('varying vec3 vNormal;', '' );
+            	fragment = fragment.replace('#include <specularmap_pars_fragment>', ['#include <specularmap_pars_fragment>', '#include <packing>', '#include <normalmap_pars_fragment>'].join("\n") );
+            	//fragment = fragment.replace('#include <specularmap_fragment>', ['#include <specularmap_fragment>', '#include <normal_fragment_begin>', '#include <normal_fragment_maps>'].join("\n") );
+
+            }
+            
+            if( mat.type !=='MeshBasicMaterial')fragment = fragment.replace('#include <normal_fragment_maps>', materials.directNormal );
+
+
+            // remplace end of main
+            //fragment = fragment.replace(/.$/, materials.shaderEnd );
+
+            shader.fragmentShader = fragment;
+
+
+            if( extraCompile !== null ) shader = extraCompile( shader );
+
+        }
+
+        //return mat;
+
+
+    	
+    },
+
+    /*customize_older: function ( mat, o ) {
 
         mat.onBeforeCompile = function ( shader ) {
 
@@ -263,8 +339,8 @@ materials = {
 
             if( o.revers ) fragment = fragment.replace( '#include <normal_fragment_maps>', materials.normalFragRevers );
 
-            if( o.alpha ) fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd + ['float RR = diffuseColor.a;', 'if ( RR < 0.5 ) { discard; }', ''].join("\n") );
-            else fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd );
+            //if( o.alpha ) fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd + ['float RR = diffuseColor.a;', 'if ( RR < 0.5 ) { discard; }', ''].join("\n") );
+            //else fragment = fragment.replace( '#include <dithering_fragment>', materials.shaderEnd );
 
 
             if( o.subdermal ){
@@ -287,13 +363,51 @@ materials = {
 
         return mat;
 
-    },
+    },*/
 
     // --------------------------
     //
     //  SHADER
     //
     // --------------------------
+
+    directDepth: [
+    '#include <alphatest_fragment>',
+
+    'if( renderMode == 1 ){',
+        'gl_FragColor = depthPacking == 1 ? packDepthToRGBA( gl_FragCoord.z ) : vec4( vec3( 1.0 - gl_FragCoord.z ), opacity );',
+        'return;',
+    '}',
+    ].join("\n"),
+
+
+    directNormal: [
+    '#include <normal_fragment_maps>',
+
+    'if( renderMode == 2 ){',
+        'gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',
+        'return;',
+    '}',
+
+    ].join("\n"),
+
+
+
+    shaderEnd: [
+    //'    if( renderMode == 1 ) gl_FragColor = depthPacking == 1 ? packDepthToRGBA( gl_FragCoord.z ) : vec4( vec3( 1.0 - gl_FragCoord.z ), opacity );',// depth render
+    //'    if( renderMode == 1 ) gl_FragColor = packDepthToRGBA( gl_FragCoord.z );',// depth render
+    '    if( renderMode == 2 ) gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',// normal render
+
+    '}',
+    ].join("\n"),
+
+
+
+
+
+
+
+
 
     mapSkinFrag: [
         '#ifdef USE_MAP',
@@ -351,16 +465,7 @@ materials = {
     '',
     ].join("\n"),*/
 
-    shaderEnd: [
-    '#if defined( DITHERING )',
-    '    gl_FragColor.rgb = dithering( gl_FragColor.rgb );',
-    '#endif',
-
-    'if( renderMode == 1 ) gl_FragColor = depthPacking == 1 ? packDepthToRGBA( gl_FragCoord.z ) : vec4( vec3( 1.0 - gl_FragCoord.z ), opacity );',// depth render
-    'if( renderMode == 2 ) gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',// normal render
-
-    '',
-    ].join("\n"),
+    
 
     lightStart: [
     'PhysicalMaterial material;',

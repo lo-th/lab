@@ -1,8 +1,8 @@
 [  
     "src/externs_lab.js",
+    "src/libs/tween.js",
     "src/libs/three.js",
     "src/libs/sea3d.js",
-    "src/libs/tween.js",
     "src/controls/OrbitControls.js",
     "src/controls/OrbitControlsExtra.js",
     "src/controls/TransformControls.js",
