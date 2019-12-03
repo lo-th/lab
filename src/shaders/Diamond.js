@@ -34,7 +34,10 @@ var Diamond = function ( geometry, renderer, envmap ) {
     this.uniforms.centreOffset.value.copy( this.offset );
     this.uniforms.radius.value = this.boundingRadius;
     this.uniforms.envMap.value = envmap;
+    this.uniforms.isGL2.value = view.getGL2() ? 1 : 0;
+
     this.prepareNormalsCubeMap( renderer );
+
 
 
 }
@@ -100,6 +103,7 @@ var DiamondShader = {
         // from geometry
         radius: { value: 1 },
         centreOffset: { value: new THREE.Vector3(0, 0, 0)  },
+        isGL2: { value: 0 },
         //invMat: { value: new THREE.Matrix4() },
     },
     vertexShader: [
@@ -107,10 +111,69 @@ var DiamondShader = {
         'varying vec3 vNormal;', 
         'varying vec3 worldNormal;',
         'varying vec3 vecPos;', 
-        //'varying vec3 viewPos;', 
         'varying vec3 vI;',
         'varying vec3 vEye;',
-        'varying mat4 invMat;',
+
+        'void main() {', 
+            'vUv = uv;',
+            'vNormal = normalize(normal);',
+            'worldNormal = (modelMatrix * vec4(normal,0.0)).xyz;',
+            'vecPos = (modelMatrix * vec4(position, 1.0 )).xyz;',
+
+            'vEye = normalize(-cameraPosition);',//cameraPosition;',
+            'vI = vecPos - cameraPosition;',
+            //'viewPos = (modelViewMatrix * vec4(position, 1.0 )).xyz;',
+            'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+        '}'
+    ].join('\n'),
+
+    fragmentShader: [
+
+        '#define ENVMAP_TYPE_CUBE_UV 1',
+
+        '#include <cube_uv_reflection_fragment>', 
+
+        'uniform bool isGL2;', 
+        
+        'varying vec2 vUv;', 
+        'varying vec3 vNormal;', 
+        'varying vec3 worldNormal;', 
+        'varying vec3 vecPos;', 
+        //'varying vec3 viewPos;',
+        'varying vec3 vI;',
+        'varying vec3 vEye;',
+        //'varying mat4 invMat;',
+
+        'uniform samplerCube tCubeMapNormals;', 
+        //'uniform samplerCube envMap;', 
+        'uniform sampler2D envMap;',
+        //'uniform samplerCube envRefractionMap;', 
+        'uniform sampler2D sphereMap;', 
+        'uniform float envMapIntensity;', 
+        //'uniform float tanAngleSqCone;', 
+        //'uniform float coneHeight;', 
+        //'uniform int maxBounces;', 
+        'uniform mat4 modelMatrix;', 
+
+        'uniform float refraction;', 
+        'uniform float radius;', 
+        'uniform bool bDebugBounces;', 
+        'uniform float aberration;', 
+        'uniform float normalOffset;', 
+        'uniform float squashFactor;', 
+        'uniform float distanceOffset;', 
+        'uniform float geometryFactor;', 
+        'uniform vec3 absorbption;', 
+        'uniform vec3 correction;', 
+        'uniform vec3 boost;', 
+        'uniform vec3 centreOffset;', 
+
+        'uniform float mFresnelBias;',
+        'uniform float mFresnelScale;',
+        'uniform float mFresnelPower;',
+
+        //'uniform float glowStart;',
+        //'uniform float glowEnd;',
 
         'mat4 InverseMatrix(mat4 m) {',
 
@@ -136,71 +199,6 @@ var DiamondShader = {
               'a30 * b04 - a31 * b02 + a33 * b00, a21 * b02 - a20 * b04 - a23 * b00, a11 * b07 - a10 * b09 - a12 * b06, a00 * b09 - a01 * b07 + a02 * b06, a31 * b01 - a30 * b03 - a32 * b00,',
               'a20 * b03 - a21 * b01 + a22 * b00) / det;',
         '}',
-
-        'void main() {', 
-            'vUv = uv;',
-            'vNormal = normalize(normal);',
-            //'vNormal = normalize( mat3( modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz ) * normal );',
-            //'vec4 worldPosition = modelMatrix * vec4( position, 1.0 );',
-            'invMat = InverseMatrix( modelMatrix );',
-            
-
-            'worldNormal = (modelMatrix * vec4(normal,0.0)).xyz;',
-            'vecPos = (modelMatrix * vec4(position, 1.0 )).xyz;',
-
-            'vEye = normalize(-cameraPosition);',//cameraPosition;',
-            'vI = vecPos - cameraPosition;',
-            //'viewPos = (modelViewMatrix * vec4(position, 1.0 )).xyz;',
-            'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-        '}'
-    ].join('\n'),
-
-    fragmentShader: [
-
-        '#define ENVMAP_TYPE_CUBE_UV 1',
-
-        '#include <cube_uv_reflection_fragment>', 
-        
-        'varying vec2 vUv;', 
-        'varying vec3 vNormal;', 
-        'varying vec3 worldNormal;', 
-        'varying vec3 vecPos;', 
-        //'varying vec3 viewPos;',
-        'varying vec3 vI;',
-        'varying vec3 vEye;',
-        'varying mat4 invMat;',
-
-        'uniform samplerCube tCubeMapNormals;', 
-        //'uniform samplerCube envMap;', 
-        'uniform sampler2D envMap;',
-        //'uniform samplerCube envRefractionMap;', 
-        'uniform sampler2D sphereMap;', 
-        'uniform float envMapIntensity;', 
-        //'uniform float tanAngleSqCone;', 
-        //'uniform float coneHeight;', 
-        //'uniform int maxBounces;', 
-        'uniform mat4 modelMatrix;', 
-        //'uniform mat4 invMat;', 
-        //'uniform mat4 invModelMatrix;', 
-        'uniform float refraction;', 
-        'uniform float radius;', 
-        'uniform bool bDebugBounces;', 
-        'uniform float aberration;', 
-        'uniform float normalOffset;', 
-        'uniform float squashFactor;', 
-        'uniform float distanceOffset;', 
-        'uniform float geometryFactor;', 
-        'uniform vec3 absorbption;', 
-        'uniform vec3 correction;', 
-        'uniform vec3 boost;', 
-        'uniform vec3 centreOffset;', 
-
-        'uniform float mFresnelBias;',
-        'uniform float mFresnelScale;',
-        'uniform float mFresnelPower;',
-
-        //'uniform float glowStart;',
-        //'uniform float glowEnd;',
 
         'vec4 getEnvColor( vec3 dir, int linear ){',
 
@@ -286,8 +284,8 @@ var DiamondShader = {
 
         'vec3 traceRayTest( vec3 origin, vec3 direction, vec3 normal ) {', 
 
-            //'mat4 invModelMat = inverseMAT4(modelMatrix);',
-            'mat4 invModelMat = invMat;',
+            // use webgl2 inverse is existe
+            'mat4 invModelMat = isGL2 ? inverse( modelMatrix ) : InverseMatrix( modelMatrix );',
 
             'vec3 outColor = vec3(0.0);', 
             // Reflect/Refract ray entering the diamond 

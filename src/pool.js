@@ -116,8 +116,9 @@ var pool = ( function () {
 
                 inLoading = false;
 
-                var end = ( typeof performance === 'undefined' ? Date : performance ).now() - tmp[0].start;
-                console.log( 'pool loading time: ', Math.floor(end), 'ms' );
+                var end =  Math.floor(( typeof performance === 'undefined' ? Date : performance ).now() - tmp[0].start);
+
+                if( end !== 0 ) console.log( 'pool loading time: ', end, 'ms' );
 
                 tmp[0].callback( pool.data );
 

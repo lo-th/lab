@@ -241,8 +241,6 @@ sky = {
     getCube: function () {
 
         if(isNewPmrem){ 
-
-            console.log(view.getEnvmap())
             return view.getEnvmap();
         } else { 
             return camera.renderTarget.texture;
@@ -423,7 +421,7 @@ sky = {
         
 		//this.initColorTest();
 		this.setSize();
-		this.updateAutoSky();
+		this.updateTime();
 
     },
 
@@ -435,9 +433,9 @@ sky = {
 
     },
 
-    updateAutoSky: function () {
+    updateTime: function () {
 
-        if( !isAutoSky ) return;
+        //if( !isAutoSky ) return;
 
     	var s = setting;
     	var r = torad;
@@ -454,23 +452,15 @@ sky = {
         moonSphere.theta = ( s.azimuth - 90 - 22 ) * r;
         moonPosition.setFromSpherical( moonSphere );
 
+
+        sky.calculateSunColor( sunPosition );
         
-
-        // fake sun / moon
-        //this.sun.position.copy( this.sunPosition ).multiplyScalar( this.astralDistance );
-        //this.moon.position.copy( this.moonPosition ).multiplyScalar( this.astralDistance );
-        lensflare.position.copy( sunPosition ).multiplyScalar( astralDistance );
-
-        this.calculateSunColor( sunPosition );
-        
-
         // light
 
         var d = view.getLightDistance();
         var sun = view.getSun();
         var moon = view.getMoon();
         
-
         sun.position.copy( sunPosition ).multiplyScalar( d );
         moon.position.copy( moonPosition ).multiplyScalar( d );
         //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
@@ -482,17 +472,22 @@ sky = {
 
         //console.log( sun.intensity, moon.intensity )
 
-        var fg = colors.moon.r * 0.6;
-        colors.fog.setRGB( colors.fogbase.r-fg, colors.fogbase.g-fg, colors.fogbase.b-fg );
-        view.setFogColor( colors.fog );
+        if( isAutoSky ){
 
-		material.uniforms.timelap.value = s.timelap;
-		material.uniforms.fog.value = s.fog;
-		material.uniforms.cloud_size.value = s.cloud_size;
-		material.uniforms.cloud_covr.value = s.cloud_covr;
-		material.uniforms.cloud_dens.value = s.cloud_dens;
+        	lensflare.position.copy( sunPosition ).multiplyScalar( astralDistance );
 
-        this.render();
+	        var fg = colors.moon.r * 0.6;
+	        colors.fog.setRGB( colors.fogbase.r-fg, colors.fogbase.g-fg, colors.fogbase.b-fg );
+	        view.setFogColor( colors.fog );
+
+			material.uniforms.timelap.value = s.timelap;
+			material.uniforms.fog.value = s.fog;
+			material.uniforms.cloud_size.value = s.cloud_size;
+			material.uniforms.cloud_covr.value = s.cloud_covr;
+			material.uniforms.cloud_dens.value = s.cloud_dens;
+			sky.render();
+
+		}
 
     },
 
@@ -509,8 +504,14 @@ sky = {
 
         if( n === frame ){
         	n = 0;
-            this.updateAutoSky();
+            this.updateTime();
         }
+
+    },
+
+    getSetting: function () {
+
+    	return setting;
 
     },
 
@@ -524,7 +525,7 @@ sky = {
 		}
 
         if( timeout ){ clearTimeout(timeout); timeout = null; }
-        timeout = setTimeout( function(){ sky.updateAutoSky() }, 20 );
+        timeout = setTimeout( function(){ sky.updateTime() }, 20 );
 
     },
 

@@ -39,6 +39,15 @@ materials = {
 
     },
 
+   /* clearOne: function ( name ){
+
+        var ref = materials.get( name );
+        if( ref !== null ) {
+
+        }
+
+    },*/
+
     clone: function ( name, newName ){
 
         var ref = materials.get( name );
