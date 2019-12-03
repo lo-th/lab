@@ -16,7 +16,7 @@ var refEditor = null;
 var refUser = null;
 
 var setting = {
-	correctLight: false,
+	physicallyCorrectLights: false,
     gammaInput: true,
     gammaOutput: true,
     exposure: 1.2,
@@ -846,7 +846,7 @@ view = {
 
         for( var v in setting ) setting[v] = o[v] !== undefined ? o[v] : setting[v];
 
-        renderer.physicallyCorrectLights = setting.correctLight;
+        renderer.physicallyCorrectLights = setting.physicallyCorrectLights;
         renderer.gammaInput = setting.gammaInput;
         renderer.gammaOutput = setting.gammaOutput;
         renderer.toneMapping = toneMappings[ setting.type ];
@@ -995,6 +995,21 @@ view = {
         this.scene.add( this.ambient );*/
 
         isLight = true;
+
+    },
+
+    resetLight: function () {
+
+        if( !isLight ) return
+
+        followGroup.remove( sun );
+        followGroup.remove( sun.target );
+        followGroup.remove( moon );
+        followGroup.remove( moon.target );
+
+        isLight = true;
+
+        view.addLights();
 
     },
 

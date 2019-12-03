@@ -32,6 +32,7 @@ var setting = {
 	inclination: 45,
 	azimuth: 90,
 	hour: 12,
+    power:1,
 
 	toneMapping: 'No',
 	exposure:1.22,
@@ -468,9 +469,9 @@ sky = {
         //this.view.sun.lookAt( this.view.followGroup.position )//target.position.set(0,0,0)
 
         sun.color.copy( colors.sun );
-        sun.intensity = colors.sun.r + (colors.sun.r*0.3);
+        sun.intensity = (colors.sun.r + (colors.sun.r*0.3))*s.power;
         moon.color.copy( colors.moon );
-        moon.intensity = (colors.moon.r - (colors.moon.r*0.6))*0.25;
+        moon.intensity = ((colors.moon.r - (colors.moon.r*0.6))*0.25)*s.power;
 
         //console.log( sun.intensity, moon.intensity )
 

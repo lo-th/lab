@@ -85,11 +85,14 @@ function init() {
 
 	logo.init();
 
+	view.setTone({ physicallyCorrectLights: true });
+
 	view.moveCam({ distance:60, target:[0,20,0], time:200 });
 
-	view.setShadow({ size:100, near:100, far:300, debug:false })
+	view.setShadow({ size:100, near:100, far:300, debug:false });
 
 	view.setSky({ url:setting.sky + '.jpg', hour:14 });
+
 
 	view.update = update;
 
@@ -101,7 +104,7 @@ function init() {
 
 function update () {
 
-	if(mesh && setting.autoRotation) mesh.rotation.y += 0.003;
+	if( mesh && setting.autoRotation ) mesh.rotation.y += 0.003;
 
 }
 
@@ -199,6 +202,7 @@ function initGUI() {
     ui.add('title',  { name:'LIGHT', h:30});
     ui.add( skySetting, 'hour', { min:0, max:24, fontColor:tc } ).onChange( sky.updateTime );
     ui.add( skySetting, 'azimuth', { min:0, max:360, fontColor:tc } ).onChange( sky.updateTime );
+    ui.add( skySetting, 'power', { min:0, max:3, fontColor:tc } ).onChange( sky.updateTime );
 
     ui.add('title',  { name:'RENDER', h:30});
     ui.add( setting, 'mode', { min:0, max:2, precision:0, fontColor:tc } ).onChange( materials.setMode );
