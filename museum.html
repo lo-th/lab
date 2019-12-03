@@ -72,6 +72,7 @@ var setting = {
 	rough:0.6,
 	ao:1,
 	env:1,
+	normal:1,
 
 };
 
@@ -133,6 +134,7 @@ function loadOne () {
 		aoMap:{url:'museum/' + modelName+'_ao.jpg' }, 
 		aoMapIntensity: setting.ao,
 		envMapIntensity: setting.env,
+		normalScale:[setting.normal, setting.normal ],
 	});
 	view.load ( ['museum/' + modelName+'.sea'], afterLoad, true, true );
 
@@ -192,6 +194,7 @@ function initGUI() {
     ui.add( setting, 'rough', { min:0, max:1, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'ao', { min:0, max:2, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'env', { min:0, max:3, fontColor:tc } ).onChange( setMaterial );
+    ui.add( setting, 'normal', { min:0, max:1, fontColor:tc } ).onChange( setMaterial );
 
     ui.add('title',  { name:'LIGHT', h:30});
     ui.add( skySetting, 'hour', { min:0, max:24, fontColor:tc } ).onChange( sky.updateTime );
@@ -206,6 +209,7 @@ function setMaterial () {
 	material.roughness = setting.rough;
 	material.aoMapIntensity = setting.ao;
 	material.envMapIntensity = setting.env;
+	material.normalScale.set( setting.normal, setting.normal );
 
 }
 
