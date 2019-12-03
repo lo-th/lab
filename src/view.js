@@ -998,7 +998,7 @@ view = {
 
     },
 
-    resetLight: function () {
+    clearLight: function () {
 
         if( !isLight ) return
 

@@ -230,14 +230,15 @@ sky = {
 
         if( o.url !== undefined ){
             this.load( o.url );
+            this.updateTime();
         } else {
             showBackground = true;
             this.initAutoSky();
         }
 
-        this.updateTime();
+        
 
-        if(Callback) this.renderCallback = Callback;
+        if( Callback ) this.renderCallback = Callback;
 
     },
 
@@ -424,7 +425,7 @@ sky = {
         
 		//this.initColorTest();
 		this.setSize();
-		//this.updateTime();
+		this.updateTime();
 
     },
 

@@ -27,13 +27,13 @@ THREE.PMREMGenerator = ( function () {
 	// samples and exit early, but not recompile the shader.
 	var MAX_SAMPLES = 20;
 	var ENCODINGS = {
-		[ THREE.LinearEncoding ]: 0,
-		[ THREE.sRGBEncoding ]: 1,
-		[ THREE.RGBEEncoding ]: 2,
-		[ THREE.RGBM7Encoding ]: 3,
-		[ THREE.RGBM16Encoding ]: 4,
-		[ THREE.RGBDEncoding ]: 5,
-		[ THREE.GammaEncoding ]: 6
+		3000 : 0,//THREE.LinearEncoding
+		3001 : 1, //THREE.sRGBEncoding
+		3002 : 2,//THREE.RGBEEncoding
+		3004 : 3,//THREE.RGBM7Encoding
+		3005 : 4,//THREE.RGBM16Encoding
+		3006 : 5,//THREE.RGBDEncoding
+		3007 : 6//THREE.GammaEncoding
 	  };
 
 	var _flatCamera = new THREE.OrthographicCamera();
@@ -41,7 +41,13 @@ THREE.PMREMGenerator = ( function () {
 	var _equirectShader = null;
 	var _cubemapShader = null;
 
-	var { _lodPlanes, _sizeLods, _sigmas } = _createPlanes();
+	var _sigmas;// = _createPlanes();
+	var _lodPlanes;// = _createPlanes();
+	var _sizeLods;// = _createPlanes();
+
+	_createPlanes()
+
+	//var { _lodPlanes, _sizeLods, _sigmas } = _createPlanes();
 	var _pingPongRenderTarget = null;
 	var _renderer = null;
 
@@ -79,7 +85,11 @@ THREE.PMREMGenerator = ( function () {
 		 * and far planes ensure the scene is rendered in its entirety (the cubeCamera
 		 * is placed at the origin).
 		 */
-		fromScene: function ( scene, sigma = 0, near = 0.1, far = 100 ) {
+		fromScene: function ( scene, sigma, near, far ) {
+
+			sigma = sigma || 0;
+			near = near || 0.1;
+			far = far || 100;
 
 			var cubeUVRenderTarget = _allocateTargets();
 			_sceneToCubeUV( scene, near, far, cubeUVRenderTarget );
@@ -90,6 +100,7 @@ THREE.PMREMGenerator = ( function () {
 			}
 			_applyPMREM( cubeUVRenderTarget );
 			_cleanup();
+			cubeUVRenderTarget.scissorTest = false;
 
 			return cubeUVRenderTarget;
 
@@ -121,6 +132,7 @@ THREE.PMREMGenerator = ( function () {
 			_textureToCubeUV( cubemap, cubeUVRenderTarget );
 			_applyPMREM( cubeUVRenderTarget );
 			_cleanup();
+			cubeUVRenderTarget.scissorTest = false;
 
 			return cubeUVRenderTarget;
 
@@ -137,11 +149,14 @@ THREE.PMREMGenerator = ( function () {
 			if ( _cubemapShader != null ) _cubemapShader.dispose();
 			if ( _equirectShader != null ) _equirectShader.dispose();
 			var plane;
-			for ( plane of _lodPlanes ) {
 
+			var i = _lodPlanes.length;
+			while(i--) _lodPlanes[i].dispose();
+			
+			/*for ( plane of _lodPlanes ) {
 				plane.dispose();
 
-			}
+			}*/
 
 		},
 
@@ -149,9 +164,13 @@ THREE.PMREMGenerator = ( function () {
 
 	function _createPlanes() {
 
-		var _lodPlanes = [];
+		_lodPlanes = [];
+		_sizeLods = [];
+		_sigmas = [];
+
+		/*var _lodPlanes = [];
 		var _sizeLods = [];
-		var _sigmas = [];
+		var _sigmas = [];*/
 
 		var lod = LOD_MAX;
 		for ( var i = 0; i < TOTAL_LODS; i ++ ) {
@@ -189,16 +208,18 @@ THREE.PMREMGenerator = ( function () {
 
 				var x = ( face % 3 ) * 2 / 3 - 1;
 				var y = face > 2 ? 0 : - 1;
+
 				var coordinates = [
-					[ x, y, 0 ],
-					[ x + 2 / 3, y, 0 ],
-					[ x + 2 / 3, y + 1, 0 ],
-					[ x, y, 0 ],
-					[ x + 2 / 3, y + 1, 0 ],
-					[ x, y + 1, 0 ]
+					x, y, 0 ,
+					x + 2 / 3, y, 0 ,
+					x + 2 / 3, y + 1, 0 ,
+					x, y, 0 ,
+					x + 2 / 3, y + 1, 0 ,
+					x, y + 1, 0 
 				];
-				position.set( [].concat( ...coordinates ),
-					positionSize * vertices * face );
+
+				position.set( coordinates, positionSize * vertices * face );
+
 				uv.set( uv1, uvSize * vertices * face );
 				var fill = [ face, face, face, face, face, face ];
 				faceIndex.set( fill, faceIndexSize * vertices * face );
@@ -219,9 +240,9 @@ THREE.PMREMGenerator = ( function () {
 			}
 
 		}
-		return { _lodPlanes, _sizeLods, _sigmas };
+		//return { _lodPlanes, _sizeLods, _sigmas };
 
-	}
+	};
 
 	function _allocateTargets( equirectangular ) {
 
@@ -233,14 +254,19 @@ THREE.PMREMGenerator = ( function () {
 		  format: equirectangular ? equirectangular.format : THREE.RGBEFormat,
 		  encoding: equirectangular ? equirectangular.encoding : THREE.RGBEEncoding,
 		  depthBuffer: false,
-		  stencilBuffer: false
+		  stencilBuffer: false,
 		};
-		var cubeUVRenderTarget = _createRenderTarget(
-			{ ...params, depthBuffer: ( equirectangular ? false : true ) } );
+		
+
 		_pingPongRenderTarget = _createRenderTarget( params );
+
+		params.depthBuffer = equirectangular ? false : true
+
+		//console.log(equirectangular ? false : true)
+		var cubeUVRenderTarget = _createRenderTarget( params );
 		return cubeUVRenderTarget;
 
-	}
+	};
 
 	function _cleanup() {
 
@@ -249,12 +275,9 @@ THREE.PMREMGenerator = ( function () {
 		var size = _renderer.getSize( new THREE.Vector2() );
 		_renderer.setViewport( 0, 0, size.x, size.y );
 
-	}
+	};
 
 	function _sceneToCubeUV( scene, near, far, cubeUVRenderTarget ) {
-
-
-		//cubeUVRenderTarget.format = THREE.RGBAFormat;
 
 		var fov = 90;
 		var aspect = 1;
@@ -262,12 +285,6 @@ THREE.PMREMGenerator = ( function () {
 		var upSign = [ 1, 1, 1, 1, - 1, 1 ];
 		var forwardSign = [ 1, 1, - 1, - 1, - 1, 1 ];
 
-		/*
-		var vup = [ [0,-1,0], [0,-1,0], [0,0,1], [0,0,-1], [0,-1,0], [0,-1,0] ];
-		var look = [ [1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1] ];
-		var v = new THREE.Vector3();
-		*/
-		var oldAutoClear = _renderer.autoClear;
 		var gammaOutput = _renderer.gammaOutput;
 		var toneMapping = _renderer.toneMapping;
 		var toneMappingExposure = _renderer.toneMappingExposure;
@@ -289,20 +306,14 @@ THREE.PMREMGenerator = ( function () {
 			background = background.multiplyScalar( Math.pow( 2.0, - fExp ) );
 			var alpha = ( fExp + 128.0 ) / 255.0;
 			_renderer.setClearColor( background, alpha );
-			
 			scene.background = null;
 
 		}
 
-		_renderer.autoClear = false;
-        _renderer.setRenderTarget( cubeUVRenderTarget );
-
-        var i = 6;
-        while(i--){
+		_renderer.setRenderTarget( cubeUVRenderTarget );
+		for ( var i = 0; i < 6; i ++ ) {
 
 			var col = i % 3;
-
-			
 			if ( col == 0 ) {
 
 				cubeCamera.up.set( 0, upSign[ i ], 0 );
@@ -319,22 +330,19 @@ THREE.PMREMGenerator = ( function () {
 				cubeCamera.lookAt( 0, 0, forwardSign[ i ] );
 
 			}
-
-			cubeCamera.updateMatrixWorld();
-
-			_setViewport( col * SIZE_MAX, i > 2 ? SIZE_MAX : 0, SIZE_MAX, SIZE_MAX );
+			_setViewport(
+				col * SIZE_MAX, i > 2 ? SIZE_MAX : 0, SIZE_MAX, SIZE_MAX );
 			_renderer.render( scene, cubeCamera );
 
 		}
 
-		_renderer.autoClear = oldAutoClear;
 		_renderer.toneMapping = toneMapping;
 		_renderer.toneMappingExposure = toneMappingExposure;
 		_renderer.gammaOutput = gammaOutput;
 		_renderer.setClearColor( clearColor, clearAlpha );
 		scene.scale.z *= - 1;
 
-	}
+	};
 
 	function _textureToCubeUV( texture, cubeUVRenderTarget ) {
 
@@ -373,7 +381,7 @@ THREE.PMREMGenerator = ( function () {
 		_setViewport( 0, 0, 3 * SIZE_MAX, 2 * SIZE_MAX );
 		_renderer.render( scene, _flatCamera );
 
-	}
+	};
 
 	function _createRenderTarget( params ) {
 
@@ -381,16 +389,22 @@ THREE.PMREMGenerator = ( function () {
 		new THREE.WebGLRenderTarget( 3 * SIZE_MAX, 3 * SIZE_MAX, params );
 		cubeUVRenderTarget.texture.mapping = THREE.CubeUVReflectionMapping;
 		cubeUVRenderTarget.texture.name = 'PMREM.cubeUv';
+		cubeUVRenderTarget.scissorTest = true;
 		return cubeUVRenderTarget;
 
-	}
+	};
 
 	function _setViewport( x, y, width, height ) {
 
-		var dpr = _renderer.getPixelRatio();
-		_renderer.setViewport( x / dpr, y / dpr, width / dpr, height / dpr );
+		var invDpr = 1.0 / _renderer.getPixelRatio();
+		x *= invDpr;
+		y *= invDpr;
+		width *= invDpr;
+		height *= invDpr;
+		_renderer.setViewport( x, y, width, height );
+		_renderer.setScissor( x, y, width, height );
 
-	}
+	};
 
 	function _applyPMREM( cubeUVRenderTarget ) {
 
@@ -410,7 +424,7 @@ THREE.PMREMGenerator = ( function () {
 
 		_renderer.autoClear = autoClear;
 
-	}
+	};
 
 	/**
    * This is a two-pass Gaussian blur for a cubemap. Normally this is done
@@ -439,14 +453,13 @@ THREE.PMREMGenerator = ( function () {
 			'longitudinal',
 			poleAxis );
 
-	}
+	};
 
 	function _halfBlur( targetIn, targetOut, lodIn, lodOut, sigmaRadians, direction, poleAxis ) {
 
 		if ( direction !== 'latitudinal' && direction !== 'longitudinal' ) {
 
-			console.error(
-				'blur direction must be either latitudinal or longitudinal!' );
+			console.error( 'blur direction must be either latitudinal or longitudinal!' );
 
 		}
 
@@ -464,9 +477,7 @@ THREE.PMREMGenerator = ( function () {
 
 		if ( samples > MAX_SAMPLES ) {
 
-			console.warn( `sigmaRadians, ${
-				sigmaRadians}, is too large and will clip, as it requested ${
-				samples} samples when the maximum is set to ${MAX_SAMPLES}` );
+			console.warn( 'sigmaRadians '+ sigmaRadians +', is too large and will clip, as it requested '+samples+' samples when the maximum is set to '+ MAX_SAMPLES );
 
 		}
 
@@ -488,7 +499,9 @@ THREE.PMREMGenerator = ( function () {
 			}
 
 		}
-		weights = weights.map( w => w / sum );
+		//weights = weights.map( w => w / sum );
+
+		weights = weights.map( function(w){ return w / sum; } );
 
 		blurUniforms[ 'envMap' ].value = targetIn.texture;
 		blurUniforms[ 'samples' ].value = samples;
@@ -506,15 +519,13 @@ THREE.PMREMGenerator = ( function () {
 
 		var outputSize = _sizeLods[ lodOut ];
 		var x = 3 * Math.max( 0, SIZE_MAX - 2 * outputSize );
-		var y = ( lodOut === 0 ? 0 : 2 * SIZE_MAX ) +
-	  2 * outputSize *
-		  ( lodOut > LOD_MAX - LOD_MIN ? lodOut - LOD_MAX + LOD_MIN : 0 );
+		var y = ( lodOut === 0 ? 0 : 2 * SIZE_MAX ) + 2 * outputSize * ( lodOut > LOD_MAX - LOD_MIN ? lodOut - LOD_MAX + LOD_MIN : 0 );
 
 		_renderer.setRenderTarget( targetOut );
 		_setViewport( x, y, 3 * outputSize, 2 * outputSize );
 		_renderer.render( blurScene, _flatCamera );
 
-	}
+	};
 
 	function _getBlurShader( maxSamples ) {
 
@@ -538,48 +549,46 @@ THREE.PMREMGenerator = ( function () {
 
 			vertexShader: _getCommonVertexShader(),
 
-			fragmentShader: `
-precision mediump float;
-precision mediump int;
-varying vec3 vOutputDirection;
-uniform sampler2D envMap;
-uniform int samples;
-uniform float weights[n];
-uniform bool latitudinal;
-uniform float dTheta;
-uniform float mipInt;
-uniform vec3 poleAxis;
+			fragmentShader:[
+			'precision mediump float;',
+			'precision mediump int;',
+			'varying vec3 vOutputDirection;',
+			'uniform sampler2D envMap;',
+			'uniform int samples;',
+			'uniform float weights[n];',
+			'uniform bool latitudinal;',
+			'uniform float dTheta;',
+			'uniform float mipInt;',
+			'uniform vec3 poleAxis;',
 
-${_getEncodings()}
+			_getEncodings(),
 
-#define ENVMAP_TYPE_CUBE_UV
-#include <cube_uv_reflection_fragment>
+			'#define ENVMAP_TYPE_CUBE_UV',
+			'#include <cube_uv_reflection_fragment>',
 
-void main() {
-	gl_FragColor = vec4(0.0);
-    for (int i = 0; i < n; i++) {
-      if (i >= samples)
-        break;
-      for (int dir = -1; dir < 2; dir += 2) {
-        if (i == 0 && dir == 1)
-          continue;
-        vec3 axis = latitudinal ? poleAxis : cross(poleAxis, vOutputDirection);
-        if (all(equal(axis, vec3(0.0))))
-          axis = cross(vec3(0.0, 1.0, 0.0), vOutputDirection);
-        axis = normalize(axis);
-        float theta = dTheta * float(dir * i);
-        float cosTheta = cos(theta);
-        // Rodrigues' axis-angle rotation
-        vec3 sampleDirection = vOutputDirection * cosTheta 
-            + cross(axis, vOutputDirection) * sin(theta) 
-            + axis * dot(axis, vOutputDirection) * (1.0 - cosTheta);
-        gl_FragColor.rgb +=
-            weights[i] * bilinearCubeUV(envMap, sampleDirection, mipInt);
-      }
-    }
-  	gl_FragColor = linearToOutputTexel(gl_FragColor);
-}
-     		`,
+			'void main() {',
+			'	gl_FragColor = vec4(0.0);',
+			'    for (int i = 0; i < n; i++) {',
+			'      if (i >= samples)',
+			'        break;',
+			'      for (int dir = -1; dir < 2; dir += 2) {',
+			'        if (i == 0 && dir == 1)',
+			'          continue;',
+			'        vec3 axis = latitudinal ? poleAxis : cross(poleAxis, vOutputDirection);',
+			'        if (all(equal(axis, vec3(0.0))))',
+			'          axis = cross(vec3(0.0, 1.0, 0.0), vOutputDirection);',
+			'        axis = normalize(axis);',
+			'        float theta = dTheta * float(dir * i);',
+			'        float cosTheta = cos(theta);',
+			        // Rodrigues' axis-angle rotation
+			'        vec3 sampleDirection = vOutputDirection * cosTheta ',
+			'            + cross(axis, vOutputDirection) * sin(theta) ',
+			'            + axis * dot(axis, vOutputDirection) * (1.0 - cosTheta);',
+			'        gl_FragColor.rgb += weights[i] * bilinearCubeUV(envMap, sampleDirection, mipInt);',
+			'      }',
+			'    }',
+			'  	gl_FragColor = linearToOutputTexel(gl_FragColor);',
+			'}'].join('\n'),
 
 			blending: THREE.NoBlending,
 			depthTest: false,
@@ -591,7 +600,7 @@ void main() {
 
 		return shaderMaterial;
 
-	}
+	};
 
 	function _getEquirectShader() {
 
@@ -607,39 +616,38 @@ void main() {
 
 			vertexShader: _getCommonVertexShader(),
 
-			fragmentShader: `
-precision mediump float;
-precision mediump int;
-varying vec3 vOutputDirection;
-uniform sampler2D envMap;
-uniform vec2 texelSize;
+			fragmentShader: [
+			'precision mediump float;',
+			'precision mediump int;',
+			'varying vec3 vOutputDirection;',
+			'uniform sampler2D envMap;',
+			'uniform vec2 texelSize;',
 
-${_getEncodings()}
+			_getEncodings(),
 
-#define RECIPROCAL_PI 0.31830988618
-#define RECIPROCAL_PI2 0.15915494
+			'#define RECIPROCAL_PI 0.31830988618',
+			'#define RECIPROCAL_PI2 0.15915494',
 
-void main() {
-	gl_FragColor = vec4(0.0);
-	vec3 outputDirection = normalize(vOutputDirection);
-	vec2 uv;
-	uv.y = asin(clamp(outputDirection.y, -1.0, 1.0)) * RECIPROCAL_PI + 0.5;
-	uv.x = atan(outputDirection.z, outputDirection.x) * RECIPROCAL_PI2 + 0.5;
-	vec2 f = fract(uv / texelSize - 0.5);
-	uv -= f * texelSize;
-	vec3 tl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
-	uv.x += texelSize.x;
-	vec3 tr = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
-	uv.y += texelSize.y;
-	vec3 br = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
-	uv.x -= texelSize.x;
-	vec3 bl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
-	vec3 tm = mix(tl, tr, f.x);
-	vec3 bm = mix(bl, br, f.x);
-	gl_FragColor.rgb = mix(tm, bm, f.y);
-  	gl_FragColor = linearToOutputTexel(gl_FragColor);
-}
-     		`,
+			'void main() {',
+			'	gl_FragColor = vec4(0.0);',
+			'	vec3 outputDirection = normalize(vOutputDirection);',
+			'	vec2 uv;',
+			'	uv.y = asin(clamp(outputDirection.y, -1.0, 1.0)) * RECIPROCAL_PI + 0.5;',
+			'	uv.x = atan(outputDirection.z, outputDirection.x) * RECIPROCAL_PI2 + 0.5;',
+			'	vec2 f = fract(uv / texelSize - 0.5);',
+			'	uv -= f * texelSize;',
+			'	vec3 tl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;',
+			'	uv.x += texelSize.x;',
+			'	vec3 tr = envMapTexelToLinear(texture2D(envMap, uv)).rgb;',
+			'	uv.y += texelSize.y;',
+			'	vec3 br = envMapTexelToLinear(texture2D(envMap, uv)).rgb;',
+			'	uv.x -= texelSize.x;',
+			'	vec3 bl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;',
+			'	vec3 tm = mix(tl, tr, f.x);',
+			'	vec3 bm = mix(bl, br, f.x);',
+			'	gl_FragColor.rgb = mix(tm, bm, f.y);',
+			'  	gl_FragColor = linearToOutputTexel(gl_FragColor);',
+			'}'].join('\n'),
 
 			blending: THREE.NoBlending,
 			depthTest: false,
@@ -651,7 +659,7 @@ void main() {
 
 		return shaderMaterial;
 
-	}
+	};
 
 	function _getCubemapShader() {
 
@@ -665,20 +673,19 @@ void main() {
 
 			vertexShader: _getCommonVertexShader(),
 
-			fragmentShader: `
-precision mediump float;
-precision mediump int;
-varying vec3 vOutputDirection;
-uniform samplerCube envMap;
+			fragmentShader: [
+			'precision mediump float;',
+			'precision mediump int;',
+			'varying vec3 vOutputDirection;',
+			'uniform samplerCube envMap;',
 
-${_getEncodings()}
+			_getEncodings(),
 
-void main() {
-	gl_FragColor = vec4(0.0);
-	gl_FragColor.rgb = envMapTexelToLinear(textureCube(envMap, vec3( - vOutputDirection.x, vOutputDirection.yz ))).rgb;
-  	gl_FragColor = linearToOutputTexel(gl_FragColor);
-}
-     		`,
+			'void main() {',
+			'	gl_FragColor = vec4(0.0);',
+			'	gl_FragColor.rgb = envMapTexelToLinear(textureCube(envMap, vec3( - vOutputDirection.x, vOutputDirection.yz ))).rgb;',
+			'  	gl_FragColor = linearToOutputTexel(gl_FragColor);',
+			'}'].join('\n'),
 
 			blending: THREE.NoBlending,
 			depthTest: false,
@@ -690,95 +697,93 @@ void main() {
 
 		return shaderMaterial;
 
-	}
+	};
 
 	function _getCommonVertexShader() {
 
-		return `
-precision mediump float;
-precision mediump int;
-attribute vec3 position;
-attribute vec2 uv;
-attribute float faceIndex;
-varying vec3 vOutputDirection;
-vec3 getDirection(vec2 uv, float face) {
-	uv = 2.0 * uv - 1.0;
-	vec3 direction = vec3(uv, 1.0);
-	if (face == 0.0) {
-		direction = direction.zyx;
-		direction.z *= -1.0;
-	} else if (face == 1.0) {
-		direction = direction.xzy;
-		direction.z *= -1.0;
-	} else if (face == 3.0) {
-		direction = direction.zyx;
-		direction.x *= -1.0;
-	} else if (face == 4.0) {
-		direction = direction.xzy;
-		direction.y *= -1.0;
-	} else if (face == 5.0) {
-		direction.xz *= -1.0;
-	}
-	return direction;
-}
-void main() {
-	vOutputDirection = getDirection(uv, faceIndex);
-	gl_Position = vec4( position, 1.0 );
-}
-		`;
+		return [
+		'precision mediump float;',
+		'precision mediump int;',
+		'attribute vec3 position;',
+		'attribute vec2 uv;',
+		'attribute float faceIndex;',
+		'varying vec3 vOutputDirection;',
+		'vec3 getDirection(vec2 uv, float face) {',
+		'	uv = 2.0 * uv - 1.0;',
+		'	vec3 direction = vec3(uv, 1.0);',
+		'	if (face == 0.0) {',
+		'		direction = direction.zyx;',
+		'		direction.z *= -1.0;',
+		'	} else if (face == 1.0) {',
+		'		direction = direction.xzy;',
+		'		direction.z *= -1.0;',
+		'	} else if (face == 3.0) {',
+		'		direction = direction.zyx;',
+		'		direction.x *= -1.0;',
+		'	} else if (face == 4.0) {',
+		'		direction = direction.xzy;',
+		'		direction.y *= -1.0;',
+		'	} else if (face == 5.0) {',
+		'		direction.xz *= -1.0;',
+		'	}',
+		'	return direction;',
+		'}',
+		'void main() {',
+			'vOutputDirection = getDirection(uv, faceIndex);',
+			'gl_Position = vec4( position, 1.0 );',
+		'}'].join('\n');
 
-	}
+	};
 
 	function _getEncodings() {
 
-		return `
-uniform int inputEncoding;
-uniform int outputEncoding;
+		return [
+		'uniform int inputEncoding;',
+		'uniform int outputEncoding;',
 
-#include <encodings_pars_fragment>
+		'#include <encodings_pars_fragment>',
 
-vec4 inputTexelToLinear(vec4 value){
-    if(inputEncoding == 0){
-        return value;
-    }else if(inputEncoding == 1){
-        return sRGBToLinear(value);
-    }else if(inputEncoding == 2){
-        return RGBEToLinear(value);
-    }else if(inputEncoding == 3){
-        return RGBMToLinear(value, 7.0);
-    }else if(inputEncoding == 4){
-        return RGBMToLinear(value, 16.0);
-    }else if(inputEncoding == 5){
-        return RGBDToLinear(value, 256.0);
-    }else{
-        return GammaToLinear(value, 2.2);
-    }
-}
+		'vec4 inputTexelToLinear(vec4 value){',
+		'    if(inputEncoding == 0){',
+		'        return value;',
+		'    }else if(inputEncoding == 1){',
+		'        return sRGBToLinear(value);',
+		'    }else if(inputEncoding == 2){',
+		'        return RGBEToLinear(value);',
+		'    }else if(inputEncoding == 3){',
+		'        return RGBMToLinear(value, 7.0);',
+		'    }else if(inputEncoding == 4){',
+		'        return RGBMToLinear(value, 16.0);',
+		'    }else if(inputEncoding == 5){',
+		'        return RGBDToLinear(value, 256.0);',
+		'    }else{',
+		'        return GammaToLinear(value, 2.2);',
+		'    }',
+		'}',
 
-vec4 linearToOutputTexel(vec4 value){
-    if(outputEncoding == 0){
-        return value;
-    }else if(outputEncoding == 1){
-        return LinearTosRGB(value);
-    }else if(outputEncoding == 2){
-        return LinearToRGBE(value);
-    }else if(outputEncoding == 3){
-        return LinearToRGBM(value, 7.0);
-    }else if(outputEncoding == 4){
-        return LinearToRGBM(value, 16.0);
-    }else if(outputEncoding == 5){
-        return LinearToRGBD(value, 256.0);
-    }else{
-        return LinearToGamma(value, 2.2);
-    }
-}
+		'vec4 linearToOutputTexel(vec4 value){',
+		'    if(outputEncoding == 0){',
+		'        return value;',
+		'    }else if(outputEncoding == 1){',
+		'        return LinearTosRGB(value);',
+		'    }else if(outputEncoding == 2){',
+		'        return LinearToRGBE(value);',
+		'    }else if(outputEncoding == 3){',
+		'        return LinearToRGBM(value, 7.0);',
+		'    }else if(outputEncoding == 4){',
+		'        return LinearToRGBM(value, 16.0);',
+		'    }else if(outputEncoding == 5){',
+		'        return LinearToRGBD(value, 256.0);',
+		'    }else{',
+		'        return LinearToGamma(value, 2.2);',
+		'    }',
+		'}',
 
-vec4 envMapTexelToLinear(vec4 color) {
-  return inputTexelToLinear(color);
-}
-		`;
+		'vec4 envMapTexelToLinear(vec4 color) {',
+		'  return inputTexelToLinear(color);',
+		'}'].join('\n');
 
-	}
+	};
 
 	return PMREMGenerator;
 
