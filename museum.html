@@ -74,10 +74,11 @@ var setting = {
 	env:1,
 	normal:1,
 
+	mode:0,
+
 };
 
 view.init( init );
-
 
 
 function init() {
@@ -184,7 +185,6 @@ function initGUI() {
 
 	ui.add('list', { name:'ENVMAP', list:envmapList, path:'assets/textures/envmap/mini/', format:'.jpg', imageSize: [128,64], value:setting.sky, h:64,  p:0}).onChange( changeSky );
 
-
 	ui.add('Bool', { name:'show background', value:false, p:70, bColor:hc, inh:hb } ).onChange( view.showBackground );
 
 	ui.add( setting, 'autoRotation', { type:'bool', p:70, bColor:hc, inh:hb} );
@@ -199,6 +199,9 @@ function initGUI() {
     ui.add('title',  { name:'LIGHT', h:30});
     ui.add( skySetting, 'hour', { min:0, max:24, fontColor:tc } ).onChange( sky.updateTime );
     ui.add( skySetting, 'azimuth', { min:0, max:360, fontColor:tc } ).onChange( sky.updateTime );
+
+    ui.add('title',  { name:'RENDER', h:30});
+    ui.add( setting, 'mode', { min:0, max:2, precision:0, fontColor:tc } ).onChange( materials.setMode );
   
 }
 

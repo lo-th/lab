@@ -16,6 +16,7 @@ var settings = {
 
     shadowSide:THREE.BackSide, //null,
     envPower:1.2,//1.2,
+    mode:0,
 
 };
 
@@ -130,6 +131,7 @@ materials = {
         // 1 depth
         // 2 normal
 
+        settings.mode = n;
         data.forEach( function ( value, key ) { value.uniforms.renderMode.value = n; } );
 
     },
@@ -264,6 +266,7 @@ materials = {
 
     },
 
+
     customize: function ( mat, o, extraCompile ) {
 
     	 mat.onBeforeCompile = function ( shader ) {
@@ -272,7 +275,7 @@ materials = {
 
     	 	var uniforms = shader.uniforms;
 
-    	 	uniforms['renderMode'] = { value: 0 };
+    	 	uniforms['renderMode'] = { value: settings.mode };
     	 	uniforms['depthPacking'] = { value: 1 };
             uniforms['extraShadow'] = { value: null };
             
@@ -298,7 +301,7 @@ materials = {
 
             }
             
-            if( mat.type !=='MeshBasicMaterial')fragment = fragment.replace('#include <normal_fragment_maps>', materials.directNormal );
+            if( mat.type !=='MeshBasicMaterial') fragment = fragment.replace('#include <normal_fragment_maps>', materials.directNormal );
 
 
             // remplace end of main
