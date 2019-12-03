@@ -88,7 +88,7 @@ function init() {
 
 	view.setShadow({ size:100, near:100, far:300, debug:false })
 
-	view.addSky({ url:setting.sky + '.jpg' });
+	view.setSky({ url:setting.sky + '.jpg', hour:14 });
 
 	view.update = update;
 
@@ -100,7 +100,7 @@ function init() {
 
 function update () {
 
-	if(mesh && setting.autoRotation) mesh.rotation.y += 0.01;
+	if(mesh && setting.autoRotation) mesh.rotation.y += 0.003;
 
 }
 
@@ -194,12 +194,12 @@ function initGUI() {
     ui.add( setting, 'rough', { min:0, max:1, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'ao', { min:0, max:2, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'env', { min:0, max:3, fontColor:tc } ).onChange( setMaterial );
-    ui.add( setting, 'normal', { min:0, max:1, fontColor:tc } ).onChange( setMaterial );
+    ui.add( setting, 'normal', { min:0, max:2, fontColor:tc } ).onChange( setMaterial );
 
     ui.add('title',  { name:'LIGHT', h:30});
     ui.add( skySetting, 'hour', { min:0, max:24, fontColor:tc } ).onChange( sky.updateTime );
     ui.add( skySetting, 'azimuth', { min:0, max:360, fontColor:tc } ).onChange( sky.updateTime );
-
+  
 }
 
 function setMaterial () {

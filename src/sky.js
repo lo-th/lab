@@ -234,6 +234,8 @@ sky = {
             this.initAutoSky();
         }
 
+        this.updateTime();
+
         if(Callback) this.renderCallback = Callback;
 
     },
@@ -421,7 +423,7 @@ sky = {
         
 		//this.initColorTest();
 		this.setSize();
-		this.updateTime();
+		//this.updateTime();
 
     },
 
