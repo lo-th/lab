@@ -38,7 +38,7 @@ body{ font-family:Monospace; background-color:#333; }
 
 <script src="./src/textures.js"></script>
 <script src="./src/materials.js"></script>
-<script src="./src/gui.js"></script>
+<script src="./src/logo.js"></script>
 <script src="./src/math.js"></script>
 <script src="./src/pool.js"></script>
 <script src="./src/sky.js"></script>
@@ -80,6 +80,8 @@ view.init( init );
 
 
 function init() {
+
+	logo.init();
 
 	view.moveCam({ distance:60, target:[0,20,0], time:200 });
 
@@ -166,6 +168,8 @@ function changeSky ( name ) {
 function initGUI() {
 
 	skySetting = sky.getSetting();
+
+	UIL.Tools.colors.backgroundOver = 'rgba(11,11,11,0)';
 
 	var hb = 14;
     var hc = '#929292';
