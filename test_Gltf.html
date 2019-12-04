@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<title>UIL test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="shortcut icon" href="favicon.ico">
+<style> body { margin: 0px; background-color: #404040; overflow: hidden; } </style>
+<script src="./build/lab.js"></script>
+<script src="./src/libs/uil.js"></script>
+
+</head>
+
+<body>
+
+<script>
+
+	view.init();
+
+	view.setSky({ url:'photo.jpg', hour:14 });
+
+	view.moveCam({ distance:3, target:[0,0,0], time:200, near:1, far:10 });
+
+	view.setShadow({groundY:-1, size:20 })
+
+	view.hideGrid( true );
+
+    var loader = new THREE.GLTFLoader().setPath( './assets/models/gltf/DamagedHelmet/' );
+
+    loader.load( 'DamagedHelmet.gltf', function ( gltf ) {
+    	gltf.scene.traverse( function ( child ) {
+    		if ( child.isMesh ){ 
+    			child.material.envMap = view.getEnvmap();
+    			child.castShadow = true;
+    			child.receiveShadow = true;
+    		}
+    	});
+		view.add( gltf.scene );
+	});
+
+
+</script>
+
+</body>
+</html>
