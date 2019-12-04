@@ -96,27 +96,20 @@ var ccSize = 2;
 
 var finalFog = null;
 
-var isNewPmrem = true;
-
 var tmptexture = null;
+
+var pmremGenerator = null;
 
 sky = {
 
 	mapReady:0,
-
-    setPmrem: function ( b ){
-        isNewPmrem = b;
-    },
-
 
 	callback: function (){},
     renderCallback: function (){},
 
     render: function () {
 
-        if( !isNewPmrem || !isHdr ) camera.update( renderer, scene );
-
-        
+        if( !isHdr ) camera.update( renderer, scene );
 
         view.setEnvmap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
 
@@ -244,49 +237,26 @@ sky = {
 
     getCube: function () {
 
-        if(isNewPmrem){ 
-            return view.getEnvmap();
-        } else { 
-            return camera.renderTarget.texture;
-        }
+        return view.getEnvmap();
 
     },
 
     convertToHdr: function () {
 
-        var rgbmCubeMap = camera.renderTarget.texture;//.clone();
-        //rgbmCubeMap.__webglTexture = camera.renderTarget.texture.__webglTexture;
-        //rgbmCubeMap.__webglInit = true;
-        //rgbmCubeMap.needsUpdate = true;
+        //var rgbmCubeMap = camera.renderTarget.texture;
 
-        if( isNewPmrem ){
+        //console.time('pmrem');
 
-            //var rgbmCubeMap = camera.renderTarget.texture;//.clone();
-            //rgbmCubeMap.encoding = THREE.RGBM16Encoding;
-            //rgbmCubeMap.format = THREE.RGBAFormat;
+        if( !pmremGenerator ) pmremGenerator = new THREE.PMREMGenerator( renderer );
 
-            //rgbmCubeMap.needsUpdate = true;
+        //var pmremGenerator = new THREE.PMREMGenerator( renderer );
+        var hdrCubeRenderTarget = pmremGenerator.fromScene( scene, 0, 0.1, 10 );
+        //var hdrCubeRenderTarget = pmremGenerator.fromEquirectangular( tmptexture );
+        //var hdrCubeRenderTarget = pmremGenerator.fromCubemap( rgbmCubeMap );
+        //pmremGenerator.dispose();
 
-            var pmremGenerator = new THREE.PMREMGenerator( renderer );
-            var hdrCubeRenderTarget = pmremGenerator.fromScene( scene, 0, 0.1, 10 );
-            //var hdrCubeRenderTarget = pmremGenerator.fromEquirectangular( tmptexture );
-            //var hdrCubeRenderTarget = pmremGenerator.fromCubemap( rgbmCubeMap );
-            pmremGenerator.dispose();
+        //console.timeEnd('pmrem')
 
-        } else {
-
-            var pmremGenerator = new THREE.PMREMGenerator( rgbmCubeMap, 32, 256 );
-            pmremGenerator.update( renderer );
-
-            var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
-            pmremCubeUVPacker.update( renderer );
-
-            var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
-
-            pmremGenerator.dispose();
-            pmremCubeUVPacker.dispose();
-
-        }
 
         return hdrCubeRenderTarget.texture;
 
@@ -294,10 +264,12 @@ sky = {
 
     showBackground: function ( b ) {
 
+        view.getScene().background = b ? view.getEnvmap() : null;
+
       //  
 
-        if( isNewPmrem ) view.getScene().background = b ? view.getEnvmap() : null;
-        else view.getScene().background = b ? camera.renderTarget : null;
+        //if( isNewPmrem ) view.getScene().background = b ? view.getEnvmap() : null;
+        //else view.getScene().background = b ? camera.renderTarget : null;
         //tmptexture.mapping = THREE.EquirectangularReflectionMapping;
         //view.getScene().background = b ? tmptexture : null;
 

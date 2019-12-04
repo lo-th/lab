@@ -64693,15 +64693,6 @@ THREE.PMREMGenerator = ( function () {
 	// The maximum length of the blur for loop. Smaller sigmas will use fewer
 	// samples and exit early, but not recompile the shader.
 	var MAX_SAMPLES = 20;
-	var ENCODINGS = {
-		3000 : 0,//THREE.LinearEncoding
-		3001 : 1, //THREE.sRGBEncoding
-		3002 : 2,//THREE.RGBEEncoding
-		3004 : 3,//THREE.RGBM7Encoding
-		3005 : 4,//THREE.RGBM16Encoding
-		3006 : 5,//THREE.RGBDEncoding
-		3007 : 6//THREE.GammaEncoding
-	  };
 
 	var _flatCamera = new THREE.OrthographicCamera();
 	var _blurMaterial = _getBlurShader( MAX_SAMPLES );
@@ -64733,7 +64724,9 @@ THREE.PMREMGenerator = ( function () {
 		new THREE.Vector3( INV_PHI, 0, PHI ),
 		new THREE.Vector3( - INV_PHI, 0, PHI ),
 		new THREE.Vector3( PHI, INV_PHI, 0 ),
-		new THREE.Vector3( - PHI, INV_PHI, 0 ) ];
+		new THREE.Vector3( - PHI, INV_PHI, 0 ) 
+	];
+
 
 	var PMREMGenerator = function ( renderer ) {
 
@@ -64818,7 +64811,7 @@ THREE.PMREMGenerator = ( function () {
 			var plane;
 
 			var i = _lodPlanes.length;
-			while(i--) _lodPlanes[i].dispose();
+			while( i-- ) _lodPlanes[i].dispose();
 			
 			/*for ( plane of _lodPlanes ) {
 				plane.dispose();
@@ -64835,11 +64828,8 @@ THREE.PMREMGenerator = ( function () {
 		_sizeLods = [];
 		_sigmas = [];
 
-		/*var _lodPlanes = [];
-		var _sizeLods = [];
-		var _sigmas = [];*/
-
 		var lod = LOD_MAX;
+
 		for ( var i = 0; i < TOTAL_LODS; i ++ ) {
 
 			var sizeLod = Math.pow( 2, lod );
@@ -64892,6 +64882,7 @@ THREE.PMREMGenerator = ( function () {
 				faceIndex.set( fill, faceIndexSize * vertices * face );
 
 			}
+
 			var planes = new THREE.BufferGeometry();
 			planes.setAttribute(
 				'position', new THREE.BufferAttribute( position, positionSize ) );
@@ -64911,6 +64902,26 @@ THREE.PMREMGenerator = ( function () {
 
 	};
 
+	function _getEncoding ( e ) {
+
+		var n = 0;
+
+		switch(e){
+
+			case THREE.LinearEncoding: n = 0; break;
+			case THREE.sRGBEncoding: n = 1; break;
+			case THREE.RGBEEncoding: n = 2; break;
+			case THREE.RGBM7Encoding: n = 3; break;
+			case THREE.RGBM16Encoding: n = 4; break;
+			case THREE.RGBDEncoding: n = 5; break;
+			case THREE.GammaEncoding: n = 6; break;
+
+		}
+
+		return n;
+
+	};
+
 	function _allocateTargets( equirectangular ) {
 
 		var params = {
@@ -64924,14 +64935,10 @@ THREE.PMREMGenerator = ( function () {
 		  stencilBuffer: false,
 		};
 		
-
 		_pingPongRenderTarget = _createRenderTarget( params );
 
-		params.depthBuffer = equirectangular ? false : true
-
-		//console.log(equirectangular ? false : true)
-		var cubeUVRenderTarget = _createRenderTarget( params );
-		return cubeUVRenderTarget;
+		params.depthBuffer = equirectangular ? false : true;
+		return _createRenderTarget( params );;
 
 	};
 
@@ -64978,9 +64985,13 @@ THREE.PMREMGenerator = ( function () {
 		}
 
 		_renderer.setRenderTarget( cubeUVRenderTarget );
-		for ( var i = 0; i < 6; i ++ ) {
+
+		var i = 6;
+
+		while(i--){
 
 			var col = i % 3;
+
 			if ( col == 0 ) {
 
 				cubeCamera.up.set( 0, upSign[ i ], 0 );
@@ -64997,8 +65008,7 @@ THREE.PMREMGenerator = ( function () {
 				cubeCamera.lookAt( 0, 0, forwardSign[ i ] );
 
 			}
-			_setViewport(
-				col * SIZE_MAX, i > 2 ? SIZE_MAX : 0, SIZE_MAX, SIZE_MAX );
+			_setViewport( col * SIZE_MAX, i > 2 ? SIZE_MAX : 0, SIZE_MAX, SIZE_MAX );
 			_renderer.render( scene, cubeCamera );
 
 		}
@@ -65016,33 +65026,28 @@ THREE.PMREMGenerator = ( function () {
 		var scene = new THREE.Scene();
 		if ( texture.isCubeTexture ) {
 
-			if ( _cubemapShader == null ) {
-
-				_cubemapShader = _getCubemapShader();
-
-			}
+			if ( _cubemapShader == null ) _cubemapShader = _getCubemapShader();
 
 		} else {
 
-			if ( _equirectShader == null ) {
-
-				_equirectShader = _getEquirectShader();
-
-			}
+			if ( _equirectShader == null ) _equirectShader = _getEquirectShader();
 
 		}
+
 		var material = texture.isCubeTexture ? _cubemapShader : _equirectShader;
 		scene.add( new THREE.Mesh( _lodPlanes[ 0 ], material ) );
 		var uniforms = material.uniforms;
 
 		uniforms[ 'envMap' ].value = texture;
-		if ( ! texture.isCubeTexture ) {
+
+		if ( !texture.isCubeTexture ) {
 
 			uniforms[ 'texelSize' ].value.set( 1.0 / texture.image.width, 1.0 / texture.image.height );
 
 		}
-		uniforms[ 'inputEncoding' ].value = ENCODINGS[ texture.encoding ];
-		uniforms[ 'outputEncoding' ].value = ENCODINGS[ texture.encoding ];
+
+		uniforms[ 'inputEncoding' ].value = _getEncoding( texture.encoding );
+		uniforms[ 'outputEncoding' ].value = _getEncoding( texture.encoding );
 
 		_renderer.setRenderTarget( cubeUVRenderTarget );
 		_setViewport( 0, 0, 3 * SIZE_MAX, 2 * SIZE_MAX );
@@ -65080,11 +65085,8 @@ THREE.PMREMGenerator = ( function () {
 
 	  	for ( var i = 1; i < TOTAL_LODS; i ++ ) {
 
-			var sigma = Math.sqrt(
-				_sigmas[ i ] * _sigmas[ i ] -
-			_sigmas[ i - 1 ] * _sigmas[ i - 1 ] );
-			var poleAxis =
-			_axisDirections[ ( i - 1 ) % _axisDirections.length ];
+			var sigma = Math.sqrt( _sigmas[ i ] * _sigmas[ i ] - _sigmas[ i - 1 ] * _sigmas[ i - 1 ] );
+			var poleAxis = _axisDirections[ ( i - 1 ) % _axisDirections.length ];
 			_blur( cubeUVRenderTarget, i - 1, i, sigma, poleAxis );
 
 		}
@@ -65181,8 +65183,9 @@ THREE.PMREMGenerator = ( function () {
 		}
 		blurUniforms[ 'dTheta' ].value = radiansPerPixel;
 		blurUniforms[ 'mipInt' ].value = LOD_MAX - lodIn;
-		blurUniforms[ 'inputEncoding' ].value = ENCODINGS[ targetIn.texture.encoding ];
-		blurUniforms[ 'outputEncoding' ].value = ENCODINGS[ targetIn.texture.encoding ];
+
+		blurUniforms[ 'inputEncoding' ].value = _getEncoding( targetIn.texture.encoding );
+		blurUniforms[ 'outputEncoding' ].value = _getEncoding( targetIn.texture.encoding );
 
 		var outputSize = _sizeLods[ lodOut ];
 		var x = 3 * Math.max( 0, SIZE_MAX - 2 * outputSize );
@@ -65210,8 +65213,8 @@ THREE.PMREMGenerator = ( function () {
 				'dTheta': { value: 0 },
 				'mipInt': { value: 0 },
 				'poleAxis': { value: poleAxis },
-				'inputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] },
-				'outputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] }
+				'inputEncoding': { value: _getEncoding( THREE.LinearEncoding ) },
+				'outputEncoding': { value: _getEncoding( THREE.LinearEncoding ) }
 			},
 
 			vertexShader: _getCommonVertexShader(),
@@ -65277,8 +65280,8 @@ THREE.PMREMGenerator = ( function () {
 			uniforms: {
 				'envMap': { value: null },
 				'texelSize': { value: texelSize },
-				'inputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] },
-				'outputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] }
+				'inputEncoding': { value: _getEncoding( THREE.LinearEncoding ) },
+				'outputEncoding': { value: _getEncoding( THREE.LinearEncoding ) }
 			},
 
 			vertexShader: _getCommonVertexShader(),
@@ -65334,8 +65337,8 @@ THREE.PMREMGenerator = ( function () {
 
 			uniforms: {
 				'envMap': { value: null },
-				'inputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] },
-				'outputEncoding': { value: ENCODINGS[ THREE.LinearEncoding ] }
+				'inputEncoding': { value: _getEncoding( THREE.LinearEncoding ) },
+				'outputEncoding': { value: _getEncoding( THREE.LinearEncoding ) }
 			},
 
 			vertexShader: _getCommonVertexShader(),
@@ -65398,7 +65401,8 @@ THREE.PMREMGenerator = ( function () {
 		'void main() {',
 			'vOutputDirection = getDirection(uv, faceIndex);',
 			'gl_Position = vec4( position, 1.0 );',
-		'}'].join('\n');
+		'}'
+		].join('\n');
 
 	};
 
@@ -65448,9 +65452,12 @@ THREE.PMREMGenerator = ( function () {
 
 		'vec4 envMapTexelToLinear(vec4 color) {',
 		'  return inputTexelToLinear(color);',
-		'}'].join('\n');
+		'}'
+		].join('\n');
 
 	};
+
+	
 
 	return PMREMGenerator;
 
@@ -74178,27 +74185,20 @@ var ccSize = 2;
 
 var finalFog = null;
 
-var isNewPmrem = true;
-
 var tmptexture = null;
+
+var pmremGenerator = null;
 
 sky = {
 
 	mapReady:0,
-
-    setPmrem: function ( b ){
-        isNewPmrem = b;
-    },
-
 
 	callback: function (){},
     renderCallback: function (){},
 
     render: function () {
 
-        if( !isNewPmrem || !isHdr ) camera.update( renderer, scene );
-
-        
+        if( !isHdr ) camera.update( renderer, scene );
 
         view.setEnvmap( isHdr ? this.convertToHdr() : camera.renderTarget.texture );
 
@@ -74326,49 +74326,26 @@ sky = {
 
     getCube: function () {
 
-        if(isNewPmrem){ 
-            return view.getEnvmap();
-        } else { 
-            return camera.renderTarget.texture;
-        }
+        return view.getEnvmap();
 
     },
 
     convertToHdr: function () {
 
-        var rgbmCubeMap = camera.renderTarget.texture;//.clone();
-        //rgbmCubeMap.__webglTexture = camera.renderTarget.texture.__webglTexture;
-        //rgbmCubeMap.__webglInit = true;
-        //rgbmCubeMap.needsUpdate = true;
+        //var rgbmCubeMap = camera.renderTarget.texture;
 
-        if( isNewPmrem ){
+        //console.time('pmrem');
 
-            //var rgbmCubeMap = camera.renderTarget.texture;//.clone();
-            //rgbmCubeMap.encoding = THREE.RGBM16Encoding;
-            //rgbmCubeMap.format = THREE.RGBAFormat;
+        if( !pmremGenerator ) pmremGenerator = new THREE.PMREMGenerator( renderer );
 
-            //rgbmCubeMap.needsUpdate = true;
+        //var pmremGenerator = new THREE.PMREMGenerator( renderer );
+        var hdrCubeRenderTarget = pmremGenerator.fromScene( scene, 0, 0.1, 10 );
+        //var hdrCubeRenderTarget = pmremGenerator.fromEquirectangular( tmptexture );
+        //var hdrCubeRenderTarget = pmremGenerator.fromCubemap( rgbmCubeMap );
+        //pmremGenerator.dispose();
 
-            var pmremGenerator = new THREE.PMREMGenerator( renderer );
-            var hdrCubeRenderTarget = pmremGenerator.fromScene( scene, 0, 0.1, 10 );
-            //var hdrCubeRenderTarget = pmremGenerator.fromEquirectangular( tmptexture );
-            //var hdrCubeRenderTarget = pmremGenerator.fromCubemap( rgbmCubeMap );
-            pmremGenerator.dispose();
+        //console.timeEnd('pmrem')
 
-        } else {
-
-            var pmremGenerator = new THREE.PMREMGenerator( rgbmCubeMap, 32, 256 );
-            pmremGenerator.update( renderer );
-
-            var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
-            pmremCubeUVPacker.update( renderer );
-
-            var hdrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
-
-            pmremGenerator.dispose();
-            pmremCubeUVPacker.dispose();
-
-        }
 
         return hdrCubeRenderTarget.texture;
 
@@ -74376,10 +74353,12 @@ sky = {
 
     showBackground: function ( b ) {
 
+        view.getScene().background = b ? view.getEnvmap() : null;
+
       //  
 
-        if( isNewPmrem ) view.getScene().background = b ? view.getEnvmap() : null;
-        else view.getScene().background = b ? camera.renderTarget : null;
+        //if( isNewPmrem ) view.getScene().background = b ? view.getEnvmap() : null;
+        //else view.getScene().background = b ? camera.renderTarget : null;
         //tmptexture.mapping = THREE.EquirectangularReflectionMapping;
         //view.getScene().background = b ? tmptexture : null;
 
