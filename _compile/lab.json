@@ -9,6 +9,8 @@
     "src/loaders/BVHLoader.js",
     "src/loaders/RGBELoader.js",
     "src/loaders/ShaderLoader.js",
+    "src/loaders/DDSLoader.js",
+    "src/loaders/GLTFLoader.js",
     "src/pmrem/PMREMGenerator.js",
     "src/geometries/GeometryTools.js",
     "src/geometries/Capsule.js",

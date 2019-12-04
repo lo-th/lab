@@ -80,7 +80,7 @@ def main(argv=None):
 
         externs = ' --externs '.join(args.externs)
         source = ' '.join(sources)
-        cmd = 'java -jar c.jar --warning_level=VERBOSE --jscomp_off=globalThis --externs %s --jscomp_off=checkTypes --language_in=ECMASCRIPT5_STRICT --js %s --js_output_file %s %s' % (externs, source, output, sourcemapargs)
+        cmd = 'java -jar closure-compiler-v20191111.jar --warning_level=VERBOSE --jscomp_off=globalThis --externs %s --jscomp_off=checkTypes --language_in=ECMASCRIPT5_STRICT --js %s --js_output_file %s %s' % (externs, source, output, sourcemapargs)
         os.system(cmd)
 
         # header

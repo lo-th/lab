@@ -4,3 +4,4 @@ var THREE, WebGL2RenderingContext, XRWebGLLayer, TextDecoder, performance, Image
 var __THREE_DEVTOOLS__;
 var WebGL2ComputeRenderingContext;
 var Map;
+var Promise;
