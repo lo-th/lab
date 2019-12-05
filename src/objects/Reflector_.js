@@ -10,18 +10,14 @@ THREE.Reflector = function ( geometry, options ) {
 
 	var scope = this;
 
-	this.frustumCulled = false;
-
 	options = options || {};
 
-	var color = ( options.color !== undefined ) ? new THREE.Color( options.color ) : new THREE.Color( 0xFFFFFF );
+	var color = ( options.color !== undefined ) ? new THREE.Color( options.color ) : new THREE.Color( 0x7F7F7F );
 	var textureWidth = options.textureWidth || 512;
 	var textureHeight = options.textureHeight || 512;
 	var clipBias = options.clipBias || 0;
 	var shader = options.shader || THREE.Reflector.ReflectorShader;
 	var recursion = options.recursion !== undefined ? options.recursion : 0;
-
-	var opacity = options.opacity || 1.0;
 
 	//
 
@@ -43,7 +39,7 @@ THREE.Reflector = function ( geometry, options ) {
 	var parameters = {
 		minFilter: THREE.LinearFilter,
 		magFilter: THREE.LinearFilter,
-		format: THREE.RGBAFormat,
+		format: THREE.RGBFormat,
 		stencilBuffer: false
 	};
 
@@ -59,15 +55,11 @@ THREE.Reflector = function ( geometry, options ) {
 		uniforms: THREE.UniformsUtils.clone( shader.uniforms ),
 		fragmentShader: shader.fragmentShader,
 		vertexShader: shader.vertexShader,
-		transparent: opacity === 1.0 ? false : true,
-		depthTest: true,
-		depthWrite: opacity === 1.0 ? true : false,
-	});
+	} );
 
 	material.uniforms[ "tDiffuse" ].value = renderTarget.texture;
 	material.uniforms[ "color" ].value = color;
 	material.uniforms[ "textureMatrix" ].value = textureMatrix;
-	material.uniforms[ "opacity" ].value = opacity;
 
 	this.material = material;
 
@@ -161,17 +153,17 @@ THREE.Reflector = function ( geometry, options ) {
 
 		var currentRenderTarget = renderer.getRenderTarget();
 
-		var currentXrEnabled = renderer.xr.enabled;
+		var currentVrEnabled = renderer.vr.enabled;
 		var currentShadowAutoUpdate = renderer.shadowMap.autoUpdate;
 
-		renderer.xr.enabled = false; // Avoid camera modification and recursion
+		renderer.vr.enabled = false; // Avoid camera modification and recursion
 		renderer.shadowMap.autoUpdate = false; // Avoid re-computing shadows
 
 		renderer.setRenderTarget( renderTarget );
 		renderer.clear();
 		renderer.render( scene, virtualCamera );
 
-		renderer.xr.enabled = currentXrEnabled;
+		renderer.vr.enabled = currentVrEnabled;
 		renderer.shadowMap.autoUpdate = currentShadowAutoUpdate;
 
 		renderer.setRenderTarget( currentRenderTarget );
@@ -205,10 +197,17 @@ THREE.Reflector.ReflectorShader = {
 
 	uniforms: {
 
-		'color': { value: null },
-		'tDiffuse': { value: null },
-		'textureMatrix': { value: null },
-		'opacity': { value: 1.0 }
+		'color': {
+			value: null
+		},
+
+		'tDiffuse': {
+			value: null
+		},
+
+		'textureMatrix': {
+			value: null
+		}
 
 	},
 
@@ -227,11 +226,7 @@ THREE.Reflector.ReflectorShader = {
 	fragmentShader: [
 		'uniform vec3 color;',
 		'uniform sampler2D tDiffuse;',
-		'uniform float opacity;',
 		'varying vec4 vUv;',
-
-		//'#include <dithering_pars_fragment>',
-		//'#include <fog_pars_fragment>',
 
 		'float blendOverlay( float base, float blend ) {',
 
@@ -248,15 +243,8 @@ THREE.Reflector.ReflectorShader = {
 		'void main() {',
 
 		'	vec4 base = texture2DProj( tDiffuse, vUv );',
-		//'	gl_FragColor = vec4( blendOverlay( base.rgb, color ), base.a * opacity );',
+		'	gl_FragColor = vec4( blendOverlay( base.rgb, color ), 1.0 );',
 
-		'	gl_FragColor = vec4( base.rgb, base.a * opacity );',
-
-		//'   #include <tonemapping_fragment>',
-		//'   #include <encodings_fragment>',
-		//'	#include <fog_fragment>',
-		//'	#include <premultiplied_alpha_fragment>',
-		//'	#include <dithering_fragment>',
 		'}'
 	].join( '\n' )
 };

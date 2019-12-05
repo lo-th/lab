@@ -2,7 +2,7 @@
 <!-- saved from url=(0014)about:internet -->
 <html lang="en">
 <head>
-<title>Museum 0.1</title>
+<title>Museum 0.2</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=11" />
@@ -28,6 +28,8 @@ body{ font-family:Monospace; background-color:#333; }
 <script src="./src/pmrem/PMREMGenerator.js"></script>
 
 <script src="./src/objects/Lensflare.js"></script>
+<script src="./src/objects/Reflector.js"></script>
+
 
 <script src="./src/geometries/TorusGeometry.js"></script>
 <script src="./src/geometries/SphereGeometry.js"></script>
@@ -56,8 +58,8 @@ envmapList = [
 
 var modelList = [
     'nymph', 'nymphea', 'rhino', 'panthere', 'bear', 'bressant', 'pan', 'bust', 'dogs', 'puke', 
-    'nefertiti', 'david', 'frost', 'zephyr', 'wakeup', 'bacchus', 'boy', 'bull', 'dragon', 'fisherman', 
-    'hunter', 'mars', 'mercury', 'moses', 'olympia', 'venus',
+    'nefertiti', 'david', 'frost', 'zephyr', 'wakeup', 'bacchus', 'boy', 'dragon', 'fisherman', 
+    'hunter', 'mars', 'mercury', 'venus', 'polyhymnia', 'neptune', 'magdalene', 'discobolus', 'boxer'
 ];
 
 var mesh;
@@ -97,6 +99,16 @@ function init() {
 	view.setShadow({ size:100, near:100, far:300, debug:false });
 
 	view.setSky({ url:setting.sky + '.jpg', hour:14 });
+
+	view.hideGrid(true);
+	//view.addMirror({y:-0.1, opacity:0.1 });
+
+	var c = view.getControler();
+	c.screenSpacePanning = true;
+    //c.maxPolarAngle = 90*Math.torad;//Math.PI / 2;
+    c.enableDamping = true; 
+    c.dampingFactor = 0.5;//0.25;
+
 
 
 	view.update = update;
@@ -159,6 +171,7 @@ function afterLoad () {
 	view.moveCam({ distance:size*3, target:[0,size,0], time:200 });
 	
 	mesh = new THREE.Mesh( g, material );
+
 
 	mesh.castShadow = true;
     mesh.receiveShadow = true;

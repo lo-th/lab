@@ -1147,14 +1147,15 @@ view = {
 
         if( isMirror ) return;
 
-        var geometry = new THREE.PlaneBufferGeometry( 200, 200 );
+        var geometry = new THREE.PlaneBufferGeometry( 200, 200, 2, 2 );
         groundMirror = new THREE.Reflector( geometry, {
             clipBias: 0.003,
             textureWidth: vs.w,
             textureHeight: vs.h,
             color: 0x777777,
-            recursion: 1
-        } );
+            recursion: 1,
+            opacity:o.opacity || 1.0,
+        });
 
         //groundMirror.scale.set( 200, 1, 200 );
         groundMirror.position.set(o.x|| 0, o.y||0, o.z||0);
