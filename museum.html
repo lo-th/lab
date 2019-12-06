@@ -38,6 +38,8 @@ body{ font-family:Monospace; background-color:#333; }
 <script src="./src/geometries/ChamferBox.js"></script>
 <script src="./src/geometries/SphereBox.js"></script>
 
+<script src="./src/shaders/Diamond.js"></script>
+
 <script src="./src/textures.js"></script>
 <script src="./src/materials.js"></script>
 <script src="./src/logo.js"></script>
@@ -177,6 +179,11 @@ function afterLoad () {
     mesh.receiveShadow = true;
 
 	view.add( mesh );
+
+	// var diamondMat3 = new Diamond( g, view.getRenderer(), view.getSkyCube() )
+	// mesh.material = diamondMat3
+
+
 
 }
 
