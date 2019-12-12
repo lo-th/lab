@@ -604,6 +604,8 @@ sky = {
                 texture.generateMipmaps = false;
                 texture.anisotropy = 0;
 
+            }else {
+                texture.encoding = THREE.sRGBEncoding;
             }
 
             sky.initBasicSky( texture, mapHdr ); 

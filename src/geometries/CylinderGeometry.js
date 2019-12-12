@@ -148,7 +148,7 @@ THREE.CylinderBufferGeometry = function ( radiusTop, radiusBottom, height, radia
 				// normal
 
 				//normal.set( sinTheta, slope, cosTheta ).normalize();
-				normal.set( cosTheta, slope, sinTheta ).normalize();
+				normal.set( cosTheta, -slope, sinTheta ).normalize();
 				normals.push( normal.x, normal.y, normal.z );
 
 				// uv

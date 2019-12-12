@@ -14,7 +14,12 @@
 		<script src="./src/libs/uil.js"></script>
 		<script src='./src/math.js'></script>
 		<script src='./src/controls/OrbitControls.js'></script>
+		<script src='./src/geometries/CylinderGeometry.js'></script>
 		<script src='./src/lth/SpotLight_Add.js'></script>
+
+		<script src="./src/libs/sea3d.js"></script>
+		<script src='./src/pool.js'></script>
+		<script src='./src/view.js'></script>
     </head>
 	<body>
 
@@ -30,7 +35,9 @@
 
 		};
 
-	    var n = 16;
+		var cone = null;
+
+	    var n = 1;
 	    var lights = [];
 	    var lightsHelper = [];
 
@@ -45,7 +52,7 @@
 		var scene = new THREE.Scene();
 
 		var matFloor = new THREE.MeshPhongMaterial();
-		var matBox = new THREE.MeshPhongMaterial( { color: 0xaaaaaa } );
+		var matBox = new THREE.MeshStandardMaterial( { color: 0xaaaaaa } );
 
 		var geoFloor = new THREE.PlaneBufferGeometry( 2000, 2000 );
 		var geoBox = new THREE.BoxBufferGeometry( 3, 1, 2 );
@@ -55,20 +62,27 @@
 		var mshBox = new THREE.Mesh( geoBox, matBox );
 
 
-		var cyl = new THREE.CylinderGeometry( 0.2, 3, 3, 24, 1, true);
-		cyl.computeFaceNormals();
-		cyl.computeVertexNormals();
+		var cyl = new THREE.CylinderBufferGeometry( 0.2, 3, 5, 24, 1, true);
+		//cyl.computeFaceNormals();
+		//cyl.computeVertexNormals();
 		var mc = new THREE.Mesh( cyl, matBox );
-		mc.position.set( 0, 1.5, 0 );
+		mc.position.set( 0, 2.5, 0 );
 
 		var ambient = new THREE.AmbientLight( 0x303030 );
 
+		view.load ( [ 'cone.sea'], init, true, true );
+
+		//init();
+
 		function init() {
+
+			cone = view.getGeometry('cone', 'Cone004')
+
 
 			renderer.shadowMap.enabled = true;
 			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-			renderer.gammaInput = true;
+			//renderer.gammaInput = true;
 			renderer.gammaOutput = true;
 			renderer.physicallyCorrectLights = true;
 
@@ -119,6 +133,9 @@
 
 			initGUI();
 
+			render();
+			animate();
+
 		}
 
 		function createSpotlight( color ) {
@@ -131,7 +148,7 @@
 			newObj.decay = 2;
 			newObj.distance = 50;
 
-			newObj.volumetric();
+			newObj.volumetric( cone );
 
 			return newObj;
 
@@ -193,9 +210,8 @@
 
 		}
 
-		init();
-		render();
-		animate();
+		
+		
 
 
 		function randRange( low, high ) { return low + Math.random() * ( high - low ); };

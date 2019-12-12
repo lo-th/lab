@@ -70,6 +70,7 @@ textures = {
 
 			// clear on reset
             tx.isTmp = o.isTmp !== undefined ? o.isTmp : true;
+            tx.encoding = THREE.sRGBEncoding;
 
 			tx.name = name;
 

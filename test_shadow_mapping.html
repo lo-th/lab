@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>Shadow mapping shader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			*{ box-sizing: border-box; margin: 0; padding: 0 }
+			body {
+				color: #ffffff;
+				font-family: tahoma;
+				font-size:13px;
+				background-color: #222;
+				margin: 0px;
+				overflow: hidden;
+			}
+			a{ color: white; text-shadow: 0 1px 0 rgba( 0,0,0,.5 ) }
+			#container canvas{ position: absolute; left: 0; top: 0; width: 100%; height: 100%; bottom: 0;}
+			#title{ position: absolute; left: 10px; top: 10px; right: 0; text-shadow: 0 1px 0 rgba( 0,0,0,.6); color: white;}
+			canvas:nth-child(1) { margin-left: 256px;}
+		</style>
+		<script src="./src/libs/three.js" ></script>
+		<script src="./src/controls/OrbitControls.js" ></script>
+	</head>
+	<body>
+
+<script type="x-shader/x-vertex" id="depth-vs">
+precision highp float;
+
+void main(void) {
+	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1. );
+}
+
+</script>
+
+<script type="x-shader/x-vertex" id="depth-fs">
+precision highp float;
+
+void main(void) {
+	gl_FragColor = vec4( vec3( gl_FragCoord.z ), 1. );
+}
+
+</script>
+
+<script type="x-shader/x-vertex" id="shadow-vs">
+
+precision highp float;
+
+uniform mat4 shadowV;
+uniform mat4 shadowP;
+
+uniform vec3 lightPosition;
+uniform vec3 lightDirection;
+
+varying vec4 vShadowCoord;
+varying vec3 vPosition;
+varying vec3 vNormal;
+
+varying float occluded;
+varying float bias;
+
+const mat4 biasMatrix = mat4(
+	0.5, 0.0, 0.0, 0.0, 
+	0.0, 0.5, 0.0, 0.0, 
+	0.0, 0.0, 0.5, 0.0, 
+	0.5, 0.5, 0.5, 1.0
+);
+
+void main(void) {
+
+	vec4 p = vec4( position, 1. );
+	vShadowCoord = biasMatrix * shadowP * modelMatrix * shadowV * p;
+	vPosition = ( modelViewMatrix * p ).xyz;
+	gl_Position = projectionMatrix * modelViewMatrix * p;
+
+	float dot = clamp( dot( normalize( normal ), normalize( lightDirection ) ), 0., 1. );
+	occluded = 1. - dot;
+
+    bias = 0.005 * tan( acos( dot ) );
+    bias = clamp( bias, 0., 0.01 );
+    //bias = .005;
+
+    vNormal = normalMatrix * normal;
+
+}
+
+</script>
+
+<script type="x-shader/x-vertex" id="shadow-fs">
+precision highp float;
+
+uniform sampler2D depthTexture;
+uniform vec2 resolution;
+uniform sampler2D projector;
+uniform vec3 lightPosition;
+
+varying vec4 vShadowCoord;
+varying vec3 vNormal;
+varying vec3 vPosition;
+varying float occluded;
+varying float bias;
+
+float sampleVisibility( vec3 coord ) {
+
+	float depth = texture2D( depthTexture, coord.xy ).r;
+	float visibility  = ( depth < coord.z - bias ) ? 0. : 1.;
+	return visibility;
+
+}
+
+void main(void) {
+
+	vec2 poissonDisk[ 4 ];
+	poissonDisk[ 0 ] = vec2( -0.94201624, -0.39906216 );
+	poissonDisk[ 1 ] = vec2( 0.94558609, -0.76890725 );
+	poissonDisk[ 2 ] = vec2( -0.094184101, -0.92938870 );
+	poissonDisk[ 3 ] = vec2( 0.34495938, 0.29387760 );
+
+	float shadow = 0.;
+	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
+	//float skip = 0.;
+
+	if( shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
+	
+			float spread = 300.;//shadowCoord.z * 1000.;//300.;
+			shadow += sampleVisibility( shadowCoord + vec3( poissonDisk[ 0 ], 0. ) / spread );
+			shadow += sampleVisibility( shadowCoord + vec3( poissonDisk[ 1 ], 0. ) / spread );
+			shadow += sampleVisibility( shadowCoord + vec3( poissonDisk[ 2 ], 0. ) / spread );
+			shadow += sampleVisibility( shadowCoord + vec3( poissonDisk[ 3 ], 0. ) / spread );
+			shadow /= 4.;
+
+	}
+
+	vec3 n = normalize( vNormal );
+
+	vec3 r = -reflect( lightPosition, n );
+	r = normalize(r);
+	vec3 v = -vPosition.xyz;
+	v = normalize(v);
+	float nDotHV = max( 0., dot( r, v ) );
+
+	float shininess = 10.;
+	float specular = pow ( nDotHV, shininess );
+
+	vec3 color = vec3( 1., 1., 1. );
+	vec3 ambient = vec3( 0.2, 0.2, 0.2 );
+
+	float falloff = smoothstep( 0., 0.1, .5 - length( shadowCoord.xy - .5 ) );
+	//float falloff = smoothstep( 0., 1.0,  length( shadowCoord.xy  ) );
+	//float mask = texture2D( projector, vShadowCoord.xy ).r;
+	vec4 mask = texture2D( projector, vShadowCoord.xy );
+	
+	gl_FragColor = vec4( ( .5 * occluded ) * ambient + falloff * occluded * color * shadow * mask.rgb + specular * occluded * falloff * shadow, 1. );
+	//gl_FragColor = vec4(  1.0 * occluded * color * shadow * mask.rgb + specular * occluded * 1.0 * shadow, 1. );
+	//gl_FragColor = vec4( ( .5 * occluded ) * ambient + falloff * occluded * color * shadow * mask.rgb + specular * occluded * falloff * shadow, 1. );
+	//gl_FragColor.rgb += vec3( 1., 0., 1. ) * ( 1. - shadow );
+	//gl_FragColor = vec4( vec3( occluded * shadow * falloff ), 1. );
+	//gl_FragColor = vec4( vec3( occluded ), 1. );
+}
+
+</script>
+
+<script>
+
+function init() {
+
+	var loader = new THREE.TextureLoader();
+
+	var renderer = new THREE.WebGLRenderer( { antialias: true });
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.setClearColor( 0x202020, 1 );
+	document.body.appendChild( renderer.domElement );
+
+	var camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
+	camera.position.z = 200;
+	camera.position.set( -171.21769766387, 576.9951519650182, -247.35360363705132 );
+
+	var s = 400;
+//	var shadowCamera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
+	var shadowCamera = new THREE.OrthographicCamera( -s, s, s, -s, 1, 1000 );
+	shadowCamera.position.set( -185.77917282388427, 261.1602629570687, -94.1371802090854 );
+
+	var orthoCamera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 1, 1000 );
+	var debugScene = new THREE.Scene();
+	orthoCamera.position.z = 200;
+
+	var controls = new THREE.OrbitControls( camera, renderer.domElement );
+	controls.damping = 0.2;
+	
+	var scene = new THREE.Scene();
+
+	var size = 1024;
+	var shadowBuffer = new THREE.WebGLRenderTarget( size, size );
+
+	var material = new THREE.MeshNormalMaterial( { flatShading:false } );
+	var g = new THREE.Geometry();
+
+	/*mesh = new THREE.Mesh( new THREE.TorusKnotGeometry( 50, 10, 100, 50 ), material ); 
+	mesh.rotation.set( Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI );
+	mesh.scale.set( 3, 3, 3 );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );*/
+
+	mesh = new THREE.Mesh( new THREE.CylinderGeometry( 30, 30, 200, 50 ), material ); 
+	mesh.rotation.set( Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI );
+	mesh.scale.set( 2, 2, 2 );
+	mesh.position.set( 0, 50, 0 );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+
+	mesh = new THREE.Mesh( new THREE.BoxGeometry( 100, 100, 100 ), material );
+	mesh.position.set( -100, 0, 80 );
+	mesh.rotation.set( Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+
+	mesh = new THREE.Mesh( new THREE.IcosahedronGeometry( 50, 3 ), material );
+	mesh.position.set( 40, 150, 80 );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+
+	mesh = new THREE.Mesh( new THREE.IcosahedronGeometry( 60, 3 ), material );
+	mesh.position.set( 140, 160, -80 );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+	
+	mesh = new THREE.Mesh( new THREE.IcosahedronGeometry( 30, 3 ), material );
+	mesh.position.set( -40, 170, 20 );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+
+	mesh = new THREE.Mesh( new THREE.BoxGeometry( 100, 100, 100 ), material );
+	mesh.position.set( 70, 0, 80 );
+	mesh.scale.set( 1.2, 1.2, 1.2 );
+	mesh.rotation.set( Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+
+	mesh = new THREE.Mesh( new THREE.BoxGeometry( 100, 100, 100 ), material );
+	mesh.position.set( 0, 0, -80 );
+	mesh.scale.set( 1.4, 1.4, 1.4 );
+	mesh.rotation.set( Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI );
+	mesh.updateMatrixWorld()
+	g.merge( mesh.geometry, mesh.matrixWorld );
+	
+	for( var z = - 8; z < 8; z++ ) {
+		for( var x = -8; x < 8; x++ ) {
+			mesh = new THREE.Mesh( new THREE.BoxGeometry( 100, 100, 50 ), material );
+			mesh.position.y = -30 + Math.random() * 20;
+			mesh.position.x = x * 100;
+			mesh.position.z = z * 100;
+			mesh.rotation.x = -Math.PI / 2;
+			mesh.rotation.y = ( .5 - Math.random() ) * .1; 
+			mesh.rotation.z = ( .5 - Math.random() ) * .1; 
+			mesh.updateMatrixWorld()
+			g.merge( mesh.geometry, mesh.matrixWorld );
+		}
+	}
+
+	/*plane = new THREE.Mesh( new THREE.BoxGeometry( 1400, 1400, 10 ), material );
+	plane.position.y = -50;
+	plane.rotation.x = -Math.PI / 2;
+	plane.updateMatrixWorld()
+	g.merge( plane.geometry, plane.matrixWorld );*/
+	
+	mesh = new THREE.Mesh( g, material );
+	scene.add( mesh );
+
+	var depthMaterial = new THREE.ShaderMaterial( {
+		vertexShader: document.getElementById( 'depth-vs' ).textContent,
+		fragmentShader: document.getElementById( 'depth-fs' ).textContent
+	} );
+
+	var shadowMaterial = new THREE.ShaderMaterial( {
+
+		uniforms: {
+			depthTexture: { type: 't', value: shadowBuffer.texture },
+			shadowMVP: { type: 'm4', value: new THREE.Matrix4() },
+			shadowV: { type: 'm4', value: new THREE.Matrix4() },
+			shadowP: { type: 'm4', value: new THREE.Matrix4() },
+			resolution: { type: 'v2', value: new THREE.Vector2( size, size ) },
+			lightPosition: { type: 'v3', value: new THREE.Vector3() },
+			lightDirection: { type: 'v3', value: new THREE.Vector3() },
+			projector: { type: 't', value: loader.load( 'assets/textures/grid.png' ) }
+		},
+		vertexShader: document.getElementById( 'shadow-vs' ).textContent,
+		fragmentShader: document.getElementById( 'shadow-fs' ).textContent
+	} );
+
+	window.addEventListener( 'resize', function() {
+
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+
+	} );
+
+	
+
+	var tmpMatrix = new THREE.Matrix4();
+
+	var s = 256;
+	var quad = new THREE.Mesh( new THREE.PlaneBufferGeometry( s, s ), new THREE.MeshBasicMaterial( { map: shadowBuffer.texture } ) );
+	quad.position.set( - .5 * window.innerWidth + .5 * s, .5 * window.innerHeight - .5 * s, 0 );
+	debugScene.add( quad );
+
+	//renderer.autoClear = false;
+
+	var tmpVector = new THREE.Vector3();
+
+	function render() {
+		requestAnimationFrame( render );
+
+		var baseTarget = renderer.getRenderTarget();
+
+		var t = Date.now() * .001;
+		t *= .5;
+		shadowCamera.position.set( 
+			200 * Math.cos( t * .9 ), 
+			261.1602629570687 + 100 * Math.cos( t ), 
+			200 * Math.sin( t * .9 ) 
+		);
+		//shadowCamera.position.set( 0, 800, 0 );
+		shadowCamera.position.y = 300;
+		shadowCamera.lookAt( scene.position );
+
+		//depthMaterial.side = THREE.BackSide;
+		scene.overrideMaterial = depthMaterial;
+		//renderer.render( scene, shadowCamera, shadowBuffer, true );
+		//shadowBuffer.texture.generateMipmaps = false;
+		renderer.setRenderTarget( shadowBuffer );
+		renderer.render( scene, shadowCamera );
+
+		//camera.lookAt( scene.position );
+
+		tmpVector.copy( scene.position );
+		tmpVector.sub( shadowCamera.position );
+		tmpVector.normalize();
+
+		//tmpMatrix.copy( shadowCamera.projectionMatrix );
+		//tmpMatrix.multiply( mesh.matrixWorld );
+		//tmpMatrix.multiply( shadowCamera.matrixWorldInverse);
+		//shadowMaterial.uniforms.shadowMVP.value.copy( tmpMatrix );
+		shadowMaterial.uniforms.shadowP.value.copy( shadowCamera.projectionMatrix );
+		shadowMaterial.uniforms.shadowV.value.copy( shadowCamera.matrixWorldInverse );
+		shadowMaterial.uniforms.lightPosition.value.copy( shadowCamera.position );
+		shadowMaterial.uniforms.lightDirection.value.copy( tmpVector );
+
+		scene.overrideMaterial = shadowMaterial;
+		renderer.setRenderTarget( baseTarget );
+		renderer.render( scene, camera );
+
+		//renderer.render( debugScene, orthoCamera );
+
+	}
+
+	render();
+
+}
+
+window.addEventListener( 'load', init );
+
+</script>
+
+	</body>
+</html>
