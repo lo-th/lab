@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>COLOR</title>
+<meta name="Description" content="" />
+<meta name="Keywords"  content="" />
+<meta http-equiv="X-UA-Compatible" content="IE=11" />
+<meta http-equiv="Pragma" content="no-cache">
+<style>
+* {
+    margin: 0; padding: 0; border: 0;
+    -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: -moz-none; -o-user-select: none;
+}
+body {
+
+    font-family: Consolas, Monaco, monospace;
+    font-size: 11px;
+    color:#FFF;
+    text-shadow: 1px 1px #000000;
+    background: #121116;
+
+}
+
+#container{ position:absolute; width:100%; height:100%; padding:10px 10px; box-sizing:border-box; -moz-box-sizing:border-box; -webkit-box-sizing:border-box}
+#content{ position:absolute; left:10px; top:30px; pointer-events:none;}
+</style>
+
+<script src="./src/tools/imgTool.js"></script>
+
+</head>
+<body>
+<div id='container'></div>
+<div id='info'></div>
+<div id='content'></div>
+<script>
+
+var container = document.getElementById('container');
+container.textContent = 'Drop image on view';
+var content = document.getElementById('content');
+
+imgTool.getColorFromUrl( './assets/textures/envmap/mini/arches.jpg', displayResult );
+
+
+
+function displayResult ( colors, img ) {
+
+    var i = content.childNodes.length, b;
+    while(i--){
+        b = content.childNodes[i];
+        content.removeChild( b );
+    }
+
+    content.appendChild( img );
+    img.style.display = "block";
+    img.style.marginBottom = "20px";
+
+    var first = false
+
+    for( var c in colors ){
+
+        var f = document.createElement( 'div' );
+        f.style.cssText = " line-height:80px; text-align:center;  margin-top:5px; margin-right:5px; position:relative; width:100px; height:30px; background:" + (colors[c]?colors[c]:"#000000" )+"; display: inline-block;";
+        f.textContent = c;
+
+        first = false;
+        
+        content.appendChild( f );
+
+    }
+
+}
+
+container.addEventListener( 'dragover', function(e){ e.preventDefault() }, false );
+container.addEventListener( 'dragend', function(e){ e.preventDefault() }, false );
+container.addEventListener( 'dragleave', function(e){ e.preventDefault()}, false );
+container.addEventListener( 'drop', dropAnimation, false );
+
+function dropAnimation( e ){
+
+    e.preventDefault();
+
+    if (e.dataTransfer.items) { var file = e.dataTransfer.files[0]; } else return;
+
+    var reader = new FileReader();
+    var name = file.name;
+    var type = name.substring(name.lastIndexOf('.')+1, name.length );
+    var URL = (window.URL || window.webkitURL);
+
+    var tn = name.substring( name.lastIndexOf('.')-2, name.lastIndexOf('.') );
+
+    if ( type === 'jpg' || type === 'png' ) reader.readAsDataURL( file );
+    else return;
+
+    reader.onload = function ( e ) {
+
+        if( type === 'jpg' || type === 'png' ){
+
+            var img = new Image();
+            img.src = e.target.result;
+
+            img.onload = function (){
+
+                var colors = imgTool.getPalette( img );
+                displayResult( colors, img );
+
+            }
+
+        } 
+
+    }.bind( this );
+
+};
+</script>
+</body>
+</html>

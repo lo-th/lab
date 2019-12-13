@@ -35,6 +35,7 @@
     "src/lth/Skeleton_Add.js",
     "src/lth/SkinnedMesh_Add.js",
     "src/lth/CubeCamera_Add.js",
+    "src/tools/imgTool.js",
     "src/intro.js",
     "src/user.js",
     "src/SimplexNoise.js",
