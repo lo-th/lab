@@ -75791,7 +75791,7 @@ var MMCQ = (function() {
 
     var Tools = {
 
-        getHex: function(rgb) {
+        getHtml: function(rgb) {
 
             return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1, 7);
 
@@ -75826,7 +75826,7 @@ var MMCQ = (function() {
         },
 
         htmlToHex: function ( v ) { 
-            return v.toUpperCase().replace( "#", "0x" );
+            return  v.toUpperCase().replace( "#", "0x" );
         },
 
         hexToHtml: function ( v ) {
@@ -75964,7 +75964,7 @@ var MMCQ = (function() {
                 
                 var count = vb.vbox.count() || 0;
                 var color = vb.color;
-                if( count ) c.push({ rgb:color, hsl:Tools.getHsl( color ), hex:Tools.getHex( color ), count:count, select:false });
+                if( count ) c.push({ rgb:color, hsl:Tools.getHsl( color ), hex:Tools.getHtml( color ), count:count, select:false });
 
             });
 
@@ -76275,6 +76275,8 @@ var imgTool = ( function () {
 
     };
 
+    var vibrants = {};
+
 
 
     var adaptiveRange = {};
@@ -76282,6 +76284,8 @@ var imgTool = ( function () {
     var slice = [].slice;
 
     imgTool = {
+
+        format:'html',
 
         makeCanvas: function ( image ) {
 
@@ -76306,8 +76310,6 @@ var imgTool = ( function () {
         },
         
         getPalette: function( sourceImage, colorCount, Quality ) {
-
-            //console.log(sourceImage)
 
             this.makeCanvas( sourceImage );
 
@@ -76339,7 +76341,7 @@ var imgTool = ( function () {
 
             var r = adaptive ? adaptiveRange : range;
 
-            var vibrants = {
+            vibrants = {
                 
                 vibrant : this.findColorVariation( r.lumTargetNormal, r.lumMinNormal, r.lumMaxNormal, r.satTargetVibrant, r.satMinVibrant, 1),
                 lightVibrant: this.findColorVariation(r.lumTargetLight, r.lumMinLight, 1, r.satTargetVibrant, r.satMinVibrant, 1),
@@ -76355,7 +76357,17 @@ var imgTool = ( function () {
 
             this.clear();
 
+            if( this.format === 'hex' ) this.getHex();
+
             return vibrants;
+
+        },
+
+        getHex: function () {
+
+            for( var c in vibrants ){
+                vibrants[c] = MMCQ.tools.htmlToHex( vibrants[c] );
+            }
 
         },
 
@@ -76396,7 +76408,7 @@ var imgTool = ( function () {
             g[1] /= gn;
             g[2] /= gn;
 
-            ambientColor = MMCQ.tools.getHex( g );
+            ambientColor = MMCQ.tools.getHtml( g );
 
            
             var lumaRange = (maxLuma - minLuma);
@@ -76508,14 +76520,6 @@ var imgTool = ( function () {
 
         },
 
-        /*getColor: function( sourceImage, quality ) {
-
-            quality = quality || 10;
-            var palette = this.getPalette( sourceImage, 5, quality );
-            var dominantColor = palette[0];
-            return dominantColor;
-
-        },*/
 
         createPixelArray : function ( imgData, pixelCount, quality ) {
 
@@ -76574,35 +76578,6 @@ var imgTool = ( function () {
 
         },
 
-        /*getColorFromUrl: function( imageUrl, callback, quality ) {
-
-            var sourceImage = document.createElement("img");
-
-            sourceImage.addEventListener('load' , function () {
-                var palette = this.getPalette(sourceImage, 5, quality);
-                var dominantColor = palette[0];
-                callback( dominantColor, imageUrl );
-            });
-            sourceImage.src = imageUrl
-
-        },
-
-        
-
-        getColorAsync: function( imageUrl, callback, quality ) {
-            
-            this.getImageDataFromUrl(imageUrl, function(imageData){
-                var sourceImage = document.createElement("img");
-                var _this = this;
-
-                sourceImage.addEventListener('load' , function(){
-                    var palette = _this.getPalette( sourceImage, 5, quality );
-                    var dominantColor = palette[0];
-                    callback( dominantColor, this );
-                });
-                sourceImage.src = imageData;
-            });
-        };*/
 
     }
 
@@ -78311,6 +78286,12 @@ var tmptexture = null;
 
 var pmremGenerator = null;
 
+
+// for color palette
+var imageTool = null;
+var isNeedPalette = false;
+var isGradiant = false;
+
 sky = {
 
 	mapReady:0,
@@ -78433,14 +78414,18 @@ sky = {
         }
 
         if( o.url !== undefined ){
+
             this.load( o.url );
             this.updateTime();
+
         } else {
+
             showBackground = true;
             this.initAutoSky();
+
         }
 
-        
+        isGradiant = o.gradiant !== undefined ? o.gradiant : false;
 
         if( Callback ) this.renderCallback = Callback;
 
@@ -78784,6 +78769,14 @@ sky = {
 
     },
 
+    takePalette: function ( libs ){
+
+        imageTool = libs;
+        isNeedPalette = true;
+
+    },
+
+
 	load: function ( url ) {
 
         var l;
@@ -78817,6 +78810,12 @@ sky = {
 
             }else {
                 texture.encoding = THREE.sRGBEncoding;
+            }
+
+            if( isNeedPalette ) {
+
+                if(isGradiant) imageTool.getColorFromUrl( './assets/textures/envmap/mini/'+url, sky.makeGradiant );
+
             }
 
             sky.initBasicSky( texture, mapHdr ); 
@@ -78932,6 +78931,9 @@ sky = {
 
         }
 
+
+
+
         
 
 
@@ -78993,6 +78995,22 @@ sky = {
 	    //}
 
         renderer.setRenderTarget( currentRenderTarget );*/
+
+    },
+
+
+    makeGradiant: function ( palette ){
+
+        //console.log( "linear-gradient(to bottom,"+palette.vibrant+" 0%,"+palette.darkVibrant+" 100%)" );
+
+        //document.body.style.background = "linear-gradient(to top, "+palette.darkVibrant+" 0%, "+(palette.muted? palette.muted : palette.ambient)+" 100%)";
+        document.body.style.background = "linear-gradient(to top, "+palette.highest+" 0%, "+palette.ambient+" 100%)";
+
+        //view.getSun().color.setHex( Math.htmlToHex( palette.maxLuma ) );
+        view.getSun().color.setHex( Math.htmlToHex( palette.lightVibrant ) );
+        view.getAmbient().color.setHex( Math.htmlToHex( palette.minLuma ) )
+
+
 
     },
 
@@ -80169,6 +80187,7 @@ var dragPlane = null;
 
 var sun = null;
 var moon = null;
+var ambient = null;
 var probe = null;
 var sphereLight = null;
 var camShadow = null;
@@ -80636,6 +80655,7 @@ view = {
 
     getSun: function () { return sun; },
     getMoon: function () { return moon; },
+    getAmbient: function () { return ambient; },
     getProbe: function () { return probe },
     getSphereLight: function () { return sphereLight; },
     //getLightProbe: function () { return lightProbe; },
@@ -81058,6 +81078,8 @@ view = {
         moon.color.setHex(0x919091);
         moon.intensity = setting.moonIntensity;
 
+        ambient.color.setHex(0x000000);
+
         sun.position.set( 0, lightDistance, 10 );
         moon.position.set( 0, -lightDistance, -10 );
 
@@ -81086,8 +81108,8 @@ view = {
         //probe = new THREE.LightProbe();
         //followGroup.add( probe );
 
-    	//ambient = new THREE.AmbientLight( 0x202020 );
-        //followGroup.add( ambient );
+    	ambient = new THREE.AmbientLight( 0x000000 );
+        scene.add( ambient );
         //this.ambient.position.set( 0, 50, 0 );
 
     	followGroup.add( sun );

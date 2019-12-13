@@ -105,7 +105,7 @@ var MMCQ = (function() {
 
     var Tools = {
 
-        getHex: function(rgb) {
+        getHtml: function(rgb) {
 
             return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1, 7);
 
@@ -140,7 +140,7 @@ var MMCQ = (function() {
         },
 
         htmlToHex: function ( v ) { 
-            return v.toUpperCase().replace( "#", "0x" );
+            return  v.toUpperCase().replace( "#", "0x" );
         },
 
         hexToHtml: function ( v ) {
@@ -278,7 +278,7 @@ var MMCQ = (function() {
                 
                 var count = vb.vbox.count() || 0;
                 var color = vb.color;
-                if( count ) c.push({ rgb:color, hsl:Tools.getHsl( color ), hex:Tools.getHex( color ), count:count, select:false });
+                if( count ) c.push({ rgb:color, hsl:Tools.getHsl( color ), hex:Tools.getHtml( color ), count:count, select:false });
 
             });
 
@@ -589,6 +589,8 @@ var imgTool = ( function () {
 
     };
 
+    var vibrants = {};
+
 
 
     var adaptiveRange = {};
@@ -596,6 +598,8 @@ var imgTool = ( function () {
     var slice = [].slice;
 
     imgTool = {
+
+        format:'html',
 
         makeCanvas: function ( image ) {
 
@@ -620,8 +624,6 @@ var imgTool = ( function () {
         },
         
         getPalette: function( sourceImage, colorCount, Quality ) {
-
-            //console.log(sourceImage)
 
             this.makeCanvas( sourceImage );
 
@@ -653,7 +655,7 @@ var imgTool = ( function () {
 
             var r = adaptive ? adaptiveRange : range;
 
-            var vibrants = {
+            vibrants = {
                 
                 vibrant : this.findColorVariation( r.lumTargetNormal, r.lumMinNormal, r.lumMaxNormal, r.satTargetVibrant, r.satMinVibrant, 1),
                 lightVibrant: this.findColorVariation(r.lumTargetLight, r.lumMinLight, 1, r.satTargetVibrant, r.satMinVibrant, 1),
@@ -669,7 +671,17 @@ var imgTool = ( function () {
 
             this.clear();
 
+            if( this.format === 'hex' ) this.getHex();
+
             return vibrants;
+
+        },
+
+        getHex: function () {
+
+            for( var c in vibrants ){
+                vibrants[c] = MMCQ.tools.htmlToHex( vibrants[c] );
+            }
 
         },
 
@@ -710,7 +722,7 @@ var imgTool = ( function () {
             g[1] /= gn;
             g[2] /= gn;
 
-            ambientColor = MMCQ.tools.getHex( g );
+            ambientColor = MMCQ.tools.getHtml( g );
 
            
             var lumaRange = (maxLuma - minLuma);
@@ -822,14 +834,6 @@ var imgTool = ( function () {
 
         },
 
-        /*getColor: function( sourceImage, quality ) {
-
-            quality = quality || 10;
-            var palette = this.getPalette( sourceImage, 5, quality );
-            var dominantColor = palette[0];
-            return dominantColor;
-
-        },*/
 
         createPixelArray : function ( imgData, pixelCount, quality ) {
 
@@ -888,35 +892,6 @@ var imgTool = ( function () {
 
         },
 
-        /*getColorFromUrl: function( imageUrl, callback, quality ) {
-
-            var sourceImage = document.createElement("img");
-
-            sourceImage.addEventListener('load' , function () {
-                var palette = this.getPalette(sourceImage, 5, quality);
-                var dominantColor = palette[0];
-                callback( dominantColor, imageUrl );
-            });
-            sourceImage.src = imageUrl
-
-        },
-
-        
-
-        getColorAsync: function( imageUrl, callback, quality ) {
-            
-            this.getImageDataFromUrl(imageUrl, function(imageData){
-                var sourceImage = document.createElement("img");
-                var _this = this;
-
-                sourceImage.addEventListener('load' , function(){
-                    var palette = _this.getPalette( sourceImage, 5, quality );
-                    var dominantColor = palette[0];
-                    callback( dominantColor, this );
-                });
-                sourceImage.src = imageData;
-            });
-        };*/
 
     }
 

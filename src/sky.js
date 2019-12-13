@@ -100,6 +100,12 @@ var tmptexture = null;
 
 var pmremGenerator = null;
 
+
+// for color palette
+var imageTool = null;
+var isNeedPalette = false;
+var isGradiant = false;
+
 sky = {
 
 	mapReady:0,
@@ -222,14 +228,18 @@ sky = {
         }
 
         if( o.url !== undefined ){
+
             this.load( o.url );
             this.updateTime();
+
         } else {
+
             showBackground = true;
             this.initAutoSky();
+
         }
 
-        
+        isGradiant = o.gradiant !== undefined ? o.gradiant : false;
 
         if( Callback ) this.renderCallback = Callback;
 
@@ -573,6 +583,14 @@ sky = {
 
     },
 
+    takePalette: function ( libs ){
+
+        imageTool = libs;
+        isNeedPalette = true;
+
+    },
+
+
 	load: function ( url ) {
 
         var l;
@@ -606,6 +624,12 @@ sky = {
 
             }else {
                 texture.encoding = THREE.sRGBEncoding;
+            }
+
+            if( isNeedPalette ) {
+
+                if(isGradiant) imageTool.getColorFromUrl( './assets/textures/envmap/mini/'+url, sky.makeGradiant );
+
             }
 
             sky.initBasicSky( texture, mapHdr ); 
@@ -721,6 +745,9 @@ sky = {
 
         }
 
+
+
+
         
 
 
@@ -782,6 +809,22 @@ sky = {
 	    //}
 
         renderer.setRenderTarget( currentRenderTarget );*/
+
+    },
+
+
+    makeGradiant: function ( palette ){
+
+        //console.log( "linear-gradient(to bottom,"+palette.vibrant+" 0%,"+palette.darkVibrant+" 100%)" );
+
+        //document.body.style.background = "linear-gradient(to top, "+palette.darkVibrant+" 0%, "+(palette.muted? palette.muted : palette.ambient)+" 100%)";
+        document.body.style.background = "linear-gradient(to top, "+palette.highest+" 0%, "+palette.ambient+" 100%)";
+
+        //view.getSun().color.setHex( Math.htmlToHex( palette.maxLuma ) );
+        view.getSun().color.setHex( Math.htmlToHex( palette.lightVibrant ) );
+        view.getAmbient().color.setHex( Math.htmlToHex( palette.minLuma ) )
+
+
 
     },
 

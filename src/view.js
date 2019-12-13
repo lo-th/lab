@@ -62,6 +62,7 @@ var dragPlane = null;
 
 var sun = null;
 var moon = null;
+var ambient = null;
 var probe = null;
 var sphereLight = null;
 var camShadow = null;
@@ -529,6 +530,7 @@ view = {
 
     getSun: function () { return sun; },
     getMoon: function () { return moon; },
+    getAmbient: function () { return ambient; },
     getProbe: function () { return probe },
     getSphereLight: function () { return sphereLight; },
     //getLightProbe: function () { return lightProbe; },
@@ -951,6 +953,8 @@ view = {
         moon.color.setHex(0x919091);
         moon.intensity = setting.moonIntensity;
 
+        ambient.color.setHex(0x000000);
+
         sun.position.set( 0, lightDistance, 10 );
         moon.position.set( 0, -lightDistance, -10 );
 
@@ -979,8 +983,8 @@ view = {
         //probe = new THREE.LightProbe();
         //followGroup.add( probe );
 
-    	//ambient = new THREE.AmbientLight( 0x202020 );
-        //followGroup.add( ambient );
+    	ambient = new THREE.AmbientLight( 0x000000 );
+        scene.add( ambient );
         //this.ambient.position.set( 0, 50, 0 );
 
     	followGroup.add( sun );

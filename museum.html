@@ -14,7 +14,8 @@
 	-o-user-select:none; -ms-user-select:none; -khtml-user-select:none; 
 	-webkit-user-select:none; -moz-user-select:none; pointer-events:none;
 }
-body{ font-family:Monospace; background-color:#333; }
+html{ width: 100%; height: 100%; }
+body{ font-family:Monospace; background:#333; }
 </style>
 
 <script src="./src/libs/three.js"></script>
@@ -30,6 +31,7 @@ body{ font-family:Monospace; background-color:#333; }
 <script src="./src/objects/Lensflare.js"></script>
 <script src="./src/objects/Reflector.js"></script>
 
+<script src="./src/tools/imgTool.js"></script>
 
 <script src="./src/geometries/TorusGeometry.js"></script>
 <script src="./src/geometries/SphereGeometry.js"></script>
@@ -87,6 +89,7 @@ var setting = {
 
 };
 
+view.setBg( 0x000000, 0 );
 view.init( init );
 
 
@@ -94,15 +97,20 @@ function init() {
 
 	logo.init();
 
+	sky.takePalette( imgTool );
+
+
 	view.setTone({ physicallyCorrectLights: true });
 
 	view.moveCam({ distance:60, target:[0,20,0], time:200 });
 
 	view.setShadow({ size:100, near:100, far:300, debug:false });
 
-	view.setSky({ url:setting.sky + '.jpg', hour:14 });
+	view.setSky({ url:setting.sky + '.jpg', hour:14, gradiant: true });
 
 	view.hideGrid(true);
+
+
 	//view.addMirror({y:-0.1, opacity:0.1 });
 
 	var c = view.getControler();
@@ -194,7 +202,7 @@ function afterLoad () {
 function changeSky ( name ) {
 
 	setting.sky = name;
-	view.addSky({ url: name + '.jpg' });
+	view.addSky({ url: name + '.jpg', gradiant: true });
 
 }
 
