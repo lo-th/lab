@@ -97,7 +97,7 @@
 
 	}
 
-	var REVISION = '111dev';
+	var REVISION = '112dev';
 	var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
 	var TOUCH = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 };
 	var CullFaceNone = 0;
@@ -9980,7 +9980,8 @@
 
 			if ( position !== undefined ) {
 
-				matrix.applyToBufferAttribute( position );
+				position.applyMatrix4( matrix );
+
 				position.needsUpdate = true;
 
 			}
@@ -15422,11 +15423,11 @@
 					};
 
 					// enable code injection for non-built-in material
-					Object.defineProperty( boxMesh.material, 'map', {
+					Object.defineProperty( boxMesh.material, 'envMap', {
 
 						get: function () {
 
-							return this.envMap.value;
+							return this.uniforms.envMap.value;
 
 						}
 
@@ -15437,7 +15438,9 @@
 				}
 
 				var texture = background.isWebGLRenderTargetCube ? background.texture : background;
-				boxMesh.material.envMap = texture;
+
+				boxMesh.material.uniforms.envMap.value = texture;
+				boxMesh.material.uniforms.flipEnvMap.value = texture.isCubeTexture ? - 1 : 1;
 
 				if ( currentBackground !== background ||
 				     currentBackgroundVersion !== texture.version ) {
@@ -18245,7 +18248,6 @@
 			} else if ( programLog !== '' ) {
 
 				console.warn( 'THREE.WebGLProgram: gl.getProgramInfoLog()', programLog );
-				console.log(fragmentGlsl)
 
 			} else if ( vertexLog === '' || fragmentLog === '' ) {
 
@@ -18429,7 +18431,7 @@
 
 		}
 
-		function getTextureEncodingFromMap( map, gammaOverrideLinear ) {
+		function getTextureEncodingFromMap( map ) {
 
 			var encoding;
 
@@ -18445,13 +18447,6 @@
 
 				console.warn( "THREE.WebGLPrograms.getTextureEncodingFromMap: don't use render targets as textures. Use their .texture property instead." );
 				encoding = map.texture.encoding;
-
-			}
-
-			// add backwards compatibility for WebGLRenderer.gammaInput/gammaOutput parameter, should probably be removed at some point.
-			if ( encoding === LinearEncoding && gammaOverrideLinear ) {
-
-				encoding = GammaEncoding;
 
 			}
 
@@ -18495,7 +18490,7 @@
 
 				supportsVertexTextures: vertexTextures,
 				numMultiviewViews: numMultiviewViews,
-				outputEncoding: getTextureEncodingFromMap( ( ! currentRenderTarget ) ? null : currentRenderTarget.texture, renderer.gammaOutput ),
+				outputEncoding: ( currentRenderTarget !== null ) ? getTextureEncodingFromMap( currentRenderTarget.texture ) : renderer.outputEncoding,
 				map: !! material.map,
 				mapEncoding: getTextureEncodingFromMap( material.map ),
 				matcap: !! material.matcap,
@@ -18618,7 +18613,7 @@
 
 			array.push( material.onBeforeCompile.toString() );
 
-			array.push( renderer.gammaOutput );
+			array.push( renderer.outputEncoding );
 
 			array.push( renderer.gammaFactor );
 
@@ -23151,7 +23146,7 @@
 
 			}
 
-			if ( onAnimationFrameCallback ) { onAnimationFrameCallback( time ); }
+			if ( onAnimationFrameCallback ) { onAnimationFrameCallback( time, frame ); }
 
 		}
 
@@ -23165,35 +23160,6 @@
 		};
 
 		this.dispose = function () {};
-
-		// DEPRECATED
-
-		this.getStandingMatrix = function () {
-
-			console.warn( 'THREE.WebXRManager: getStandingMatrix() is no longer needed.' );
-			return new Matrix4();
-
-		};
-
-		this.getDevice = function () {
-
-			console.warn( 'THREE.WebXRManager: getDevice() has been deprecated.' );
-
-		};
-
-		this.setDevice = function () {
-
-			console.warn( 'THREE.WebXRManager: setDevice() has been deprecated.' );
-
-		};
-
-		this.setFrameOfReferenceType = function () {
-
-			console.warn( 'THREE.WebXRManager: setFrameOfReferenceType() has been deprecated.' );
-
-		};
-
-		this.submitFrame = function () {};
 
 	}
 
@@ -23259,7 +23225,7 @@
 		// physically based shading
 
 		this.gammaFactor = 2.0;	// for backwards compatibility
-		this.gammaOutput = false;
+		this.outputEncoding = LinearEncoding;
 
 		// physical lights
 
@@ -24403,8 +24369,6 @@
 
 				}
 
-				xr.submitFrame();
-
 			}
 
 			// _gl.finish();
@@ -24700,6 +24664,7 @@
 				program = programCache.acquireProgram( material, materialProperties.shader, parameters, programCacheKey );
 
 				materialProperties.program = program;
+				materialProperties.outputEncoding = _this.outputEncoding;
 				material.program = program;
 
 			}
@@ -24830,6 +24795,10 @@
 				} else if ( materialProperties.numClippingPlanes !== undefined &&
 					( materialProperties.numClippingPlanes !== _clipping.numPlanes ||
 					materialProperties.numIntersection !== _clipping.numIntersection ) ) {
+
+					material.needsUpdate = true;
+
+				} else if ( materialProperties.outputEncoding !== _this.outputEncoding ) {
 
 					material.needsUpdate = true;
 
@@ -25119,10 +25088,6 @@
 
 					m_uniforms.color.value.copy( material.color );
 					m_uniforms.opacity.value = material.opacity;
-
-				} else if ( material.envMap ) {
-
-					refreshUniformsCommon( m_uniforms, material );
 
 				}
 
@@ -26162,6 +26127,8 @@
 	 * @author benaadams / https://twitter.com/ben_a_adams
 	 */
 
+	var _vector$7 = new Vector3();
+
 	function InterleavedBufferAttribute( interleavedBuffer, itemSize, offset, normalized ) {
 
 		this.data = interleavedBuffer;
@@ -26199,6 +26166,24 @@
 	Object.assign( InterleavedBufferAttribute.prototype, {
 
 		isInterleavedBufferAttribute: true,
+
+		applyMatrix4: function ( m ) {
+
+			for ( var i = 0, l = this.data.count; i < l; i ++ ) {
+
+				_vector$7.x = this.getX( i );
+				_vector$7.y = this.getY( i );
+				_vector$7.z = this.getZ( i );
+
+				_vector$7.applyMatrix4( m );
+
+				this.setXYZ( i, _vector$7.x, _vector$7.y, _vector$7.z );
+
+			}
+
+			return this;
+
+		},
 
 		setX: function ( index, x ) {
 
@@ -32492,8 +32477,8 @@
 		this.type = 'MeshStandardMaterial';
 
 		this.color = new Color( 0xffffff ); // diffuse
-		this.roughness = 0.5;
-		this.metalness = 0.5;
+		this.roughness = 1.0;
+		this.metalness = 0.0;
 
 		this.map = null;
 
@@ -45458,7 +45443,7 @@
 	 * @author bhouston / http://clara.io
 	 */
 
-	var _vector$7 = new Vector2();
+	var _vector$8 = new Vector2();
 
 	function Box2( min, max ) {
 
@@ -45494,7 +45479,7 @@
 
 		setFromCenterAndSize: function ( center, size ) {
 
-			var halfSize = _vector$7.copy( size ).multiplyScalar( 0.5 );
+			var halfSize = _vector$8.copy( size ).multiplyScalar( 0.5 );
 			this.min.copy( center ).sub( halfSize );
 			this.max.copy( center ).add( halfSize );
 
@@ -45644,7 +45629,7 @@
 
 		distanceToPoint: function ( point ) {
 
-			var clampedPoint = _vector$7.copy( point ).clamp( this.min, this.max );
+			var clampedPoint = _vector$8.copy( point ).clamp( this.min, this.max );
 			return clampedPoint.sub( point ).length();
 
 		},
@@ -46083,7 +46068,7 @@
 	 * @author WestLangley / http://github.com/WestLangley
 	 */
 
-	var _vector$8 = new Vector3();
+	var _vector$9 = new Vector3();
 
 	function SpotLightHelper( light, color ) {
 
@@ -46149,9 +46134,9 @@
 
 		this.cone.scale.set( coneWidth, coneWidth, coneLength );
 
-		_vector$8.setFromMatrixPosition( this.light.target.matrixWorld );
+		_vector$9.setFromMatrixPosition( this.light.target.matrixWorld );
 
-		this.cone.lookAt( _vector$8 );
+		this.cone.lookAt( _vector$9 );
 
 		if ( this.color !== undefined ) {
 
@@ -46173,7 +46158,7 @@
 	 * @author Mugen87 / https://github.com/Mugen87
 	 */
 
-	var _vector$9 = new Vector3();
+	var _vector$a = new Vector3();
 	var _boneMatrix = new Matrix4();
 	var _matrixWorldInv = new Matrix4();
 
@@ -46258,12 +46243,12 @@
 			if ( bone.parent && bone.parent.isBone ) {
 
 				_boneMatrix.multiplyMatrices( _matrixWorldInv, bone.matrixWorld );
-				_vector$9.setFromMatrixPosition( _boneMatrix );
-				position.setXYZ( j, _vector$9.x, _vector$9.y, _vector$9.z );
+				_vector$a.setFromMatrixPosition( _boneMatrix );
+				position.setXYZ( j, _vector$a.x, _vector$a.y, _vector$a.z );
 
 				_boneMatrix.multiplyMatrices( _matrixWorldInv, bone.parent.matrixWorld );
-				_vector$9.setFromMatrixPosition( _boneMatrix );
-				position.setXYZ( j + 1, _vector$9.x, _vector$9.y, _vector$9.z );
+				_vector$a.setFromMatrixPosition( _boneMatrix );
+				position.setXYZ( j + 1, _vector$a.x, _vector$a.y, _vector$a.z );
 
 				j += 2;
 
@@ -46445,7 +46430,7 @@
 	 * @author Mugen87 / https://github.com/Mugen87
 	 */
 
-	var _vector$a = new Vector3();
+	var _vector$b = new Vector3();
 	var _color1 = new Color();
 	var _color2 = new Color();
 
@@ -46515,7 +46500,7 @@
 
 		}
 
-		mesh.lookAt( _vector$a.setFromMatrixPosition( this.light.matrixWorld ).negate() );
+		mesh.lookAt( _vector$b.setFromMatrixPosition( this.light.matrixWorld ).negate() );
 
 	};
 
@@ -47114,7 +47099,7 @@
 	 *		http://evanw.github.com/lightgl.js/tests/shadowmap.html
 	 */
 
-	var _vector$b = new Vector3();
+	var _vector$c = new Vector3();
 	var _camera = new Camera();
 
 	function CameraHelper( camera ) {
@@ -47279,7 +47264,7 @@
 
 	function setPoint( point, pointMap, geometry, camera, x, y, z ) {
 
-		_vector$b.set( x, y, z ).unproject( camera );
+		_vector$c.set( x, y, z ).unproject( camera );
 
 		var points = pointMap[ point ];
 
@@ -47289,7 +47274,7 @@
 
 			for ( var i = 0, l = points.length; i < l; i ++ ) {
 
-				position.setXYZ( points[ i ], _vector$b.x, _vector$b.y, _vector$b.z );
+				position.setXYZ( points[ i ], _vector$c.x, _vector$c.y, _vector$c.z );
 
 			}
 
@@ -49291,7 +49276,7 @@
 		vr: {
 			get: function () {
 
-				console.warn( 'THREE.WebGLRenderer: .vr has been removed. Use .xr instead.' );
+				console.warn( 'THREE.WebGLRenderer: .vr has been renamed to .xr' );
 				return this.xr;
 
 			}
@@ -49299,13 +49284,27 @@
 		gammaInput: {
 			get: function () {
 
-				console.warn( 'THREE.WebGLRenderer: .gammaInput has been removed. Please define the correct color spaces for textures via Texture.encoding instead.' );
+				console.warn( 'THREE.WebGLRenderer: .gammaInput has been removed. Set the encoding for textures via Texture.encoding instead.' );
 				return false;
 
 			},
 			set: function () {
 
-				console.warn( 'THREE.WebGLRenderer: .gammaInput has been removed. Please define the correct color spaces for textures via Texture.encoding instead.' );
+				console.warn( 'THREE.WebGLRenderer: .gammaInput has been removed. Set the encoding for textures via Texture.encoding instead.' );
+
+			}
+		},
+		gammaOutput: {
+			get: function () {
+
+				console.warn( 'THREE.WebGLRenderer: .gammaOutput has been removed. Set WebGLRenderer.outputEncoding instead.' );
+				return false;
+
+			},
+			set: function ( value ) {
+
+				console.warn( 'THREE.WebGLRenderer: .gammaOutput has been removed. Set WebGLRenderer.outputEncoding instead.' );
+				this.outputEncoding = ( value === true ) ? sRGBEncoding : LinearEncoding;
 
 			}
 		}

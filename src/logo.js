@@ -15,13 +15,13 @@ var logo = ( function () {
         bottomLogo.href = "https://github.com/lo-th";
         bottomLogo.target = "_blank";
         bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:6px; bottom:13px; pointer-events:auto; cursor:pointer;'
-        bottomLogo.innerHTML = this.icon( '3TH', '#787978' );
+        bottomLogo.innerHTML = this.icon( '3TH', '#CCCCCC' );
         document.body.appendChild( bottomLogo );
 
         logoSvg = document.getElementById( '3TH' );
         //bottomLogo.addEventListener('click',  window.location.assign('https://github.com/lo-th'  );, false );
         bottomLogo.addEventListener('mouseover', function(){ logoSvg.setAttributeNS(null,"fill",selectColor) }, false );
-        bottomLogo.addEventListener('mouseout', function(){ logoSvg.setAttributeNS(null,"fill",'#787978') }, false );
+        bottomLogo.addEventListener('mouseout', function(){ logoSvg.setAttributeNS(null,"fill",'#CCCCCC') }, false );
 
     },
 
@@ -32,7 +32,7 @@ var logo = ( function () {
         ww = ww || 40;
         color = color || '#DEDEDE';
         var viewBox = '0 0 '+ww+' '+ww;
-        var extra = '';
+        var extra = "<filter id='f2' x='0' y='0' width='100%' height='100%'><feOffset result='offOut' in='SourceAlpha' dx='1' dy='1' /><feGaussianBlur result='blurOut' in='offOut' stdDeviation='1' /><feBlend in='SourceGraphic' in2='blurOut' mode='normal' /></filter>";
 
         if(type === '3TH'){ 
             viewBox = '0 0 100 50'; 
@@ -52,6 +52,17 @@ var logo = ( function () {
             t[1]+="Q 6 32.85 6 32.95 6 39.3 10.45 43.75 12.8 46.15 15.8 47.25 18.3 48.3 21.25 48.3 L 21.35 48.3 Q 26 48.2 29.6 45.8 30.95 44.9 32.1 43.75 36.5 39.3 36.5 32.95 36.5 31.9 36.4 30.85 36.2 29.35 35.8 27.9 L 39.5 27.9 39.5 32.75 Q 39.5 32.85 39.5 32.95 39.5 39.3 44.05 43.75 48.45 48.3 54.85 48.3 L 60.45 48.3 60.45 38.1 54.75 38.1";
             t[1]+="Q 52.7 38.1 51.15 36.55 49.7 35.1 49.7 32.95 L 49.7 27.9 54.75 27.9 Q 54.85 27.9 54.95 27.9 L 63.4 27.9 63.4 48.3 73.6 48.3 73.6 32.95 Q 73.6 30.85 75.05 29.35 76.3 28.2 77.85 27.9 78.15 27.9 78.55 27.9 L 78.65 27.9 Q 80.85 27.9 82.25 29.35 83.7 30.85 83.7 32.95 L 83.7 48.3 Z'/>"
             break;
+
+            case 'NEXT':
+            t[1]="<path id='NEXT1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
+            t[1]+="<path id='NEXT2' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 102.55 73.8 L 156.8 128.05 102.55 182.25'/>";
+            break;
+            case 'PREV':
+            t[1]="<path id='PREV1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
+            t[1]+="<path id='PREV2' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 156.75 73.8 L 102.5 128.05 156.75 182.25'/>";
+            break;
+
+
 
         }
         t[2] = "</g></svg>";

@@ -127,8 +127,7 @@ function init() {
 
 	initGUI();
 
-
-	
+	addButton ();
 
 }
 
@@ -218,7 +217,7 @@ function initGUI() {
     var hc = '#929292';
     var tc = '#D4B87B';
 
-	var ui = new UIL.Gui( { w:200, bg:'rgba(23,23,23,0)' } );
+	var ui = new UIL.Gui( { w:200, bg:'rgba(23,23,23,0)', isOpen:false } );
 
 	ui.add('button', { name:'NEXT MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( next );
 	ui.add('button', { name:'PREV MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( prev );
@@ -243,6 +242,7 @@ function initGUI() {
 
     ui.add('title',  { name:'RENDER', h:30});
     ui.add( setting, 'mode', { min:0, max:2, precision:0, fontColor:tc } ).onChange( materials.setMode );
+
   
 }
 
@@ -254,6 +254,48 @@ function setMaterial () {
 	material.aoMapIntensity = setting.ao;
 	material.envMapIntensity = setting.env;
 	material.normalScale.set( setting.normal, setting.normal );
+
+}
+
+function addButton () {
+
+	var s = 60;
+
+	var nextB = document.createElement( 'div' );
+    nextB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; right:6px; bottom:50px; pointer-events:auto; cursor:pointer;'
+    nextB.innerHTML = logo.icon( 'NEXT', '#CCCCCC', s, 256 );
+    document.body.appendChild( nextB );
+
+    var prevB = document.createElement( 'div' );
+    prevB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; left:6px; bottom:50px; pointer-events:auto; cursor:pointer;'
+    prevB.innerHTML = logo.icon( 'PREV', '#CCCCCC', s, 256 );
+    document.body.appendChild( prevB );
+
+        var nextLogo1 = document.getElementById( 'NEXT1' );
+        var nextLogo2 = document.getElementById( 'NEXT2' );
+        var prevLogo1 = document.getElementById( 'PREV1' );
+        var prevLogo2 = document.getElementById( 'PREV2' );
+        
+        nextB.addEventListener( 'click',  next, false );
+        prevB.addEventListener( 'click',  prev, false );
+
+        nextB.addEventListener('mouseover', function(){ 
+        	nextLogo1.setAttributeNS(null,"stroke",'#D4B87B');
+        	nextLogo2.setAttributeNS(null,"stroke",'#D4B87B');
+        }, false );
+        nextB.addEventListener('mouseout', function(){ 
+        	nextLogo1.setAttributeNS(null,"stroke",'#CCCCCC');
+        	nextLogo2.setAttributeNS(null,"stroke",'#CCCCCC');
+        }, false );
+
+        prevB.addEventListener('mouseover', function(){ 
+        	prevLogo1.setAttributeNS(null,"stroke",'#D4B87B');
+        	prevLogo2.setAttributeNS(null,"stroke",'#D4B87B');
+        }, false );
+        prevB.addEventListener('mouseout', function(){ 
+        	prevLogo1.setAttributeNS(null,"stroke",'#CCCCCC');
+        	prevLogo2.setAttributeNS(null,"stroke",'#CCCCCC');
+        }, false );
 
 }
 

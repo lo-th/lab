@@ -850,7 +850,8 @@ view = {
 
         renderer.physicallyCorrectLights = setting.physicallyCorrectLights;
         //renderer.gammaInput = setting.gammaInput;
-        renderer.gammaOutput = setting.gammaOutput;
+        //renderer.gammaOutput = setting.gammaOutput;
+        renderer.outputEncoding = setting.gammaOutput ? THREE.sRGBEncoding : THREE.LinearEncoding;//GammaEncoding;;// ;
         renderer.toneMapping = toneMappings[ setting.type ];
         renderer.toneMappingExposure = setting.exposure;
         renderer.toneMappingWhitePoint = setting.whitePoint;
