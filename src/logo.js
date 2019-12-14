@@ -14,7 +14,7 @@ var logo = ( function () {
         bottomLogo = document.createElement( 'a' );
         bottomLogo.href = "https://github.com/lo-th";
         bottomLogo.target = "_blank";
-        bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:6px; bottom:13px; pointer-events:auto; cursor:pointer;'
+        bottomLogo.style.cssText = 'position:absolute; width:60px; height:30px; left:10px; bottom:13px; pointer-events:auto; cursor:pointer;'
         bottomLogo.innerHTML = this.icon( '3TH', '#CCCCCC' );
         document.body.appendChild( bottomLogo );
 
@@ -54,15 +54,13 @@ var logo = ( function () {
             break;
 
             case 'NEXT':
-            t[1]="<path id='NEXT1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
-            t[1]+="<path id='NEXT2' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 102.55 73.8 L 156.8 128.05 102.55 182.25'/>";
+            //t[1]="<path id='NEXT1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
+            t[1]="<path id='NEXT' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 102.55 73.8 L 156.8 128.05 102.55 182.25'/>";
             break;
             case 'PREV':
-            t[1]="<path id='PREV1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
-            t[1]+="<path id='PREV2' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 156.75 73.8 L 102.5 128.05 156.75 182.25'/>";
+            //t[1]="<path id='PREV1' stroke='"+color+"' stroke-width='22' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 231.95 127.95 Q 231.95 171.05 201.45 201.45 171.05 231.95 127.95 231.95 84.85 231.95 54.4 201.45 23.95 171.05 23.95 127.95 23.95 84.85 54.4 54.4 84.85 23.95 127.95 23.95 171.05 23.95 201.45 54.4 231.95 84.85 231.95 127.95 Z'/>";
+            t[1]="<path id='PREV' stroke='"+color+"' stroke-width='28' stroke-linejoin='miter' stroke-linecap='butt' stroke-miterlimit='3' fill='none' d='M 156.75 73.8 L 102.5 128.05 156.75 182.25'/>";
             break;
-
-
 
         }
         t[2] = "</g></svg>";

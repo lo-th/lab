@@ -70,6 +70,7 @@ var mesh;
 var material;
 var modelName;
 var current = 0;
+var nameText;
 
 var skySetting;
 
@@ -123,11 +124,12 @@ function init() {
 
 	view.update = update;
 
-	loadOne();
 
 	initGUI();
 
 	addButton ();
+
+	loadOne();
 
 }
 
@@ -159,6 +161,8 @@ function loadOne () {
 	materials.clear();
 
 	modelName = modelList[ current ];
+
+	displayName();
 
 	var geo = view.getGeo();
 	material = view.material({ 
@@ -212,17 +216,23 @@ function initGUI() {
 	skySetting = sky.getSetting();
 
 	UIL.Tools.colors.backgroundOver = 'rgba(11,11,11,0)';
+	UIL.Tools.colors.text = 'rgba(220,220,220,0.6)';
+	UIL.Tools.colors.button = 'rgba(220,220,220,0.3)';
+	UIL.Tools.colors.boolbg = 'rgba(220,220,220,0.1)';
+	UIL.Tools.colors.scrollback = 'rgba(220,220,220,0.1)';
+	UIL.Tools.colors.scrollbackover = 'rgba(220,220,220,0.3)';
+	UIL.Tools.setText(13, 'rgba(255,255,255,0.6)', 'Monospace', '1px 1px 1px rgba(11,11,11,0.3)')
 
 	var hb = 14;
     var hc = '#929292';
     var tc = '#D4B87B';
 
-	var ui = new UIL.Gui( { w:200, bg:'rgba(23,23,23,0)', isOpen:false } );
+	var ui = new UIL.Gui( { w:200, bg:'rgba(23,23,23,0)', close:false } );
 
-	ui.add('button', { name:'NEXT MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( next );
-	ui.add('button', { name:'PREV MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( prev );
+	//ui.add('button', { name:'NEXT MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( next );
+	//ui.add('button', { name:'PREV MODEL', fontColor:tc, h:30, p:0, radius:10 }).onChange( prev );
 
-	ui.add('list', { name:'ENVMAP', list:envmapList, path:'assets/textures/envmap/mini/', format:'.jpg', imageSize: [128,64], value:setting.sky, h:64,  p:0}).onChange( changeSky );
+	ui.add('list', { name:'ENVMAP', list:envmapList, path:'assets/textures/envmap/mini/', format:'.jpg', imageSize: [128,64], value:setting.sky, h:64,  p:0, bColor:'rgba(11,11,11,0)'}).onChange( changeSky );
 
 	ui.add('Bool', { name:'show background', value:false, p:70, bColor:hc, inh:hb } ).onChange( view.showBackground );
 
@@ -257,44 +267,46 @@ function setMaterial () {
 
 }
 
+function displayName () {
+	nameText.textContent = modelName.toUpperCase()
+}
+
 function addButton () {
 
 	var s = 60;
 
+	nameText = document.createElement( 'div' );
+    nameText.style.cssText = 'position:absolute; width:200px; height:'+s+'px; right:calc(50% - 100px); top:18px; pointer-events:none; color:#CCCCCC; text-align:center; font-size: 20px; font-weight:bold; text-shadow:1px 1px 1px rgba(11,11,11,0.3);';
+    document.body.appendChild( nameText );
+
 	var nextB = document.createElement( 'div' );
-    nextB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; right:6px; bottom:50px; pointer-events:auto; cursor:pointer;'
+    nextB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; right:calc(50% - 120px); top:0px; pointer-events:auto; cursor:pointer;'
     nextB.innerHTML = logo.icon( 'NEXT', '#CCCCCC', s, 256 );
     document.body.appendChild( nextB );
 
     var prevB = document.createElement( 'div' );
-    prevB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; left:6px; bottom:50px; pointer-events:auto; cursor:pointer;'
+    prevB.style.cssText = 'position:absolute; width:'+s+'px; height:'+s+'px; left:calc(50% - 125px); top:0px; pointer-events:auto; cursor:pointer;'
     prevB.innerHTML = logo.icon( 'PREV', '#CCCCCC', s, 256 );
     document.body.appendChild( prevB );
 
-        var nextLogo1 = document.getElementById( 'NEXT1' );
-        var nextLogo2 = document.getElementById( 'NEXT2' );
-        var prevLogo1 = document.getElementById( 'PREV1' );
-        var prevLogo2 = document.getElementById( 'PREV2' );
+        var nextLogo = document.getElementById( 'NEXT' );
+        var prevLogo = document.getElementById( 'PREV' );
         
         nextB.addEventListener( 'click',  next, false );
         prevB.addEventListener( 'click',  prev, false );
 
         nextB.addEventListener('mouseover', function(){ 
-        	nextLogo1.setAttributeNS(null,"stroke",'#D4B87B');
-        	nextLogo2.setAttributeNS(null,"stroke",'#D4B87B');
+        	nextLogo.setAttributeNS(null,"stroke",'#D4B87B');
         }, false );
         nextB.addEventListener('mouseout', function(){ 
-        	nextLogo1.setAttributeNS(null,"stroke",'#CCCCCC');
-        	nextLogo2.setAttributeNS(null,"stroke",'#CCCCCC');
+        	nextLogo.setAttributeNS(null,"stroke",'#CCCCCC');
         }, false );
 
         prevB.addEventListener('mouseover', function(){ 
-        	prevLogo1.setAttributeNS(null,"stroke",'#D4B87B');
-        	prevLogo2.setAttributeNS(null,"stroke",'#D4B87B');
+        	prevLogo.setAttributeNS(null,"stroke",'#D4B87B');
         }, false );
         prevB.addEventListener('mouseout', function(){ 
-        	prevLogo1.setAttributeNS(null,"stroke",'#CCCCCC');
-        	prevLogo2.setAttributeNS(null,"stroke",'#CCCCCC');
+        	prevLogo.setAttributeNS(null,"stroke",'#CCCCCC');
         }, false );
 
 }
