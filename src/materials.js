@@ -304,7 +304,7 @@ materials = {
     	 	uniforms['renderMode'] = { value: settings.mode };
     	 	uniforms['depthPacking'] = { value: 1 };
             //uniforms['extraShadowColor'] = { value: 1 };
-            uniforms['extraShadow'] = { value: 0.5 };
+            uniforms['extraShadow'] = { value: 0.3 };
             
 
             shader.uniforms = uniforms;
@@ -357,7 +357,7 @@ materials = {
 
 
                     //'float sd = getShadowMask();',
-                    'sd = pow( abs(sd), 0.99);',
+                    //'sd = pow( abs(sd), 0.99);',
                     //'sd = clamp(sd*3.0, 0.0, 1.0);',
                     //'gl_FragColor = vec4( vec3(0.0), opacity * ( 1.0 - sd) );',
                     'vec3 shadowMaping = mix( vec3(0.0), outgoingLight, sd );',
