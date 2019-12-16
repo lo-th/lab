@@ -346,18 +346,22 @@ materials = {
                     'float sd = shadowFull;',
                     '#ifdef USE_AOMAP',
                     '    sd *= ambientOcclusion;',
+                    '#if defined( USE_ENVMAP ) && defined( STANDARD )',
+                        //'float dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );',
+                        'sd *= computeSpecularOcclusion( dotNV, ambientOcclusion, material.specularRoughness );',
+                    '#endif',
                     '#endif',
 
-                    'float dotNVX = saturate( dot( geometry.normal, geometry.viewDir ) );',
-                    'sd *= dotNVX;',
+                    //'float dotNVX = saturate( dot( geometry.normal, geometry.viewDir ) );',
+                    //'sd *= dotNVX;',
 
 
                     //'float sd = getShadowMask();',
-                   // 'sd = pow( abs(sd), 1.61803398875);',
+                    'sd = pow( abs(sd), 0.99);',
                     //'sd = clamp(sd*3.0, 0.0, 1.0);',
                     //'gl_FragColor = vec4( vec3(0.0), opacity * ( 1.0 - sd) );',
-                    'vec3 shadowMaping = mix( outgoingLight, vec3(0.0), 1.0 - sd );',
-                    'outgoingLight = mix(outgoingLight, shadowMaping, extraShadow);',
+                    'vec3 shadowMaping = mix( vec3(0.0), outgoingLight, sd );',
+                    'outgoingLight = mix( outgoingLight, shadowMaping, extraShadow );',
 
                     /*'float diff = (reflectedLight.directDiffuse.r + reflectedLight.directDiffuse.g + reflectedLight.directDiffuse.b)/3.0;',//metal
                     'float spec = (reflectedLight.directSpecular.r + reflectedLight.directSpecular.g + reflectedLight.directSpecular.b)/3.0;',// metal & rough
