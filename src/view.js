@@ -1038,7 +1038,7 @@ view = {
 
             shadowMat = new THREE.ShadowMaterial({ opacity:0.5, depthTest:true, depthWrite:false });
 
-            if(isHighShadow){
+            //if(isHighShadow){
 
                 // overwrite shadowmap code
                 var shaderShadow = THREE.ShaderChunk.shadowmap_pars_fragment;
@@ -1053,7 +1053,7 @@ view = {
 
                 }
 
-            }
+            //}
 
 
         }
@@ -1063,8 +1063,11 @@ view = {
         renderer.shadowMap.enabled = true;
 
         if( !isHighShadow ){
-            renderer.shadowMap.soft = true;
+            //renderer.shadowMap.soft = true;
+            //renderer.shadowMap.type = THREE.PCFShadowMap;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            //renderer.shadowMap.type = THREE.VSMShadowMap;
         }
 
         shadowGround = new THREE.Mesh( geo.planeX, shadowMat );
@@ -1102,8 +1105,9 @@ view = {
 
         sun.shadow.mapSize.width = o.resolution || 2048;
         sun.shadow.mapSize.height = o.resolution || 2048;
-        sun.shadow.bias = o.bias || 0.00001;
-
+        sun.shadow.bias = o.bias || -0.001;
+        sun.shadow.radius = 2.0; // def 1
+        
         var gr = o.groundSize || 200;
         var py = o.groundY || 0;
 

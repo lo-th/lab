@@ -85,6 +85,7 @@ var setting = {
 	ao:1,
 	env:1,
 	normal:1,
+	shadow:0.3,
 
 	mode:0,
 
@@ -165,6 +166,7 @@ function loadOne () {
 	displayName();
 
 	var geo = view.getGeo();
+	//material = new THREE.ShadowMaterial({ opacity:1.0, depthTest:true, depthWrite:true });
 	material = view.material({ 
 		name:'sculpture', color:0xdfcebe,
 		metalness:setting.metal, roughness:setting.rough, 
@@ -244,14 +246,15 @@ function initGUI() {
     ui.add( setting, 'ao', { min:0, max:2, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'env', { min:0, max:3, fontColor:tc } ).onChange( setMaterial );
     ui.add( setting, 'normal', { min:0, max:2, fontColor:tc } ).onChange( setMaterial );
+    ui.add( setting, 'shadow', { min:0, max:1, fontColor:tc } ).onChange( setMaterial );
 
     ui.add('title',  { name:'LIGHT', h:30});
     ui.add( skySetting, 'hour', { min:0, max:24, fontColor:tc } ).onChange( sky.updateTime );
     ui.add( skySetting, 'azimuth', { min:0, max:360, fontColor:tc } ).onChange( sky.updateTime );
-    ui.add( skySetting, 'power', { min:0, max:3, fontColor:tc } ).onChange( sky.updateTime );
+    ui.add( skySetting, 'power', { min:0, max:100, fontColor:tc } ).onChange( sky.updateTime );
 
     ui.add('title',  { name:'RENDER', h:30});
-    ui.add( setting, 'mode', { min:0, max:2, precision:0, fontColor:tc } ).onChange( materials.setMode );
+    ui.add( setting, 'mode', { min:0, max:3, precision:0, fontColor:tc } ).onChange( materials.setMode );
 
   
 }
@@ -264,6 +267,7 @@ function setMaterial () {
 	material.aoMapIntensity = setting.ao;
 	material.envMapIntensity = setting.env;
 	material.normalScale.set( setting.normal, setting.normal );
+	material.uniforms.extraShadow.value = setting.shadow;
 
 }
 
